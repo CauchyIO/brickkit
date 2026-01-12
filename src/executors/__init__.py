@@ -14,31 +14,38 @@ from .connection_executor import ConnectionExecutor
 from .grant_executor import GrantExecutor
 from .metastore_assignment_executor import MetastoreAssignmentExecutor
 from .workspace_binding_executor import WorkspaceBindingExecutor
+from .genie_executor import GenieSpaceExecutor
+from .vector_search_executor import VectorSearchEndpointExecutor, VectorSearchIndexExecutor
 
 __all__ = [
     # Base classes
     'BaseExecutor',
     'ExecutionResult',
     'ExecutionPlan',
-    
+
     # Hierarchy executors (Level 1-3)
     'CatalogExecutor',
     'SchemaExecutor',
     'TableExecutor',
     'VolumeExecutor',
     'FunctionExecutor',
-    
+
     # Infrastructure executors
     'StorageCredentialExecutor',
     'ExternalLocationExecutor',
     'ConnectionExecutor',
-    
+
     # Permission executor
     'GrantExecutor',
-    
+
     # Metastore executor
     'MetastoreAssignmentExecutor',
-    
+
     # Workspace binding executor
     'WorkspaceBindingExecutor',
+
+    # AI/ML executors
+    'GenieSpaceExecutor',
+    'VectorSearchEndpointExecutor',
+    'VectorSearchIndexExecutor',
 ]

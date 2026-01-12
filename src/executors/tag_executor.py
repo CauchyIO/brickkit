@@ -282,12 +282,7 @@ class TagExecutor:
                 except BadRequest as e:
                     logger.warning(f"Failed to remove tag {key}: {e}")
 
-        logger.info(
-            f"Tag sync for {entity_type} {entity_name}: "
-            f"added={len(results['added'])}, "
-            f"updated={len(results['updated'])}, "
-            f"removed={len(results['removed'])}"
-        )
+        logger.info(f"Tag sync for {entity_type} {entity_name}: +{len(results['added'])} ~{len(results['updated'])} -{len(results['removed'])}")
         return results
 
     def copy_tags(
@@ -313,12 +308,6 @@ class TagExecutor:
 
         if source_tags:
             self.apply_tags(target_entity_name, target_entity_type, source_tags)
-            logger.info(
-                f"Copied {len(source_tags)} tags from "
-                f"{source_entity_type} {source_entity_name} to "
-                f"{target_entity_type} {target_entity_name}"
-            )
-        else:
-            logger.debug(f"No tags to copy from {source_entity_type} {source_entity_name}")
+            logger.info(f"Copied {len(source_tags)} tags from {source_entity_name} to {target_entity_name}")
 
         return source_tags

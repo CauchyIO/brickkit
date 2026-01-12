@@ -21,10 +21,11 @@ from pydantic import (
     model_validator,
 )
 
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
+
 from .base import BaseGovernanceModel, BaseSecurable, DEFAULT_SECURABLE_OWNER, get_current_environment
 from .enums import Environment, SecurableType, PrivilegeType, BindingType
 
-# Configure logging  
 logger = logging.getLogger(__name__)
 
 
@@ -106,39 +107,45 @@ class Principal(BaseGovernanceModel):
     
     def exists_in_databricks(self, workspace_client: Any) -> bool:
         """
-        Check if principal exists in Databricks (expensive operation).
-        
-        NOTE: This is NOT called during standard grant flow due to performance.
-        Teams can run validation separately if needed.
-        
+        Check if principal exists in Databricks.
+
         Args:
             workspace_client: Databricks WorkspaceClient instance
-            
+
         Returns:
             True if principal exists, False otherwise
+
+        Raises:
+            PermissionDenied: If caller lacks permission to check principals
         """
         resolved = self.resolved_name
-        
-        # Try as user - direct lookup O(1) instead of O(n)
+
+        # Try as user
         try:
             workspace_client.users.get(resolved)
             return True
-        except Exception:
+        except (ResourceDoesNotExist, NotFound):
             pass
-        
-        # Try as group - direct lookup O(1) instead of O(n)
+        except PermissionDenied:
+            raise
+
+        # Try as group
         try:
             workspace_client.groups.get(resolved)
             return True
-        except Exception:
+        except (ResourceDoesNotExist, NotFound):
             pass
-        
-        # Try as service principal - direct lookup O(1) instead of O(n)
+        except PermissionDenied:
+            raise
+
+        # Try as service principal
         try:
             workspace_client.service_principals.get(resolved)
             return True
-        except Exception:
+        except (ResourceDoesNotExist, NotFound):
             pass
+        except PermissionDenied:
+            raise
 
         return False
 

@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import ConnectionInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Connection, ConnectionType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -18,21 +18,21 @@ logger = logging.getLogger(__name__)
 
 class ConnectionExecutor(BaseExecutor[Connection]):
     """Executor for external database connection operations."""
-    
+
     def get_resource_type(self) -> str:
         """Get the resource type."""
         return "CONNECTION"
-    
+
     def exists(self, connection: Connection) -> bool:
         """Check if a connection exists."""
         try:
             self.client.connections.get(connection.resolved_name)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking connection existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking connection existence: {e}")
+            raise
     
     def create(self, connection: Connection) -> ExecutionResult:
         """

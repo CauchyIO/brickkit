@@ -20,11 +20,12 @@ from databricks.sdk.errors import (
 from ..models import Catalog
 from ..models.enums import IsolationMode
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .mixins import WorkspaceBindingMixin
 
 logger = logging.getLogger(__name__)
 
 
-class CatalogExecutor(BaseExecutor[Catalog]):
+class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     """Executor for catalog operations."""
     
     def get_resource_type(self) -> str:
@@ -78,20 +79,13 @@ class CatalogExecutor(BaseExecutor[Catalog]):
             # Determine workspace IDs to bind (if any) BEFORE creating catalog
             workspace_ids_to_bind = []
             if catalog.workspace_ids:
-                # Use the workspace IDs that were set by Team.add_catalog()
                 workspace_ids_to_bind = [str(ws_id) for ws_id in catalog.workspace_ids]
-                logger.info(f"Catalog has workspace bindings from Team configuration: {workspace_ids_to_bind}")
             elif catalog.isolation_mode == IsolationMode.ISOLATED:
-                logger.warning(
-                    f"ISOLATED catalog {resource_name} has no workspace_ids set! "
-                    f"This catalog should have been added to a Team using Team.add_catalog() "
-                    f"which would set the appropriate workspace bindings."
-                )
+                logger.warning(f"ISOLATED catalog {resource_name} has no workspace_ids - use Team.add_catalog()")
 
-            # Convert to SDK parameters
             params = catalog.to_sdk_create_params()
-
-            logger.info(f"Creating catalog {resource_name} with params: {params}")
+            logger.info(f"Creating catalog {resource_name}")
+            logger.debug(f"Catalog params: {params}")
             self.execute_with_retry(self.client.catalogs.create, **params)
 
             # Add rollback operation
@@ -99,81 +93,33 @@ class CatalogExecutor(BaseExecutor[Catalog]):
                 lambda: self.client.catalogs.delete(resource_name, force=True)
             )
 
-            # CRITICAL ORDERING for ISOLATED catalogs with workspace bindings:
+            # CRITICAL ORDERING for ISOLATED catalogs:
             # 1. Create catalog (in default/OPEN mode)
             # 2. Apply workspace bindings FIRST (while catalog is still accessible)
             # 3. THEN set isolation mode to ISOLATED
-            # This avoids the catch-22 where an ISOLATED catalog without bindings is inaccessible
-
-            # Apply workspace bindings BEFORE setting isolation mode (if needed)
             if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
-                logger.info(f"Step 1: Applying workspace bindings BEFORE setting ISOLATED mode")
-                logger.info(f"  Catalog: {resource_name}")
-                logger.info(f"  Target workspace IDs: {workspace_ids_to_bind}")
+                workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
+                self.apply_workspace_bindings(
+                    resource_name=resource_name,
+                    workspace_ids=workspace_ids_as_ints,
+                    securable_type="catalog"
+                )
 
-                try:
-                    # Try the catalog-specific update() method which is simpler
-                    workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
-                    logger.info(f"Calling workspace_bindings.update API")
-                    logger.info(f"  catalog name: {resource_name}")
-                    logger.info(f"  assign_workspaces: {workspace_ids_as_ints}")
-
-                    result = self.client.workspace_bindings.update(
-                        name=resource_name,
-                        assign_workspaces=workspace_ids_as_ints
-                    )
-
-                    logger.info(f"✓ workspace_bindings.update API call succeeded!")
-                    if result:
-                        logger.info(f"  API Response type: {type(result)}")
-
-                    # Brief wait for propagation
-                    time.sleep(2)
-
-                except PermissionDenied as e:
-                    # Permission errors should propagate - caller lacks rights
-                    logger.error(f"Permission denied applying workspace bindings to {resource_name}: {e}")
-                    raise
-                except (NotFound, ResourceDoesNotExist) as e:
-                    # This can happen if catalog creation is still propagating
-                    logger.warning(f"Catalog {resource_name} not found for binding (may be propagating): {e}")
-                except (BadRequest, InvalidParameterValue) as e:
-                    # Invalid parameters - log error but catalog exists
-                    logger.error(f"Invalid workspace binding request for {resource_name}: {e}")
-
-            # NOW set isolation mode AFTER bindings are applied
+            # Set isolation mode AFTER bindings are applied
             if catalog.isolation_mode:
                 from databricks.sdk.service.catalog import CatalogIsolationMode
-
-                logger.info(f"Step 2: Setting catalog isolation mode to {catalog.isolation_mode.value}")
-                update_params = {
-                    "name": resource_name,
-                    "isolation_mode": CatalogIsolationMode(catalog.isolation_mode.value)
-                }
-
+                logger.debug(f"Setting isolation mode to {catalog.isolation_mode.value}")
                 self.execute_with_retry(
                     self.client.catalogs.update,
-                    **update_params
+                    name=resource_name,
+                    isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
                 )
-                logger.info(f"✓ Isolation mode set to {catalog.isolation_mode.value}")
 
-            # Final verification of bindings (if they were applied)
+            # Verify bindings were applied
             if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
-                logger.info(f"Step 3: Final verification of workspace bindings")
-                time.sleep(2)  # Wait for everything to propagate
-
-                try:
-                    verification = self.client.workspace_bindings.get(name=resource_name)
-                    if verification and hasattr(verification, 'workspaces') and verification.workspaces:
-                        applied_ws_ids = [str(ws.workspace_id) for ws in verification.workspaces]
-                        logger.info(f"✓ FINAL VERIFICATION: Catalog {resource_name} bound to workspaces: {applied_ws_ids}")
-                    else:
-                        logger.warning(f"⚠️ FINAL VERIFICATION: No workspace bindings found")
-                        logger.warning(f"   Expected: {workspace_ids_to_bind}")
-                except (NotFound, ResourceDoesNotExist) as e:
-                    logger.warning(f"Could not verify bindings - catalog not found: {e}")
-                except PermissionDenied as e:
-                    logger.warning(f"Could not verify bindings - permission denied: {e}")
+                workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
+                if not self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
+                    logger.warning(f"Workspace binding verification failed for {resource_name}")
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -196,19 +142,13 @@ class CatalogExecutor(BaseExecutor[Catalog]):
                 message="Already exists"
             )
         except Exception as e:
-            # Check if it's a "already exists" error from SDK
             error_msg = str(e)
             if "already exists" in error_msg.lower():
-                logger.info(f"Catalog {resource_name} already exists - will update bindings if needed")
-
-                # Catalog exists, but we may need to update workspace bindings
-                # This is important for fixing catalogs that were created without proper bindings
+                # Catalog exists - update bindings if needed
                 if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
-                    logger.info(f"Existing catalog needs workspace bindings applied")
                     return self._apply_bindings_to_existing_catalog(
                         catalog, resource_name, workspace_ids_to_bind
                     )
-
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -238,49 +178,26 @@ class CatalogExecutor(BaseExecutor[Catalog]):
             # Check if update needed
             changes = self._get_catalog_changes(existing, catalog)
 
-            # ALSO check workspace bindings for ISOLATED catalogs
+            # Check and update workspace bindings for ISOLATED catalogs
             workspace_bindings_updated = False
             if catalog.isolation_mode == IsolationMode.ISOLATED and catalog.workspace_ids:
-                logger.info(f"Checking workspace bindings for ISOLATED catalog {resource_name}")
+                desired_ws_ids = [int(ws_id) for ws_id in catalog.workspace_ids]
+                current_ws_ids = self.get_current_workspace_bindings(resource_name, "catalog")
 
-                # Check current bindings
-                try:
-                    current_bindings = self.client.workspace_bindings.get(name=resource_name)
-                    current_ws_ids = []
-                    if current_bindings and hasattr(current_bindings, 'workspaces') and current_bindings.workspaces:
-                        current_ws_ids = sorted([int(ws.workspace_id) for ws in current_bindings.workspaces])
+                if set(current_ws_ids) != set(desired_ws_ids):
+                    logger.info(f"Workspace bindings need update for {resource_name}: {list(current_ws_ids)} -> {desired_ws_ids}")
 
-                    desired_ws_ids = sorted([int(ws_id) for ws_id in catalog.workspace_ids])
-
-                    if current_ws_ids != desired_ws_ids:
-                        logger.info(f"Workspace bindings need update:")
-                        logger.info(f"  Current: {current_ws_ids}")
-                        logger.info(f"  Desired: {desired_ws_ids}")
-
-                        if not self.dry_run:
-                            # Update workspace bindings
-                            logger.info(f"Updating workspace bindings for {resource_name}")
-                            self.client.workspace_bindings.update(
-                                name=resource_name,
-                                assign_workspaces=desired_ws_ids,
-                                unassign_workspaces=list(set(current_ws_ids) - set(desired_ws_ids))
-                            )
-                            workspace_bindings_updated = True
+                    if not self.dry_run:
+                        workspace_bindings_updated = self.update_workspace_bindings(
+                            resource_name=resource_name,
+                            desired_workspace_ids=desired_ws_ids,
+                            securable_type="catalog"
+                        )
+                        if workspace_bindings_updated:
                             changes['workspace_bindings'] = {
-                                'from': current_ws_ids,
+                                'from': list(current_ws_ids),
                                 'to': desired_ws_ids
                             }
-                    else:
-                        logger.debug(f"Workspace bindings are already correct: {current_ws_ids}")
-
-                except PermissionDenied as e:
-                    # Permission errors should propagate
-                    logger.error(f"Permission denied updating workspace bindings: {e}")
-                    raise
-                except (NotFound, ResourceDoesNotExist) as e:
-                    logger.warning(f"Could not update workspace bindings - resource not found: {e}")
-                except (BadRequest, InvalidParameterValue) as e:
-                    logger.warning(f"Invalid workspace binding parameters: {e}")
 
             if not changes and not workspace_bindings_updated:
                 return ExecutionResult(
@@ -393,72 +310,34 @@ class CatalogExecutor(BaseExecutor[Catalog]):
         resource_name: str,
         workspace_ids_to_bind: List[str]
     ) -> ExecutionResult:
-        """
-        Apply workspace bindings to an existing catalog.
+        """Apply workspace bindings to an existing catalog."""
+        workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
 
-        This is needed when a catalog was created without proper bindings
-        and needs to be fixed.
-        """
-        logger.info(f"Applying workspace bindings to existing catalog {resource_name}")
-
-        try:
-            # First check current bindings
-            try:
-                current_bindings = self.client.workspace_bindings.get(name=resource_name)
-                if current_bindings and hasattr(current_bindings, 'workspaces') and current_bindings.workspaces:
-                    current_ws_ids = [str(ws.workspace_id) for ws in current_bindings.workspaces]
-                    logger.info(f"  Current bindings: {current_ws_ids}")
-                else:
-                    logger.info(f"  No current bindings")
-            except (NotFound, ResourceDoesNotExist):
-                logger.info(f"  No existing bindings found")
-            except PermissionDenied as e:
-                logger.warning(f"  Could not check bindings - permission denied: {e}")
-
-            # Apply the workspace bindings
-            workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
-            logger.info(f"  Applying bindings: {workspace_ids_as_ints}")
-
-            result = self.client.workspace_bindings.update(
-                name=resource_name,
-                assign_workspaces=workspace_ids_as_ints
-            )
-
-            logger.info(f"  ✓ Bindings applied successfully")
-
-            # Also ensure isolation mode is set
-            if catalog.isolation_mode:
-                from databricks.sdk.service.catalog import CatalogIsolationMode
-                logger.info(f"  Setting isolation mode to {catalog.isolation_mode.value}")
-                self.client.catalogs.update(
-                    name=resource_name,
-                    isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
-                )
-
-            # Verify bindings
-            time.sleep(2)
-            verification = self.client.workspace_bindings.get(name=resource_name)
-            if verification and hasattr(verification, 'workspaces') and verification.workspaces:
-                applied_ws_ids = [str(ws.workspace_id) for ws in verification.workspaces]
-                logger.info(f"  ✓ Verified bindings: {applied_ws_ids}")
-
+        if not self.apply_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
             return ExecutionResult(
                 success=True,
-                operation=OperationType.UPDATE,
-                resource_type=self.get_resource_type(),
-                resource_name=resource_name,
-                message="Applied workspace bindings to existing catalog"
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to apply bindings to existing catalog: {e}")
-            return ExecutionResult(
-                success=True,  # Catalog exists at least
                 operation=OperationType.NO_OP,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=f"Exists but could not apply bindings: {e}"
+                message="Exists but could not apply bindings"
             )
+
+        if catalog.isolation_mode:
+            from databricks.sdk.service.catalog import CatalogIsolationMode
+            self.client.catalogs.update(
+                name=resource_name,
+                isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
+            )
+
+        self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog")
+
+        return ExecutionResult(
+            success=True,
+            operation=OperationType.UPDATE,
+            resource_type=self.get_resource_type(),
+            resource_name=resource_name,
+            message="Applied workspace bindings"
+        )
 
     def _get_catalog_changes(
         self,

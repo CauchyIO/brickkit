@@ -7,7 +7,7 @@ Handles the association between catalogs and workspaces for ISOLATED catalogs.
 from typing import List, Optional, Set
 import logging
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.errors import ResourceDoesNotExist, PermissionDenied
+from databricks.sdk.errors import ResourceDoesNotExist, PermissionDenied, NotFound
 from databricks.sdk.service.catalog import WorkspaceBinding
 
 from .base import BaseExecutor, ExecutionResult, ExecutionPlan, OperationType
@@ -141,50 +141,32 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
             )
             
         except PermissionDenied as e:
+            logger.error(f"Permission denied updating workspace bindings: {e}")
+            raise
+        except (ResourceDoesNotExist, NotFound) as e:
             return ExecutionResult(
                 success=False,
                 operation=OperationType.UPDATE,
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
-                message=f"Permission denied: {str(e)}",
-                error=e,
-                duration_seconds=time.time() - start_time
-            )
-        except Exception as e:
-            logger.error(f"Failed to update workspace bindings for {catalog.resolved_name}: {e}")
-            return ExecutionResult(
-                success=False,
-                operation=OperationType.UPDATE,
-                resource_type=self.resource_type,
-                resource_name=catalog.resolved_name,
-                message=str(e),
+                message=f"Catalog not found: {e}",
                 error=e,
                 duration_seconds=time.time() - start_time
             )
     
     def _get_current_bindings(self, catalog_name: str) -> List[int]:
-        """
-        Get current workspace bindings for a catalog.
-        
-        Args:
-            catalog_name: The resolved catalog name
-            
-        Returns:
-            List of workspace IDs currently bound to the catalog
-        """
+        """Get current workspace bindings for a catalog."""
         try:
             bindings = self.client.workspace_bindings.get_bindings(
                 securable_type="catalog",
                 securable_name=catalog_name
             )
-            # Extract workspace IDs from bindings
             return [b.workspace_id for b in bindings.workspaces if b.workspace_id]
-        except ResourceDoesNotExist:
-            # Catalog doesn't exist or has no bindings
+        except (ResourceDoesNotExist, NotFound):
             return []
-        except Exception as e:
-            logger.warning(f"Failed to get current bindings for {catalog_name}: {e}")
-            return []
+        except PermissionDenied as e:
+            logger.error(f"Permission denied getting bindings for {catalog_name}: {e}")
+            raise
     
     def remove_bindings(self, catalog_name: str) -> ExecutionResult:
         """
@@ -265,18 +247,20 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 duration_seconds=time.time() - start_time
             )
             
-        except Exception as e:
-            logger.error(f"Failed to remove workspace bindings for {catalog.resolved_name}: {e}")
+        except PermissionDenied as e:
+            logger.error(f"Permission denied removing workspace bindings: {e}")
+            raise
+        except (ResourceDoesNotExist, NotFound) as e:
             return ExecutionResult(
                 success=False,
                 operation=OperationType.DELETE,
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
-                message=str(e),
+                message=f"Catalog not found: {e}",
                 error=e,
                 duration_seconds=time.time() - start_time
             )
-    
+
     def plan(self, catalog: Catalog) -> ExecutionPlan:
         """
         Create an execution plan for workspace binding updates.

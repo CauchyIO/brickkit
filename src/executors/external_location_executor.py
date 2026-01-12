@@ -9,14 +9,20 @@ from typing import Dict, Any, List
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import ExternalLocationInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import (
+    ResourceDoesNotExist,
+    ResourceAlreadyExists,
+    NotFound,
+    PermissionDenied,
+)
 from ..models import ExternalLocation
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .mixins import WorkspaceBindingMixin
 
 logger = logging.getLogger(__name__)
 
 
-class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
+class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingMixin):
     """Executor for external location operations."""
     
     def get_resource_type(self) -> str:
@@ -28,11 +34,11 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
         try:
             self.client.external_locations.get(location.resolved_name)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking external location existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking external location existence: {e}")
+            raise
     
     def create(self, location: ExternalLocation) -> ExecutionResult:
         """
@@ -56,42 +62,19 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
                 )
             
             params = location.to_sdk_create_params()
-            
-            # Validate URL format
             url = location.url
-            cloud_provider = "Unknown"
-            if url.startswith("s3://"):
-                cloud_provider = "AWS S3"
-            elif url.startswith("abfss://") or url.startswith("wasbs://"):
-                cloud_provider = "Azure Storage"
-            elif url.startswith("gs://"):
-                cloud_provider = "Google Cloud Storage"
-            
-            # Get the credential name from the storage_credential object
+            cloud_provider = "S3" if url.startswith("s3://") else "Azure" if url.startswith(("abfss://", "wasbs://")) else "GCS" if url.startswith("gs://") else "Unknown"
             credential_name = location.storage_credential.resolved_name
-            
-            logger.info(
-                f"Creating external location {resource_name} "
-                f"({cloud_provider}: {url}) "
-                f"using credential '{credential_name}'"
-            )
-            
-            # Validate storage credential exists
+
+            logger.info(f"Creating external location {resource_name} ({cloud_provider})")
+
             if credential_name:
                 try:
                     self.client.storage_credentials.get(credential_name)
                 except ResourceDoesNotExist:
-                    raise ValueError(
-                        f"Storage credential '{credential_name}' does not exist. "
-                        f"Create the credential before creating this external location."
-                    )
-            
+                    raise ValueError(f"Storage credential '{credential_name}' does not exist")
+
             self.execute_with_retry(self.client.external_locations.create, **params)
-            
-            logger.info(
-                f"External location {resource_name} created. "
-                f"This location can now be used for external tables and volumes."
-            )
             
             self._rollback_stack.append(
                 lambda: self.client.external_locations.delete(resource_name)
@@ -99,7 +82,11 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
 
             # Apply workspace bindings if specified
             if location.workspace_ids:
-                self._apply_workspace_bindings(resource_name, location.workspace_ids)
+                self.apply_workspace_bindings(
+                    resource_name=resource_name,
+                    workspace_ids=[int(ws_id) for ws_id in location.workspace_ids],
+                    securable_type="external_location"
+                )
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -148,26 +135,15 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
                     changes=changes
                 )
             
-            # Check for immutable changes
             if 'url' in changes:
-                logger.warning(
-                    f"URL cannot be changed for external location {resource_name}. "
-                    f"Current: {existing.url}, Desired: {location.url}. "
-                    f"Create a new external location for the new URL."
-                )
+                logger.warning(f"URL is immutable for {resource_name} - skipping URL change")
                 changes.pop('url')
-            
+
             if changes:
                 params = location.to_sdk_update_params()
-                logger.info(f"Updating external location {resource_name}: {changes}")
-                
-                # Warn about credential changes
+                logger.info(f"Updating external location {resource_name}")
                 if 'credential_name' in changes:
-                    logger.warning(
-                        f"Changing storage credential for {resource_name}. "
-                        f"This may affect access to existing external tables and volumes."
-                    )
-                
+                    logger.warning(f"Credential change for {resource_name} may affect dependent objects")
                 self.execute_with_retry(self.client.external_locations.update, **params)
             
             duration = time.time() - start_time
@@ -233,11 +209,6 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
             )
             
         except Exception as e:
-            if "is still referenced" in str(e) or "dependencies" in str(e).lower():
-                logger.error(
-                    f"Cannot delete {resource_name}: Tables or volumes still depend on it. "
-                    f"Delete the dependent objects first."
-                )
             return self._handle_error(OperationType.DELETE, resource_name, e)
     
     def _get_location_changes(self, existing: ExternalLocationInfo, desired: ExternalLocation) -> Dict[str, Any]:
@@ -282,52 +253,3 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation]):
 
         return changes
 
-    def _apply_workspace_bindings(self, resource_name: str, workspace_ids: List[int]) -> None:
-        """
-        Apply workspace bindings to the external location.
-
-        Args:
-            resource_name: Name of the external location
-            workspace_ids: List of workspace IDs to bind
-        """
-        if not workspace_ids:
-            return
-
-        logger.info(f"Applying workspace bindings for external location {resource_name}: {workspace_ids}")
-
-        try:
-            from databricks.sdk.service.catalog import WorkspaceBinding, WorkspaceBindingBindingType
-
-            # Create WorkspaceBinding objects
-            workspace_bindings = []
-            for ws_id in workspace_ids:
-                binding = WorkspaceBinding(
-                    workspace_id=int(ws_id),
-                    binding_type=WorkspaceBindingBindingType.BINDING_TYPE_READ_WRITE
-                )
-                workspace_bindings.append(binding)
-
-            # Apply bindings via workspace_bindings API
-            try:
-                # Try with securable_type parameter first (newer SDK versions)
-                self.client.workspace_bindings.update(
-                    securable_type="external_location",
-                    securable_name=resource_name,
-                    assign_workspaces=workspace_bindings
-                )
-            except (TypeError, AttributeError):
-                # Fall back to name-only parameter (older SDK versions)
-                self.client.workspace_bindings.update(
-                    name=resource_name,
-                    assign_workspaces=workspace_bindings
-                )
-
-            logger.info(f"Successfully bound external location {resource_name} to workspaces: {[b.workspace_id for b in workspace_bindings]}")
-
-        except Exception as e:
-            logger.error(f"Failed to apply workspace bindings for external location {resource_name}: {e}")
-            logger.error(f"  External location: {resource_name}")
-            logger.error(f"  Workspace IDs attempted: {workspace_ids}")
-            logger.error(f"  Error type: {type(e).__name__}")
-            logger.error(f"  Error details: {str(e)}")
-            # Not fatal - external location exists but may not be isolated

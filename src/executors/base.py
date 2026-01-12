@@ -2,19 +2,19 @@
 Base executor class for Unity Catalog operations.
 
 Provides common functionality for all executors including error handling,
-idempotency, dry-run support, and rollback capabilities.
+idempotency, dry-run support, rollback capabilities, and governance validation.
 """
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar, Generic
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Generic
 from enum import Enum
 import logging
 import time
 from datetime import datetime
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import (
-    ResourceDoesNotExist, 
+    ResourceDoesNotExist,
     ResourceAlreadyExists,
     PermissionDenied,
     InvalidParameterValue,
@@ -27,6 +27,9 @@ from databricks.sdk.errors import (
     NotImplemented,
     ResourceExhausted
 )
+
+if TYPE_CHECKING:
+    from ..brickkit.defaults import GovernanceDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -125,21 +128,24 @@ class BaseExecutor(ABC, Generic[T]):
         client: WorkspaceClient,
         dry_run: bool = False,
         max_retries: int = 3,
-        continue_on_error: bool = False
+        continue_on_error: bool = False,
+        governance_defaults: Optional['GovernanceDefaults'] = None
     ):
         """
         Initialize the executor.
-        
+
         Args:
             client: Databricks SDK client
             dry_run: If True, only show what would be done
             max_retries: Maximum retry attempts for transient failures
             continue_on_error: Continue execution despite errors
+            governance_defaults: Optional governance defaults for validation
         """
         self.client = client
         self.dry_run = dry_run
         self.max_retries = max_retries
         self.continue_on_error = continue_on_error
+        self.governance_defaults = governance_defaults
         self.results: List[ExecutionResult] = []
         self._rollback_stack: List[callable] = []
     
@@ -433,27 +439,79 @@ class BaseExecutor(ABC, Generic[T]):
     def get_summary(self) -> str:
         """
         Get a summary of execution results.
-        
+
         Returns:
             Summary string
         """
         if not self.results:
             return "No operations performed"
-        
+
         successful = sum(1 for r in self.results if r.success)
         failed = sum(1 for r in self.results if not r.success)
-        
+
         lines = [
             f"Execution Summary:",
             f"  Total operations: {len(self.results)}",
             f"  Successful: {successful}",
             f"  Failed: {failed}"
         ]
-        
+
         if failed > 0:
             lines.append("\nFailed operations:")
             for result in self.results:
                 if not result.success:
                     lines.append(f"  - {result}")
-        
+
         return "\n".join(lines)
+
+    def validate_governance(self, resource: T) -> List[str]:
+        """
+        Validate resource against governance defaults.
+
+        Args:
+            resource: The resource to validate
+
+        Returns:
+            List of validation error messages (empty if valid)
+        """
+        if not self.governance_defaults:
+            return []
+
+        # Use resource's validate_governance method if available
+        if hasattr(resource, 'validate_governance'):
+            return resource.validate_governance(self.governance_defaults)
+
+        # Manual validation for resources without the method
+        if not hasattr(resource, 'securable_type') or not hasattr(resource, 'tags'):
+            return []
+
+        tag_dict = {t.key: t.value for t in getattr(resource, 'tags', [])}
+        return self.governance_defaults.validate_tags(resource.securable_type, tag_dict)
+
+    def ensure_governance(self, resource: T, fail_on_error: bool = True) -> Optional[ExecutionResult]:
+        """
+        Validate governance and optionally fail if violations found.
+
+        Args:
+            resource: The resource to validate
+            fail_on_error: If True, return failure result on violations
+
+        Returns:
+            ExecutionResult with SKIPPED if violations and fail_on_error, else None
+        """
+        errors = self.validate_governance(resource)
+        if errors and fail_on_error:
+            resource_name = self._get_resource_name(resource)
+            error_msg = "; ".join(errors)
+            logger.warning(f"Governance validation failed for {resource_name}: {error_msg}")
+            return ExecutionResult(
+                success=False,
+                operation=OperationType.SKIPPED,
+                resource_type=self.get_resource_type(),
+                resource_name=resource_name,
+                message=f"Governance validation failed: {error_msg}"
+            )
+        elif errors:
+            resource_name = self._get_resource_name(resource)
+            logger.warning(f"Governance warnings for {resource_name}: {errors}")
+        return None

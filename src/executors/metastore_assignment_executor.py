@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import MetastoreAssignment
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Metastore, Workspace, Environment
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -35,19 +35,14 @@ class MetastoreAssignmentExecutor:
         return "METASTORE_ASSIGNMENT"
     
     def current_assignment(self) -> Optional[MetastoreAssignment]:
-        """
-        Get the current metastore assignment for the workspace.
-        
-        Returns:
-            MetastoreAssignment if assigned, None otherwise
-        """
+        """Get the current metastore assignment for the workspace."""
         try:
             return self.client.metastores.current()
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return None
-        except Exception as e:
-            logger.warning(f"Error checking current metastore assignment: {e}")
-            return None
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking metastore assignment: {e}")
+            raise
     
     def assign(self, metastore_id: str, workspace_id: int, default_catalog: Optional[str] = None) -> ExecutionResult:
         """
@@ -124,19 +119,20 @@ class MetastoreAssignmentExecutor:
                 duration_seconds=duration
             )
             
+        except PermissionDenied as e:
+            logger.error(f"Permission denied assigning metastore: {e}")
+            raise
         except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Failed to assign metastore: {e}")
             return ExecutionResult(
                 success=False,
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
-                duration_seconds=duration,
+                duration_seconds=time.time() - start_time,
                 error=e
             )
-    
+
     def unassign(self, metastore_id: str, workspace_id: int) -> ExecutionResult:
         """
         Unassign a metastore from a workspace.
@@ -191,19 +187,20 @@ class MetastoreAssignmentExecutor:
                 duration_seconds=duration
             )
             
+        except PermissionDenied as e:
+            logger.error(f"Permission denied unassigning metastore: {e}")
+            raise
         except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Failed to unassign metastore: {e}")
             return ExecutionResult(
                 success=False,
                 operation=OperationType.DELETE,
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
-                duration_seconds=duration,
+                duration_seconds=time.time() - start_time,
                 error=e
             )
-    
+
     def update_default_catalog(self, metastore_id: str, workspace_id: int, default_catalog: str) -> ExecutionResult:
         """
         Update the default catalog for a metastore assignment.
@@ -271,45 +268,30 @@ class MetastoreAssignmentExecutor:
                 changes={"default_catalog": {"from": current.default_catalog_name, "to": default_catalog}}
             )
             
+        except PermissionDenied as e:
+            logger.error(f"Permission denied updating default catalog: {e}")
+            raise
         except Exception as e:
-            duration = time.time() - start_time
-            logger.error(f"Failed to update default catalog: {e}")
             return ExecutionResult(
                 success=False,
                 operation=OperationType.UPDATE,
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
-                duration_seconds=duration,
+                duration_seconds=time.time() - start_time,
                 error=e
             )
-    
+
     def _find_default_catalog(self, metastore_id: str) -> Optional[str]:
-        """
-        Find a suitable catalog to use as default.
-        
-        Args:
-            metastore_id: The metastore ID
-            
-        Returns:
-            Name of a catalog to use as default, or None if no catalogs exist
-        """
+        """Find a suitable catalog to use as default."""
         try:
-            # List all catalogs in the workspace
-            catalogs = self.client.catalogs.list()
-            
-            # Filter catalogs that belong to this metastore (if metastore info available)
-            # For now, just return the first available catalog
+            catalogs = list(self.client.catalogs.list())
             for catalog in catalogs:
-                # Prefer commonly named catalogs
                 if catalog.name in ["main", "default", "hive_metastore"]:
                     return catalog.name
-            
-            # Return any available catalog
-            if catalogs:
-                return catalogs[0].name
-                
-        except Exception as e:
-            logger.warning(f"Failed to list catalogs: {e}")
-        
-        return None
+            return catalogs[0].name if catalogs else None
+        except (ResourceDoesNotExist, NotFound):
+            return None
+        except PermissionDenied as e:
+            logger.error(f"Permission denied listing catalogs: {e}")
+            raise

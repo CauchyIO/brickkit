@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import FunctionInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Function, FunctionType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -18,22 +18,22 @@ logger = logging.getLogger(__name__)
 
 class FunctionExecutor(BaseExecutor[Function]):
     """Executor for function operations including row filters and column masks."""
-    
-    def get_resource_type(self) -> str:
-        """Get the resource type."""
-        return "FUNCTION"
-    
+
     def exists(self, function: Function) -> bool:
         """Check if a function exists."""
         try:
             self.client.functions.get(function.fqdn)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking function existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking function existence: {e}")
+            raise
     
+    def get_resource_type(self) -> str:
+        """Get the resource type."""
+        return "FUNCTION"
+
     def create(self, function: Function) -> ExecutionResult:
         """
         Create a new function.

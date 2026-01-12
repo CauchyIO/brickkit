@@ -9,14 +9,20 @@ from typing import Dict, Any, List
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import StorageCredentialInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import (
+    ResourceDoesNotExist,
+    ResourceAlreadyExists,
+    NotFound,
+    PermissionDenied,
+)
 from ..models import StorageCredential
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .mixins import WorkspaceBindingMixin
 
 logger = logging.getLogger(__name__)
 
 
-class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
+class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindingMixin):
     """Executor for storage credential operations."""
     
     def get_resource_type(self) -> str:
@@ -28,11 +34,11 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
         try:
             self.client.storage_credentials.get(credential.resolved_name)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking storage credential existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking storage credential existence: {e}")
+            raise
     
     def create(self, credential: StorageCredential) -> ExecutionResult:
         """
@@ -58,34 +64,22 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
                 )
             
             params = credential.to_sdk_create_params()
-            
-            # Determine cloud provider for logging
-            cloud_provider = "Unknown"
-            if credential.aws_iam_role:
-                cloud_provider = "AWS IAM Role"
-            elif credential.azure_service_principal:
-                cloud_provider = "Azure Service Principal"
-            elif credential.gcp_service_account_key:
-                cloud_provider = "GCP Service Account"
-            
+            cloud_provider = "AWS" if credential.aws_iam_role else "Azure" if credential.azure_service_principal else "GCP" if credential.gcp_service_account_key else "Unknown"
+
             logger.info(f"Creating storage credential {resource_name} ({cloud_provider})")
-            
-            # Security note: The credential details are sensitive
-            # The SDK handles secure transmission to Databricks
             self.execute_with_retry(self.client.storage_credentials.create, **params)
-            
-            logger.info(
-                f"Storage credential {resource_name} created. "
-                f"This credential can now be used in external locations."
-            )
-            
+
             self._rollback_stack.append(
                 lambda: self.client.storage_credentials.delete(resource_name)
             )
 
             # Apply workspace bindings if specified
             if credential.workspace_ids:
-                self._apply_workspace_bindings(resource_name, credential.workspace_ids)
+                self.apply_workspace_bindings(
+                    resource_name=resource_name,
+                    workspace_ids=[int(ws_id) for ws_id in credential.workspace_ids],
+                    securable_type="storage_credential"
+                )
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -134,15 +128,11 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
                     changes=changes
                 )
             
-            # Warn about impact
             if 'aws_iam_role' in changes or 'azure_service_principal' in changes:
-                logger.warning(
-                    f"Updating authentication details for {resource_name}. "
-                    f"This will affect all external locations using this credential."
-                )
-            
+                logger.warning(f"Updating auth for {resource_name} - affects dependent external locations")
+
             params = credential.to_sdk_update_params()
-            logger.info(f"Updating storage credential {resource_name}: {changes}")
+            logger.info(f"Updating storage credential {resource_name}")
             self.execute_with_retry(self.client.storage_credentials.update, **params)
             
             duration = time.time() - start_time
@@ -209,11 +199,6 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
             )
             
         except Exception as e:
-            if "is still referenced" in str(e) or "dependencies" in str(e).lower():
-                logger.error(
-                    f"Cannot delete {resource_name}: External locations still depend on it. "
-                    f"Delete the external locations first."
-                )
             return self._handle_error(OperationType.DELETE, resource_name, e)
     
     def _get_credential_changes(self, existing: StorageCredentialInfo, desired: StorageCredential) -> Dict[str, Any]:
@@ -246,52 +231,3 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential]):
 
         return changes
 
-    def _apply_workspace_bindings(self, resource_name: str, workspace_ids: List[int]) -> None:
-        """
-        Apply workspace bindings to the storage credential.
-
-        Args:
-            resource_name: Name of the storage credential
-            workspace_ids: List of workspace IDs to bind
-        """
-        if not workspace_ids:
-            return
-
-        logger.info(f"Applying workspace bindings for storage credential {resource_name}: {workspace_ids}")
-
-        try:
-            from databricks.sdk.service.catalog import WorkspaceBinding, WorkspaceBindingBindingType
-
-            # Create WorkspaceBinding objects
-            workspace_bindings = []
-            for ws_id in workspace_ids:
-                binding = WorkspaceBinding(
-                    workspace_id=int(ws_id),
-                    binding_type=WorkspaceBindingBindingType.BINDING_TYPE_READ_WRITE
-                )
-                workspace_bindings.append(binding)
-
-            # Apply bindings via workspace_bindings API
-            try:
-                # Try with securable_type parameter first (newer SDK versions)
-                self.client.workspace_bindings.update(
-                    securable_type="storage_credential",
-                    securable_name=resource_name,
-                    assign_workspaces=workspace_bindings
-                )
-            except (TypeError, AttributeError):
-                # Fall back to name-only parameter (older SDK versions)
-                self.client.workspace_bindings.update(
-                    name=resource_name,
-                    assign_workspaces=workspace_bindings
-                )
-
-            logger.info(f"Successfully bound storage credential {resource_name} to workspaces: {[b.workspace_id for b in workspace_bindings]}")
-
-        except Exception as e:
-            logger.error(f"Failed to apply workspace bindings for storage credential {resource_name}: {e}")
-            logger.error(f"  Storage credential: {resource_name}")
-            logger.error(f"  Workspace IDs attempted: {workspace_ids}")
-            logger.error(f"  Error type: {type(e).__name__}")
-            logger.error(f"  Error details: {str(e)}")
-            # Not fatal - storage credential exists but may not be isolated

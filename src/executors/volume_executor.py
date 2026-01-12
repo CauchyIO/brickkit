@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import VolumeInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Volume, VolumeType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -28,11 +28,11 @@ class VolumeExecutor(BaseExecutor[Volume]):
         try:
             self.client.volumes.read(volume.fqdn)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking volume existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking volume existence: {e}")
+            raise
     
     def create(self, volume: Volume) -> ExecutionResult:
         """Create a new volume."""

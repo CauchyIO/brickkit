@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import SchemaInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Schema
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -28,11 +28,11 @@ class SchemaExecutor(BaseExecutor[Schema]):
         try:
             self.client.schemas.get(schema.fqdn)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking schema existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking schema existence: {e}")
+            raise
     
     def create(self, schema: Schema) -> ExecutionResult:
         """Create a new schema."""

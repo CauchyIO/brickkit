@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import TableInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists
+from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
 from ..models import Table
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -28,11 +28,11 @@ class TableExecutor(BaseExecutor[Table]):
         try:
             self.client.tables.get(table.fqdn)
             return True
-        except ResourceDoesNotExist:
+        except (ResourceDoesNotExist, NotFound):
             return False
-        except Exception as e:
-            logger.warning(f"Error checking table existence: {e}")
-            return False
+        except PermissionDenied as e:
+            logger.error(f"Permission denied checking table existence: {e}")
+            raise
     
     def create(self, table: Table) -> ExecutionResult:
         """Create a new table."""
