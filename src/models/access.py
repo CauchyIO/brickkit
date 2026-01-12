@@ -289,7 +289,11 @@ class AccessPolicy(BaseGovernanceModel):
                 SecurableType.VOLUME: [PrivilegeType.READ_VOLUME],
                 SecurableType.FUNCTION: [PrivilegeType.EXECUTE],
                 SecurableType.MODEL: [PrivilegeType.EXECUTE],  # Read/execute models
-                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS]  # Use service credentials
+                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS],  # Use service credentials
+                # AI/ML Assets
+                SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS],  # Access Genie Space
+                SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS],  # Access endpoint
+                SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS],  # Query index
             }
         )
     
@@ -310,7 +314,11 @@ class AccessPolicy(BaseGovernanceModel):
                 SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME],
                 SecurableType.FUNCTION: [PrivilegeType.EXECUTE],
                 SecurableType.MODEL: [PrivilegeType.EXECUTE, PrivilegeType.APPLY_TAG],  # Can use and update models
-                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS]  # Use service credentials
+                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS],  # Use service credentials
+                # AI/ML Assets - writers can access but not manage
+                SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS],
+                SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS],
+                SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS],
             }
         )
     
@@ -333,7 +341,11 @@ class AccessPolicy(BaseGovernanceModel):
                 SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME, PrivilegeType.MANAGE],
                 SecurableType.FUNCTION: [PrivilegeType.EXECUTE, PrivilegeType.MANAGE],
                 SecurableType.MODEL: [PrivilegeType.EXECUTE, PrivilegeType.APPLY_TAG, PrivilegeType.MANAGE],
-                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS, PrivilegeType.MANAGE]  # Full access to service credentials
+                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],  # Full access to service credentials
+                # AI/ML Assets - full management
+                SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
+                SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
+                SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
             }
         )
     

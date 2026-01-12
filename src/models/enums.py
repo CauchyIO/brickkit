@@ -28,6 +28,11 @@ class SecurableType(str, Enum):
     PROVIDER = "PROVIDER"  # Delta Sharing providers
     PIPELINE = "PIPELINE"  # Delta Live Tables pipelines
 
+    # AI/ML Assets
+    GENIE_SPACE = "GENIE_SPACE"  # Databricks Genie Spaces
+    VECTOR_SEARCH_ENDPOINT = "VECTOR_SEARCH_ENDPOINT"  # Vector Search endpoints
+    VECTOR_SEARCH_INDEX = "VECTOR_SEARCH_INDEX"  # Vector Search indexes
+
 
 class PrivilegeType(str, Enum):
     """
@@ -306,5 +311,18 @@ ALL_PRIVILEGES_EXPANSION = {
     ],
     SecurableType.PROVIDER: [
         PrivilegeType.USE_PROVIDER,  # Can use provider
+    ],
+    # AI/ML Assets
+    SecurableType.GENIE_SPACE: [
+        PrivilegeType.ACCESS,  # Can access the Genie Space
+        PrivilegeType.MANAGE,  # Full management of Genie Space
+    ],
+    SecurableType.VECTOR_SEARCH_ENDPOINT: [
+        PrivilegeType.ACCESS,  # Can access the endpoint
+        PrivilegeType.MANAGE,  # Full management of endpoint
+    ],
+    SecurableType.VECTOR_SEARCH_INDEX: [
+        PrivilegeType.ACCESS,  # Can query the index
+        PrivilegeType.MANAGE,  # Full management of index
     ],
 }

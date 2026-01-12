@@ -79,15 +79,24 @@ class BaseGovernanceModel(BaseModel):
 class BaseSecurable(BaseGovernanceModel):
     """
     Base class for all Unity Catalog securables with common grant logic.
-    
+
     This class provides:
     - A standard grant() method that works with AccessPolicy objects
     - Abstract securable_type property that each subclass must implement
     - Common privilege management logic
+    - Governance support via tags and defaults
+
+    Governance features:
+    - tags: List of Tag objects for metadata and ABAC
+    - with_defaults(): Apply GovernanceDefaults to this securable
+    - validate_governance(): Validate against governance rules
     """
-    
+
     # Each securable must track its privileges - imported later to avoid circular imports
     privileges: List[Any] = Field(default_factory=list, description="Granted privileges")
+
+    # Governance tags for metadata and attribute-based access control
+    tags: List["Tag"] = Field(default_factory=list, description="Governance tags")
     
     @property
     def securable_type(self) -> SecurableType:
@@ -230,19 +239,63 @@ class BaseSecurable(BaseGovernanceModel):
     def _propagate_grants(self, principal: Any, policy: Any) -> List[Any]:
         """
         Propagate grants to child securables.
-        
+
         Default implementation does nothing. Override in container securables
         (Catalog, Schema) to propagate to children.
-        
+
         Args:
             principal: The principal to grant to
             policy: The access policy
-            
+
         Returns:
             List of propagated privileges
         """
         return []
-    
+
+    def with_defaults(self, defaults: Any) -> "BaseSecurable":
+        """
+        Apply governance defaults to this securable.
+
+        Applies default tags from the GovernanceDefaults instance without
+        overwriting existing tags. Returns self for method chaining.
+
+        Args:
+            defaults: GovernanceDefaults instance with org-wide policies
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            catalog = Catalog(name="analytics").with_defaults(MyOrgDefaults())
+        """
+        defaults.apply_to(self, get_current_environment())
+        return self
+
+    def validate_governance(self, defaults: Any = None) -> List[str]:
+        """
+        Validate this securable against governance rules.
+
+        Checks that all required tags are present and have valid values.
+
+        Args:
+            defaults: Optional GovernanceDefaults to validate against.
+                     If not provided, returns empty list.
+
+        Returns:
+            List of validation error messages (empty if valid)
+
+        Example:
+            errors = catalog.validate_governance(MyOrgDefaults())
+            if errors:
+                raise ValueError(f"Governance validation failed: {errors}")
+        """
+        if not defaults:
+            return []
+
+        # Convert tags list to dict for validation
+        tag_dict = {t.key: t.value for t in self.tags}
+        return defaults.validate_tags(self.securable_type, tag_dict)
+
     def grant_many(
         self,
         principals: List[Any],

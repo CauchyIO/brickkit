@@ -2,12 +2,12 @@
 Pydantic models for Databricks Genie Space configuration.
 
 This module provides typed Pydantic models for defining and managing
-Genie Space configurations. These models wrap the Databricks SDK's
-GenieSpace dataclass and provide:
-- Type-safe configuration definition
-- JSON serialization/deserialization
-- Validation of configuration structure
-- Conversion to/from SDK types
+Genie Space configurations as governed securables.
+
+Genie Spaces are AI-powered data exploration interfaces that can have:
+- Tags for metadata and governance
+- Owners for accountability
+- Access policies for privilege management
 
 IMPORTANT - Genie API Requirements:
 -----------------------------------
@@ -22,16 +22,17 @@ This module handles these requirements automatically:
 - SqlFunction generates deterministic IDs using MD5 hash of identifier
 - Instructions.to_dict() sorts sql_functions by (id, identifier)
 
-To fetch an existing space's config for reference:
-    space = client.genie.get_space(space_id, include_serialized_space=True)
-
 Usage:
-    from genie.models import GenieSpaceConfig, TableDataSource, ColumnConfig
+    from genie.models import GenieSpace, TableDataSource, ColumnConfig
+    from models.base import Tag
+    from models.access import Principal, AccessPolicy
 
-    # Define a Genie Space
-    space = GenieSpaceConfig(
-        title="My Analytics Space",
+    # Define a governed Genie Space
+    space = GenieSpace(
+        name="sales_analytics",
+        title="Sales Analytics Space",
         warehouse_id="abc123",
+        tags=[Tag(key="domain", value="sales")],
         serialized_space=SerializedSpace(
             data_sources=DataSources(
                 tables=[
@@ -46,38 +47,41 @@ Usage:
         )
     )
 
+    # Grant access
+    space.grant(Principal(name="analysts"), AccessPolicy.READER())
+
     # Export to JSON
     json_str = space.to_json()
-
-    # Import from SDK
-    space = GenieSpaceConfig.from_sdk(sdk_genie_space)
 """
 
 from __future__ import annotations
 
 import json
-import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     computed_field,
-    field_validator,
     model_validator,
 )
+
+# Import governance base classes
+from models.base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
+from models.enums import SecurableType
 
 
 # =============================================================================
 # BASE CONFIGURATION
 # =============================================================================
 
-class BaseGenieModel(BaseModel):
+# BaseGenieModel is now an alias for BaseGovernanceModel for backward compatibility
+# All Genie-specific models inherit from this
+class BaseGenieModel(BaseGovernanceModel):
     """
     Base model for all Genie Space configuration objects.
 
-    Provides standard Pydantic v2 configuration for consistent behavior.
+    Inherits from BaseGovernanceModel to integrate with the governance system.
     """
 
     model_config = ConfigDict(
@@ -549,29 +553,37 @@ class SerializedSpace(BaseGenieModel):
 
 
 # =============================================================================
-# GENIE SPACE CONFIG (main entry point)
+# GENIE SPACE (main entry point - governed securable)
 # =============================================================================
 
-class GenieSpaceConfig(BaseGenieModel):
+class GenieSpace(BaseSecurable):
     """
-    Complete configuration for a Databricks Genie Space.
+    Genie Space as a governed securable asset.
 
-    This is the main model for defining a Genie Space. It wraps all
-    the configuration needed to create or update a space via the API.
+    Extends BaseSecurable to support tags, owners, and access policies
+    while preserving Genie-specific serialization requirements.
 
     Attributes:
+        name: Internal name (used for environment suffixing)
         space_id: Unique space identifier (set after creation)
         title: Display title for the space
         description: Optional description
         warehouse_id: SQL warehouse to use for queries
         source_workspace: Source workspace URL (for migrations)
         serialized_space: The space configuration content
+        tags: Governance tags (inherited from BaseSecurable)
 
     Example:
         ```python
-        space = GenieSpaceConfig(
-            title="Sales Analytics",
+        from genie.models import GenieSpace
+        from models.base import Tag
+        from models.access import Principal, AccessPolicy
+
+        space = GenieSpace(
+            name="sales_analytics",
+            title="Sales Analytics Space",
             warehouse_id="abc123",
+            tags=[Tag(key="domain", value="sales")],
             serialized_space=SerializedSpace(
                 data_sources=DataSources(
                     tables=[
@@ -596,6 +608,9 @@ class GenieSpaceConfig(BaseGenieModel):
             )
         )
 
+        # Grant access
+        space.grant(Principal(name="analysts"), AccessPolicy.READER())
+
         # Export for version control
         space.to_json_file("genie_spaces/sales.json")
 
@@ -603,6 +618,11 @@ class GenieSpaceConfig(BaseGenieModel):
         sdk_space = space.create(workspace_client)
         ```
     """
+    # Identity - name is new, used for environment-aware naming
+    name: str = Field(
+        ...,
+        description="Internal name (used for environment suffixing)"
+    )
     space_id: Optional[str] = Field(
         default=None,
         description="Unique space identifier (set after creation)"
@@ -631,6 +651,32 @@ class GenieSpaceConfig(BaseGenieModel):
         description="The space configuration content"
     )
 
+    # ----- Securable Type Implementation -----
+
+    @property
+    def securable_type(self) -> SecurableType:
+        """Return the securable type for privilege management."""
+        return SecurableType.GENIE_SPACE
+
+    @computed_field
+    @property
+    def resolved_name(self) -> str:
+        """Name with environment suffix for multi-environment deployments."""
+        env = get_current_environment()
+        return f"{self.name}_{env.value.lower()}"
+
+    def get_level_1_name(self) -> str:
+        """Genie Spaces are level-1 objects."""
+        return self.resolved_name
+
+    def get_level_2_name(self) -> Optional[str]:
+        """Genie Spaces have no level-2 name."""
+        return None
+
+    def get_level_3_name(self) -> Optional[str]:
+        """Genie Spaces have no level-3 name."""
+        return None
+
     # ----- Serialization Methods -----
 
     def to_dict(self) -> Dict[str, Any]:
@@ -638,8 +684,10 @@ class GenieSpaceConfig(BaseGenieModel):
         Convert to dictionary for JSON export.
 
         Returns a structure suitable for version control and migration.
+        Includes governance metadata (tags).
         """
         result = {
+            "name": self.name,
             "title": self.title,
             "serialized_space": self.serialized_space.to_dict(),
         }
@@ -651,6 +699,8 @@ class GenieSpaceConfig(BaseGenieModel):
             result["warehouse_id"] = self.warehouse_id
         if self.source_workspace:
             result["source_workspace"] = self.source_workspace
+        if self.tags:
+            result["tags"] = [{"key": t.key, "value": t.value} for t in self.tags]
         return result
 
     def to_json(self, indent: int = 2) -> str:
@@ -663,13 +713,13 @@ class GenieSpaceConfig(BaseGenieModel):
         Path(file_path).write_text(self.to_json())
 
     @classmethod
-    def from_json(cls, json_str: str) -> "GenieSpaceConfig":
+    def from_json(cls, json_str: str) -> "GenieSpace":
         """Parse from JSON string."""
         data = json.loads(json_str)
         return cls.model_validate(data)
 
     @classmethod
-    def from_json_file(cls, file_path: str) -> "GenieSpaceConfig":
+    def from_json_file(cls, file_path: str) -> "GenieSpace":
         """Load configuration from a JSON file."""
         from pathlib import Path
         content = Path(file_path).read_text()
@@ -678,22 +728,32 @@ class GenieSpaceConfig(BaseGenieModel):
     # ----- SDK Integration Methods -----
 
     @classmethod
-    def from_sdk(cls, genie_space: Any, source_workspace: Optional[str] = None) -> "GenieSpaceConfig":
+    def from_sdk(
+        cls,
+        genie_space: Any,
+        source_workspace: Optional[str] = None,
+        name: Optional[str] = None
+    ) -> "GenieSpace":
         """
-        Create a GenieSpaceConfig from a Databricks SDK GenieSpace object.
+        Create a GenieSpace from a Databricks SDK GenieSpace object.
 
         Args:
             genie_space: databricks.sdk.service.dashboards.GenieSpace object
             source_workspace: Optional source workspace URL
+            name: Optional internal name. If not provided, derives from title.
 
         Returns:
-            GenieSpaceConfig instance
+            GenieSpace instance
         """
         serialized_data = {}
         if genie_space.serialized_space:
             serialized_data = json.loads(genie_space.serialized_space)
 
+        # Derive name from title if not provided
+        derived_name = name or genie_space.title.lower().replace(" ", "_").replace("-", "_")
+
         return cls(
+            name=derived_name,
             space_id=genie_space.space_id,
             title=genie_space.title,
             description=genie_space.description,
@@ -855,6 +915,14 @@ def quick_function(catalog: str, schema: str, function: str) -> SqlFunction:
 
 
 # =============================================================================
+# BACKWARD COMPATIBILITY
+# =============================================================================
+
+# Alias for backward compatibility - existing code using GenieSpaceConfig will still work
+GenieSpaceConfig = GenieSpace
+
+
+# =============================================================================
 # EXPORTS
 # =============================================================================
 
@@ -875,8 +943,11 @@ __all__ = [
     "Instructions",
     # Space configuration
     "SerializedSpace",
-    "GenieSpaceConfig",
+    "GenieSpace",
+    "GenieSpaceConfig",  # Backward compatibility alias
     # Convenience builders
     "quick_table",
     "quick_function",
+    # Re-exported governance types
+    "Tag",
 ]
