@@ -1,0 +1,20 @@
+{
+  "environment": {
+    "MLFLOW_CLAUDE_TRACING_ENABLED": "true",
+    "MLFLOW_TRACKING_URI": "databricks://adb-582244602844614",
+    "MLFLOW_EXPERIMENT_NAME": "/Workspace/Shared/brickkit",
+    "DATABRICKS_CONFIG_PROFILE": "adb-582244602844614"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run python -c \"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()\""
+          }
+        ]
+      }
+    ]
+  }
+}
