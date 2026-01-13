@@ -7,9 +7,8 @@ Handles creation, update, and deletion of schemas via the Databricks SDK.
 import time
 from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import SchemaInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
 from ..models import Schema
 from .base import BaseExecutor, ExecutionResult, OperationType
 

@@ -22,7 +22,6 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -167,7 +166,7 @@ def deploy_space(
         print(f"    Functions: {len(space.serialized_space.instructions.sql_functions)}")
         print(f"    Instructions: {len(space.serialized_space.instructions.text_instructions)}")
         if debug:
-            print(f"\n  Serialized space JSON:")
+            print("\n  Serialized space JSON:")
             print(space.get_serialized_space_json())
             print()
         if dry_run:
@@ -328,7 +327,7 @@ def main():
         return
 
     # Deploy mode
-    print(f"\nConnecting to workspace...")
+    print("\nConnecting to workspace...")
     client = get_workspace_client(host=args.workspace, profile=args.profile)
 
     warehouse_id = args.warehouse_id
@@ -357,10 +356,10 @@ def main():
         print(f"\n{'=' * 50}")
         print("IMPORTANT: Grant SPN access manually")
         print(f"{'=' * 50}")
-        print(f"The Genie Space permissions API is not yet available.")
-        print(f"For each space, grant access via UI:")
-        print(f"  1. Open the Genie Space")
-        print(f"  2. Click 'Share'")
+        print("The Genie Space permissions API is not yet available.")
+        print("For each space, grant access via UI:")
+        print("  1. Open the Genie Space")
+        print("  2. Click 'Share'")
         print(f"  3. Add '{GENIE_MANAGEMENT_SPN.name}' with CAN_EDIT permission")
 
 

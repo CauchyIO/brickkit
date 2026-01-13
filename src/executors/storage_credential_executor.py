@@ -5,13 +5,11 @@ Handles creation, update, and deletion of storage credentials (cloud authenticat
 """
 
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import StorageCredentialInfo
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
-    ResourceAlreadyExists,
     NotFound,
     PermissionDenied,
 )

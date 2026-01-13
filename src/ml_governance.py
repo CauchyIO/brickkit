@@ -8,25 +8,21 @@ rather than after production deployment.
 
 from __future__ import annotations
 import functools
-import inspect
 import json
 import logging
 import os
 import time
-import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import Run, Experiment
-from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.tracking import MlflowClient
-from pydantic import BaseModel, Field, field_validator, ValidationError
+from mlflow.models import infer_signature
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -427,7 +423,6 @@ def requires_approval(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             # Check for approval tags in current run
-            client = MlflowClient()
             run = mlflow.active_run()
             
             if run:
@@ -536,7 +531,7 @@ def data_lineage_tracking(
             # This would integrate with your data profiling tools
             mlflow.log_metric("dataset.row_count", 0)  # Placeholder
             mlflow.log_metric("dataset.column_count", 0)  # Placeholder
-        except:
+        except (AttributeError, TypeError):
             pass
         
         yield run
@@ -737,25 +732,26 @@ class GovernedMLTemplate:
     
     def _handle_validation_results(self, results: List[ValidationResult]) -> None:
         """Handle validation results based on policy."""
+        import warnings as warnings_module
         errors = [r for r in results if not r.passed and r.severity == "error"]
-        warnings = [r for r in results if not r.passed and r.severity == "warning"]
-        
+        warning_results = [r for r in results if not r.passed and r.severity == "warning"]
+
         # Log all results
         for result in results:
-            mlflow.log_metric(f"validation.{result.check_name}", 
+            mlflow.log_metric(f"validation.{result.check_name}",
                             1.0 if result.passed else 0.0)
-        
+
         # Handle based on tier
         if errors:
             if self.tier >= ModelTier.PRODUCTION:
                 raise GovernanceError(f"Validation failed: {[e.message for e in errors]}")
             else:
                 for error in errors:
-                    warnings.warn(f"Governance Error: {error.message}", UserWarning)
-        
-        if warnings:
-            for warning in warnings:
-                warnings.warn(f"Governance Warning: {warning.message}", UserWarning)
+                    warnings_module.warn(f"Governance Error: {error.message}", UserWarning)
+
+        if warning_results:
+            for warning in warning_results:
+                warnings_module.warn(f"Governance Warning: {warning.message}", UserWarning)
 
 
 # ============================================================================
@@ -788,18 +784,19 @@ def _infer_tag_value(tag_name: str) -> Optional[str]:
     return inferences.get(tag_name, f"missing_{tag_name}")
 
 
-def _handle_validation_results(results: List[ValidationResult], 
+def _handle_validation_results(results: List[ValidationResult],
                               policy: GovernancePolicy) -> None:
     """Handle validation results based on policy settings."""
+    import warnings as warnings_module
     errors = [r for r in results if not r.passed and r.severity == "error"]
-    warnings = [r for r in results if not r.passed and r.severity == "warning"]
-    
+    warning_results = [r for r in results if not r.passed and r.severity == "warning"]
+
     if errors and policy.tier >= ModelTier.PRODUCTION:
         error_msg = "\n".join([f"- {e.message}" for e in errors])
         raise GovernanceError(f"Governance validation failed:\n{error_msg}")
-    
-    for warning in warnings:
-        warnings.warn(warning.message, UserWarning)
+
+    for warning in warning_results:
+        warnings_module.warn(warning.message, UserWarning)
 
 
 # ============================================================================

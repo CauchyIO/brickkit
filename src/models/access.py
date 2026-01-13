@@ -8,11 +8,13 @@ teams, and access management.
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Set, TYPE_CHECKING
 from typing_extensions import Self
 
+if TYPE_CHECKING:
+    from .securables import Catalog, StorageCredential, ExternalLocation
+
 from pydantic import (
-    BaseModel,
     ConfigDict,
     Field,
     PrivateAttr,
@@ -23,7 +25,7 @@ from pydantic import (
 
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
 
-from .base import BaseGovernanceModel, BaseSecurable, DEFAULT_SECURABLE_OWNER, get_current_environment
+from .base import BaseGovernanceModel, BaseSecurable, get_current_environment
 from .enums import Environment, SecurableType, PrivilegeType, BindingType
 
 logger = logging.getLogger(__name__)

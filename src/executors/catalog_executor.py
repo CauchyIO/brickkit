@@ -4,18 +4,15 @@ Catalog executor for Unity Catalog operations.
 Handles creation, update, and deletion of catalogs via the Databricks SDK.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 import logging
 import time
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.catalog import CatalogInfo, IsolationMode as SDKIsolationMode
+from databricks.sdk.service.catalog import CatalogInfo
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
     ResourceAlreadyExists,
     PermissionDenied,
     NotFound,
-    BadRequest,
-    InvalidParameterValue,
 )
 from ..models import Catalog
 from ..models.enums import IsolationMode

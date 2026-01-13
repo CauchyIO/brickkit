@@ -4,11 +4,10 @@ Executor for managing catalog workspace bindings in Unity Catalog.
 Handles the association between catalogs and workspaces for ISOLATED catalogs.
 """
 
-from typing import List, Optional, Set
+from typing import List, Optional
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import ResourceDoesNotExist, PermissionDenied, NotFound
-from databricks.sdk.service.catalog import WorkspaceBinding
 
 from .base import BaseExecutor, ExecutionResult, ExecutionPlan, OperationType
 from ..models import Catalog, IsolationMode
@@ -115,7 +114,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                     operation=OperationType.UPDATE,
                     resource_type=self.resource_type,
                     resource_name=catalog.resolved_name,
-                    message=f"[DRY RUN] Would update workspace bindings",
+                    message="[DRY RUN] Would update workspace bindings",
                     changes=changes,
                     duration_seconds=time.time() - start_time
                 )

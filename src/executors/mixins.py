@@ -287,7 +287,7 @@ class WorkspaceBindingMixin:
                 return False
 
         except PermissionDenied:
-            logger.warning(f"Cannot verify bindings - permission denied")
+            logger.warning("Cannot verify bindings - permission denied")
             return False
 
 

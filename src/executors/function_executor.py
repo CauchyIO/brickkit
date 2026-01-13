@@ -7,10 +7,9 @@ Handles creation, update, and deletion of functions (UDFs, row filters, column m
 import time
 from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import FunctionInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
-from ..models import Function, FunctionType
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
+from ..models import Function
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)

@@ -7,9 +7,8 @@ Handles creation, update, and deletion of volumes (unstructured storage) via the
 import time
 from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import VolumeInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
 from ..models import Volume, VolumeType
 from .base import BaseExecutor, ExecutionResult, OperationType
 

@@ -7,7 +7,6 @@ Handles creation and management of Vector Search endpoints and indexes.
 import time
 import logging
 from typing import Union
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
     NotFound,

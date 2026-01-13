@@ -5,13 +5,12 @@ Handles assigning metastores to workspaces via the Databricks SDK.
 """
 
 import time
-from typing import Dict, Any, Optional
+from typing import Optional
 import logging
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import MetastoreAssignment
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
-from ..models import Metastore, Workspace, Environment
-from .base import BaseExecutor, ExecutionResult, OperationType
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
+from .base import ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message=f"Would assign metastore (dry run)"
+                    message="Would assign metastore (dry run)"
                 )
             
             # Check current assignment
@@ -115,7 +114,7 @@ class MetastoreAssignmentExecutor:
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
-                message=f"Assigned metastore successfully",
+                message="Assigned metastore successfully",
                 duration_seconds=duration
             )
             
@@ -154,7 +153,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message=f"Would unassign metastore (dry run)"
+                    message="Would unassign metastore (dry run)"
                 )
             
             # Check current assignment
@@ -183,7 +182,7 @@ class MetastoreAssignmentExecutor:
                 operation=OperationType.DELETE,
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
-                message=f"Unassigned metastore successfully",
+                message="Unassigned metastore successfully",
                 duration_seconds=duration
             )
             
@@ -223,7 +222,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.UPDATE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message=f"Would update default catalog (dry run)"
+                    message="Would update default catalog (dry run)"
                 )
             
             # Check current assignment

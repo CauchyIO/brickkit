@@ -8,6 +8,9 @@ single interface for convenience.
 IMPORTANT: Some models are deprecated. Use references.py for lightweight governance.
 """
 
+# Import typing for model_rebuild() forward reference resolution
+from typing import List, Dict, Optional, Any
+
 # Import all enums
 from .enums import (
     SecurableType,
@@ -95,6 +98,15 @@ from .sharing import (
 # Principal and Privilege are in access module
 from .access import Principal, Privilege
 
+# Import table models with tag support
+from .table_models import (
+    Column,
+    Table as GoverningTable,  # Renamed to avoid conflict with deprecated Table
+    SCD2_COLUMNS,
+    BaseColumn,  # Backward compatibility alias
+    BaseTable,   # Backward compatibility alias
+)
+
 # Re-export everything
 __all__ = [
     # Enums
@@ -171,9 +183,22 @@ __all__ = [
     'validate_privilege_dependencies',
     'ALL_PRIVILEGES_EXPANSION',
     'PRIVILEGE_DEPENDENCIES',
+
+    # Table models with tag support
+    'Column',
+    'GoverningTable',
+    'SCD2_COLUMNS',
+    'BaseColumn',
+    'BaseTable',
 ]
 
 # Rebuild models to resolve forward references
 # This is needed because Catalog references TableReference, etc.
 Catalog.model_rebuild()
 Schema.model_rebuild()
+TableReference.model_rebuild()
+VolumeReference.model_rebuild()
+ModelReference.model_rebuild()
+FunctionReference.model_rebuild()
+Column.model_rebuild()
+GoverningTable.model_rebuild()

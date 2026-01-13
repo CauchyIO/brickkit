@@ -16,7 +16,7 @@ from enum import Enum
 from pydantic import Field, field_validator, computed_field
 
 from .base import BaseGovernanceModel, BaseSecurable, DEFAULT_SECURABLE_OWNER, get_current_environment
-from .enums import SecurableType, PrivilegeType
+from .enums import SecurableType
 from .access import Privilege, Principal
 
 

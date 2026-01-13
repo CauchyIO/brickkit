@@ -6,7 +6,6 @@ Handles creation and update of Genie Spaces via the Databricks SDK.
 
 import time
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
     NotFound,

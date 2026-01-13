@@ -35,7 +35,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set, TypeVar
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from models.base import BaseSecurable, Tag
+    from models.base import BaseSecurable
     from models.enums import Environment, SecurableType
 
 T = TypeVar('T', bound='BaseSecurable')

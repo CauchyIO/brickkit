@@ -13,7 +13,7 @@ It also includes supporting models like ColumnInfo.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from typing_extensions import Self
 
 if TYPE_CHECKING:
@@ -36,10 +36,9 @@ from .base import (
 from .enums import (
     Environment, SecurableType, PrivilegeType,
     TableType, VolumeType, FunctionType, ConnectionType,
-    IsolationMode, BindingType,
-    ALL_PRIVILEGES_EXPANSION, validate_privilege_dependencies
+    IsolationMode, ALL_PRIVILEGES_EXPANSION
 )
-from .access import Principal, Privilege, AccessPolicy, Team
+from .access import Principal, Privilege, AccessPolicy, Team, Workspace
 
 # Try importing FlexibleFieldMixin
 try:
@@ -1235,10 +1234,7 @@ class Table(BaseSecurable):
                     # Last resort - pass as is
                     sdk_columns.append(col)
         
-        from databricks.sdk.service.catalog import DataSourceFormat, TableType as SDKTableType
-
-        # Convert our TableType enum to SDK's TableType enum
-        sdk_table_type = SDKTableType(self.table_type.value)
+        from databricks.sdk.service.catalog import DataSourceFormat
 
         params = {
             "name": self.name,
@@ -1433,7 +1429,7 @@ class Table(BaseSecurable):
         
         # Apply clustering if specified (requires separate OPTIMIZE)
         if cluster_by:
-            spark.sql(f"OPTIMIZE {self.fqdn} ZORDER BY ({', '.join(cluster_by)})")
+            df.sparkSession.sql(f"OPTIMIZE {self.fqdn} ZORDER BY ({', '.join(cluster_by)})")
     
     def upsert_scd2(
         self,
@@ -1673,7 +1669,7 @@ class Table(BaseSecurable):
             Spark StructType matching table definition
         """
         from pyspark.sql.types import StructType, StructField, StringType, IntegerType, \
-            DoubleType, BooleanType, DateType, TimestampType, DecimalType, ArrayType, MapType
+            DoubleType, BooleanType, DateType, TimestampType, DecimalType
         
         # Type mapping from SQL to Spark
         type_map = {
@@ -2403,15 +2399,7 @@ class Catalog(BaseSecurable):
     def get_level_1_name(self) -> str:
         """Return the level-1 name (resolved)."""
         return self.resolved_name
-    
-    
-    def to_sdk_update_params(self) -> Dict[str, Any]:
-        """Convert to SDK update parameters (name is immutable)."""
-        return {
-            "name": self.resolved_name,
-            "comment": self.comment,
-            "isolation_mode": self.isolation_mode.value
-        }
+
 
 # =============================================================================
 # METASTORE

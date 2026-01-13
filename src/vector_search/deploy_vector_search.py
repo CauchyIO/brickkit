@@ -1,14 +1,12 @@
 import time
-from typing import Literal
 
 from databricks.vector_search.client import VectorSearchClient
-from pydantic import BaseModel, computed_field
 
 
 def create_endpoint_if_not_exists(client: VectorSearchClient, endpoint_name: str) -> None:
     """Create the vector search endpoint if it doesn't exist."""
     try:
-        endpoint = client.get_endpoint(endpoint_name)
+        client.get_endpoint(endpoint_name)
         print(f"Endpoint '{endpoint_name}' already exists")
     except Exception as e:
         if "RESOURCE_DOES_NOT_EXIST" in str(e) or "NOT_FOUND" in str(e):
@@ -47,7 +45,7 @@ def create_index_if_not_exists(
 ) -> None:
     """Create a vector search index if it doesn't exist."""
     try:
-        index = client.get_index(endpoint_name=endpoint_name, index_name=index_name)
+        client.get_index(endpoint_name=endpoint_name, index_name=index_name)
         print(f"Index '{index_name}' already exists")
     except Exception as e:
         if "RESOURCE_DOES_NOT_EXIST" in str(e) or "NOT_FOUND" in str(e):
@@ -66,15 +64,17 @@ def create_index_if_not_exists(
             raise e
 
 
-for index_config in config.indices:
-    create_index_if_not_exists(
-        client=client,
-        endpoint_name=config.endpoint_name,
-        index_name=config.get_full_index_name(index_config),
-        source_table=config.get_full_table_name(index_config.source_table),
-        primary_key=index_config.primary_key,
-        embedding_column=index_config.embedding_column,
-        embedding_model=index_config.embedding_model,
-        pipeline_type=index_config.pipeline_type,
-    )
-    print()
+def deploy_indices(client: VectorSearchClient, config) -> None:
+    """Deploy all indices from config."""
+    for index_config in config.indices:
+        create_index_if_not_exists(
+            client=client,
+            endpoint_name=config.endpoint_name,
+            index_name=config.get_full_index_name(index_config),
+            source_table=config.get_full_table_name(index_config.source_table),
+            primary_key=index_config.primary_key,
+            embedding_column=index_config.embedding_column,
+            embedding_model=index_config.embedding_model,
+            pipeline_type=index_config.pipeline_type,
+        )
+        print()

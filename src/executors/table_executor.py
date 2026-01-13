@@ -7,9 +7,8 @@ Handles creation, update, and deletion of tables via the Databricks SDK.
 import time
 from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import TableInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
 from ..models import Table
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -77,16 +76,16 @@ class TableExecutor(BaseExecutor[Table]):
                         conflict_match = re.search(r"Conflicting tables/volumes: ([^.]+\.[^.]+\.[^.]+)", error_msg)
                         if conflict_match:
                             conflicting_table = conflict_match.group(1)
-                            logger.error(f"Storage location conflict detected!")
+                            logger.error("Storage location conflict detected!")
                             logger.error(f"  Attempting to create: {resource_name}")
                             logger.error(f"  Conflicts with: {conflicting_table}")
-                            logger.error(f"  Resolution: Either drop the conflicting table or use a different storage location")
+                            logger.error("  Resolution: Either drop the conflicting table or use a different storage location")
 
                             # If it's the same table in a differently named catalog (e.g., mixed or double suffix), skip
                             if ("_dev_dev" in conflicting_table or "_prd_prd" in conflicting_table or
                                 "_prd_dev" in conflicting_table or "_dev_prd" in conflicting_table):
-                                logger.warning(f"Detected mixed/double environment suffix in conflicting table, likely from previous test run")
-                                logger.info(f"Skipping table creation due to unresolvable conflict")
+                                logger.warning("Detected mixed/double environment suffix in conflicting table, likely from previous test run")
+                                logger.info("Skipping table creation due to unresolvable conflict")
                                 duration = time.time() - start_time
                                 return ExecutionResult(
                                     success=True,

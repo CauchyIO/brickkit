@@ -7,11 +7,11 @@ idempotency, dry-run support, rollback capabilities, and governance validation.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Generic
 from enum import Enum
 import logging
 import time
-from datetime import datetime
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
@@ -29,7 +29,7 @@ from databricks.sdk.errors import (
 )
 
 if TYPE_CHECKING:
-    from ..brickkit.defaults import GovernanceDefaults
+    from brickkit.defaults import GovernanceDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ class BaseExecutor(ABC, Generic[T]):
         self.continue_on_error = continue_on_error
         self.governance_defaults = governance_defaults
         self.results: List[ExecutionResult] = []
-        self._rollback_stack: List[callable] = []
+        self._rollback_stack: List[Callable[[], None]] = []
     
     @abstractmethod
     def create(self, resource: T) -> ExecutionResult:
@@ -269,7 +269,7 @@ class BaseExecutor(ABC, Generic[T]):
         
         return plan
     
-    def execute_with_retry(self, operation: callable, *args, **kwargs) -> Any:
+    def execute_with_retry(self, operation: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """
         Execute an operation with retry logic.
         
@@ -292,7 +292,7 @@ class BaseExecutor(ABC, Generic[T]):
                 return result
             except (ResourceDoesNotExist, ResourceAlreadyExists, PermissionDenied, 
                     InvalidParameterValue, NotFound, AlreadyExists, BadRequest,
-                    Unauthenticated, NotImplemented) as e:
+                    Unauthenticated, NotImplemented):
                 # These are not transient errors - don't retry
                 raise
             except (TemporarilyUnavailable, InternalError, ResourceExhausted) as e:
@@ -307,7 +307,7 @@ class BaseExecutor(ABC, Generic[T]):
                     time.sleep(wait_time)
                 else:
                     logger.error(f"All {self.max_retries} attempts failed")
-            except Exception as e:
+            except Exception:
                 # Other exceptions - don't retry but capture for re-raising
                 raise
         
@@ -450,7 +450,7 @@ class BaseExecutor(ABC, Generic[T]):
         failed = sum(1 for r in self.results if not r.success)
 
         lines = [
-            f"Execution Summary:",
+            "Execution Summary:",
             f"  Total operations: {len(self.results)}",
             f"  Successful: {successful}",
             f"  Failed: {failed}"

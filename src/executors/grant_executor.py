@@ -5,18 +5,18 @@ Handles granting and revoking privileges via the Databricks SDK.
 """
 
 import time
-from typing import Dict, List, Set, Tuple, Any, Optional
+from typing import Dict, List, Set, Tuple, Optional
 from collections import defaultdict
 import logging
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.catalog import PermissionsChange, PrivilegeAssignment
+from databricks.sdk.service.catalog import PermissionsChange
 from databricks.sdk.errors import (
     ResourceDoesNotExist,
     NotFound,
     PermissionDenied,
     BadRequest,
 )
-from ..models import Privilege, SecurableType, PrivilegeType
+from ..models import Privilege, SecurableType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)

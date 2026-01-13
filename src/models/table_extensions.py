@@ -18,7 +18,6 @@ import warnings
 from .deprecated import Table  # Using deprecated model for backward compatibility
 from .securables import ColumnInfo
 from .enums import TableType
-from .enums import Environment
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class ETLTable(Table):
             if get_ipython and 'dbutils' in dir(get_ipython.user_ns):
                 # We're in a Databricks notebook
                 return TableCreationMode.SQL_DDL
-        except:
+        except (ImportError, AttributeError):
             pass
         
         # Check if we're in a Databricks job (spark session available)
@@ -79,7 +78,7 @@ class ETLTable(Table):
             spark = SparkSession.getActiveSession()
             if spark:
                 return TableCreationMode.SQL_DDL
-        except:
+        except (ImportError, AttributeError):
             pass
         
         # Default to SDK for external orchestration
@@ -211,7 +210,7 @@ class ETLTable(Table):
             
             # Add header comment
             script_parts.append(f"-- Create table: {self.fqdn}")
-            script_parts.append(f"-- Generated from ETLTable model")
+            script_parts.append("-- Generated from ETLTable model")
             script_parts.append("")
             
             # Add DDL

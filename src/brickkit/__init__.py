@@ -141,7 +141,7 @@ from vector_search.models import (
 # =============================================================================
 
 try:
-    from models.ml_models import (
+    from models.ml_models import (  # noqa: F401
         RegisteredModel,
         ModelVersion,
         ServiceCredential,
@@ -155,7 +155,7 @@ except ImportError:
 # =============================================================================
 
 try:
-    from models.sharing import (
+    from models.sharing import (  # noqa: F401
         Provider,
         Recipient,
         Share,

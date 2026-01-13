@@ -7,9 +7,8 @@ Handles creation, update, and deletion of connections (external database connect
 import time
 from typing import Dict, Any
 import logging
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import ConnectionInfo
-from databricks.sdk.errors import ResourceDoesNotExist, ResourceAlreadyExists, NotFound, PermissionDenied
+from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
 from ..models import Connection, ConnectionType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
@@ -144,8 +143,8 @@ class ConnectionExecutor(BaseExecutor[Connection]):
             
             if 'host' in changes or 'port' in changes:
                 logger.warning(
-                    f"Connection endpoint (host/port) changes may affect existing queries. "
-                    f"Ensure the new endpoint is compatible."
+                    "Connection endpoint (host/port) changes may affect existing queries. "
+                    "Ensure the new endpoint is compatible."
                 )
             
             if changes:
