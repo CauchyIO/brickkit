@@ -1,14 +1,77 @@
 [project]
 name = "brickkit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Building blocks for Databricks Unity Catalog governance"
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Casper" }]
+keywords = [
+    "databricks",
+    "unity-catalog",
+    "governance",
+    "data-governance",
+    "pydantic",
+    "sdk",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = [
-    "ty>=0.0.11",
+    "pydantic>=2.0",
+    "databricks-sdk>=0.20.0",
+    "claudetracing>=0.2.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "claudetracing>=0.2.0",
+    "ruff>=0.8",
+    "ty>=0.0.11",
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
 ]
+
+[project.urls]
+# Uncomment when repo is public
+# Homepage = "https://github.com/your-org/brickkit"
+# Repository = "https://github.com/your-org/brickkit"
+# Issues = "https://github.com/your-org/brickkit/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/brickkit"]
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "ty>=0.0.11",
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

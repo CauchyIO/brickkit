@@ -35,8 +35,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Set, TypeVar
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from models.base import BaseSecurable
-    from models.enums import Environment, SecurableType
+    from brickkit.models.base import BaseSecurable
+    from brickkit.models.enums import Environment, SecurableType
 
 T = TypeVar('T', bound='BaseSecurable')
 
@@ -208,7 +208,7 @@ class GovernanceDefaults(ABC):
             The modified securable (for method chaining)
         """
         # Import here to avoid circular dependency
-        from models.base import Tag
+        from brickkit.models.base import Tag
 
         # Get default tags for this securable type
         default_tags = self.get_default_tags_for(securable.securable_type, environment)

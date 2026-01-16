@@ -48,7 +48,7 @@ from .defaults import (
 )
 
 if TYPE_CHECKING:
-    from models.enums import Environment, SecurableType
+    from brickkit.models.enums import Environment, SecurableType
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ class Convention(BaseModel):
         Returns:
             The modified securable (for method chaining)
         """
-        from models.base import Tag
+        from brickkit.models.base import Tag
 
         logger.debug(f"Applying convention '{self.name}' to {securable.securable_type.value} '{getattr(securable, 'name', 'unknown')}'")
 

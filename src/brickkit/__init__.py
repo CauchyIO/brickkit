@@ -50,108 +50,101 @@ Quick Start:
     c.grant(Principal(name="analysts"), AccessPolicy.READER())
 """
 
+__version__ = "0.1.0"
+
 # =============================================================================
 # Core Governance
 # =============================================================================
-
-from brickkit.defaults import (
-    GovernanceDefaults,
-    TagDefault,
-    RequiredTag,
-    NamingConvention,
-    EmptyDefaults,
-    StandardDefaults,
-)
-
-from brickkit.manifest import (
-    ProjectManifest,
-    ManifestBasedDefaults,
-    load_project_manifest,
-)
 
 from brickkit.convention import (
     Convention,
     ConventionAsDefaults,
 )
+from brickkit.defaults import (
+    EmptyDefaults,
+    GovernanceDefaults,
+    NamingConvention,
+    RequiredTag,
+    StandardDefaults,
+    TagDefault,
+)
+from brickkit.manifest import (
+    ManifestBasedDefaults,
+    ProjectManifest,
+    load_project_manifest,
+)
 
 # =============================================================================
 # Base Classes and Utilities
 # =============================================================================
-
-from models.base import (
+from brickkit.models.base import (
     BaseGovernanceModel,
     BaseSecurable,
     Tag,
     get_current_environment,
 )
-
-from models.enums import (
-    SecurableType,
-    PrivilegeType,
-    Environment,
+from brickkit.models.catalogs import Catalog
+from brickkit.models.connections import Connection
+from brickkit.models.enums import (
     BindingType,
+    ConnectionType,
+    Environment,
+    FunctionType,
     IsolationMode,
+    PrivilegeType,
+    SecurableType,
     TableType,
     VolumeType,
-    FunctionType,
-    ConnectionType,
+)
+from brickkit.models.external_locations import ExternalLocation
+
+# =============================================================================
+# AI/ML Securables
+# =============================================================================
+from brickkit.models.genie import (
+    ColumnConfig,
+    DataSources,
+    GenieSpace,
+    GenieSpaceConfig,  # Backward compatibility
+    Instructions,
+    JoinSpec,
+    SerializedSpace,
+    SqlFunction,
+    TableDataSource,
+    TextInstruction,
+    quick_function,
+    quick_table,
 )
 
 # =============================================================================
 # Access Control
 # =============================================================================
-
-from models.grants import (
+from brickkit.models.grants import (
+    AccessPolicy,
     Principal,
     Privilege,
-    AccessPolicy,
 )
 
 # =============================================================================
 # Unity Catalog Securables
 # =============================================================================
-
-from models.metastores import Metastore
-from models.catalogs import Catalog
-from models.schemas import Schema
-from models.storage_credentials import StorageCredential
-from models.external_locations import ExternalLocation
-from models.connections import Connection
-
-from models.references import (
-    TableReference,
-    VolumeReference,
+from brickkit.models.metastores import Metastore
+from brickkit.models.references import (
     FunctionReference,
     ModelReference,
+    TableReference,
+    VolumeReference,
 )
-
-# =============================================================================
-# AI/ML Securables
-# =============================================================================
-
-from models.genie import (
-    GenieSpace,
-    GenieSpaceConfig,  # Backward compatibility
-    SerializedSpace,
-    DataSources,
-    TableDataSource,
-    ColumnConfig,
-    Instructions,
-    TextInstruction,
-    SqlFunction,
-    JoinSpec,
-    quick_table,
-    quick_function,
-)
-
-from models.vector_search import (
+from brickkit.models.schemas import Schema
+from brickkit.models.storage_credentials import StorageCredential
+from brickkit.models.vector_search import (
+    VectorEndpointType,
+    VectorIndexType,
+    VectorSearchConfig,  # Backward compatibility
     VectorSearchEndpoint,
     VectorSearchIndex,
-    VectorIndexType,
-    VectorSimilarityMetric,
-    VectorEndpointType,
-    VectorSearchConfig,  # Backward compatibility
     VectorSearchIndexConfig,  # Backward compatibility
+    VectorSimilarityMetric,
 )
 
 # =============================================================================
@@ -159,9 +152,9 @@ from models.vector_search import (
 # =============================================================================
 
 try:
-    from models.ml_models import (  # noqa: F401
-        RegisteredModel,
+    from brickkit.models.ml_models import (  # noqa: F401
         ModelVersion,
+        RegisteredModel,
         ServiceCredential,
     )
 except ImportError:
@@ -173,7 +166,7 @@ except ImportError:
 # =============================================================================
 
 try:
-    from models.sharing import (  # noqa: F401
+    from brickkit.models.sharing import (  # noqa: F401
         Provider,
         Recipient,
         Share,
@@ -184,6 +177,8 @@ except ImportError:
 
 
 __all__ = [
+    # Version
+    "__version__",
     # Governance Defaults
     "GovernanceDefaults",
     "TagDefault",
