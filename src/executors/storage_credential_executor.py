@@ -13,7 +13,7 @@ from databricks.sdk.errors import (
     NotFound,
     PermissionDenied,
 )
-from ..models import StorageCredential
+from models import StorageCredential
 from .base import BaseExecutor, ExecutionResult, OperationType
 from .mixins import WorkspaceBindingMixin
 
@@ -27,10 +27,10 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
         """Get the resource type."""
         return "STORAGE_CREDENTIAL"
     
-    def exists(self, credential: StorageCredential) -> bool:
+    def exists(self, resource: StorageCredential) -> bool:
         """Check if a storage credential exists."""
         try:
-            self.client.storage_credentials.get(credential.resolved_name)
+            self.client.storage_credentials.get(resource.resolved_name)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -38,9 +38,9 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
             logger.error(f"Permission denied checking storage credential existence: {e}")
             raise
     
-    def create(self, credential: StorageCredential) -> ExecutionResult:
+    def create(self, resource: StorageCredential) -> ExecutionResult:
         """
-        Create a new storage credential.
+        Create a new storage resource.
         
         Storage credentials provide authentication to cloud storage services:
         - AWS: IAM roles
@@ -48,7 +48,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
         - GCP: Service account keys
         """
         start_time = time.time()
-        resource_name = credential.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             if self.dry_run:
@@ -61,8 +61,8 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     message="Would be created (dry run)"
                 )
             
-            params = credential.to_sdk_create_params()
-            cloud_provider = "AWS" if credential.aws_iam_role else "Azure" if credential.azure_service_principal else "GCP" if credential.gcp_service_account_key else "Unknown"
+            params = resource.to_sdk_create_params()
+            cloud_provider = "AWS" if resource.aws_iam_role else "Azure" if resource.azure_service_principal else "GCP" if resource.gcp_service_account_key else "Unknown"
 
             logger.info(f"Creating storage credential {resource_name} ({cloud_provider})")
             self.execute_with_retry(self.client.storage_credentials.create, **params)
@@ -72,10 +72,10 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
             )
 
             # Apply workspace bindings if specified
-            if credential.workspace_ids:
+            if resource.workspace_ids:
                 self.apply_workspace_bindings(
                     resource_name=resource_name,
-                    workspace_ids=[int(ws_id) for ws_id in credential.workspace_ids],
+                    workspace_ids=[int(ws_id) for ws_id in resource.workspace_ids],
                     securable_type="storage_credential"
                 )
 
@@ -92,19 +92,19 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, credential: StorageCredential) -> ExecutionResult:
+    def update(self, resource: StorageCredential) -> ExecutionResult:
         """
-        Update an existing storage credential.
+        Update an existing storage resource.
         
         Note: Credential details (IAM role, service principal) can typically be updated,
-        but this may affect all external locations using this credential.
+        but this may affect all external locations using this resource.
         """
         start_time = time.time()
-        resource_name = credential.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             existing = self.client.storage_credentials.get(resource_name)
-            changes = self._get_credential_changes(existing, credential)
+            changes = self._get_credential_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -129,7 +129,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
             if 'aws_iam_role' in changes or 'azure_service_principal' in changes:
                 logger.warning(f"Updating auth for {resource_name} - affects dependent external locations")
 
-            params = credential.to_sdk_update_params()
+            params = resource.to_sdk_update_params()
             logger.info(f"Updating storage credential {resource_name}")
             self.execute_with_retry(self.client.storage_credentials.update, **params)
             
@@ -147,17 +147,17 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, credential: StorageCredential) -> ExecutionResult:
+    def delete(self, resource: StorageCredential) -> ExecutionResult:
         """
-        Delete a storage credential.
+        Delete a storage resource.
         
-        Warning: Cannot delete if external locations are using this credential.
+        Warning: Cannot delete if external locations are using this resource.
         """
         start_time = time.time()
-        resource_name = credential.resolved_name
+        resource_name = resource.resolved_name
         
         try:
-            if not self.exists(credential):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,

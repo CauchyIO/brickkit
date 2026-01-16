@@ -226,7 +226,7 @@ class BaseSecurable(BaseGovernanceModel):
             Created Privilege object
         """
         # Import here to avoid circular dependency
-        from .access import Privilege
+        from .grants import Privilege
         return Privilege(
             level_1=self.get_level_1_name(),
             level_2=self.get_level_2_name() if hasattr(self, 'get_level_2_name') else None,
@@ -270,6 +270,40 @@ class BaseSecurable(BaseGovernanceModel):
         """
         defaults.apply_to(self, get_current_environment())
         return self
+
+    def with_convention(self, convention: Any) -> "BaseSecurable":
+        """
+        Apply a Convention to this securable and propagate to children.
+
+        Applies convention defaults (tags, etc.) to this securable and
+        recursively to all children. Returns self for method chaining.
+
+        Args:
+            convention: Convention instance with governance rules
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            catalog = Catalog(name="analytics").with_convention(my_convention)
+        """
+        env = get_current_environment()
+        convention.apply_to(self, env)
+        self._propagate_convention(convention, env)
+        return self
+
+    def _propagate_convention(self, convention: Any, env: "Environment") -> None:
+        """
+        Propagate convention to child securables.
+
+        Override in container securables (Catalog, Schema) to propagate
+        to children.
+
+        Args:
+            convention: The convention to propagate
+            env: Current environment
+        """
+        pass  # Default: no children to propagate to
 
     def validate_governance(self, defaults: Any = None) -> List[str]:
         """

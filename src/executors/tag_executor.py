@@ -18,7 +18,7 @@ from databricks.sdk.errors import (
     BadRequest,
 )
 
-from ..models.base import Tag
+from models.base import Tag
 
 logger = logging.getLogger(__name__)
 

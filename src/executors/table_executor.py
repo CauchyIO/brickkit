@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk.service.catalog import TableInfo
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
-from ..models import Table
+from models import Table
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,10 @@ class TableExecutor(BaseExecutor[Table]):
         """Get the resource type."""
         return "TABLE"
     
-    def exists(self, table: Table) -> bool:
+    def exists(self, resource: Table) -> bool:
         """Check if a table exists."""
         try:
-            self.client.tables.get(table.fqdn)
+            self.client.tables.get(resource.fqdn)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -33,10 +33,10 @@ class TableExecutor(BaseExecutor[Table]):
             logger.error(f"Permission denied checking table existence: {e}")
             raise
     
-    def create(self, table: Table) -> ExecutionResult:
-        """Create a new table."""
+    def create(self, resource: Table) -> ExecutionResult:
+        """Create a new resource."""
         start_time = time.time()
-        resource_name = table.fqdn
+        resource_name = resource.fqdn
         
         try:
             if self.dry_run:
@@ -51,17 +51,17 @@ class TableExecutor(BaseExecutor[Table]):
             
             # Try SDK API first
             try:
-                params = table.to_sdk_create_params()
+                params = resource.to_sdk_create_params()
                 logger.info(f"Creating table {resource_name} via SDK API")
                 self.execute_with_retry(self.client.tables.create, **params)
 
                 # Set comment via update if needed
-                if table.comment:
-                    logger.debug(f"Setting table comment: {table.comment}")
+                if resource.comment:
+                    logger.debug(f"Setting table comment: {resource.comment}")
                     self.execute_with_retry(
                         self.client.tables.update,
-                        full_name=f"{table.resolved_catalog_name}.{table.schema_name}.{table.name}",
-                        comment=table.comment
+                        full_name=f"{resource.resolved_catalog_name}.{resource.schema_name}.{resource.name}",
+                        comment=resource.comment
                     )
 
                 created_via = "SDK API"
@@ -97,7 +97,7 @@ class TableExecutor(BaseExecutor[Table]):
                                 )
 
                         # Check if the table exists at the expected location
-                        if self.exists(table):
+                        if self.exists(resource):
                             logger.info(f"Table {resource_name} already exists, treating as success")
                             duration = time.time() - start_time
                             return ExecutionResult(
@@ -112,7 +112,7 @@ class TableExecutor(BaseExecutor[Table]):
                     logger.info(f"SDK API failed with error ({error_msg[:100]}...), falling back to SQL DDL")
                     
                     # Use SQL DDL approach
-                    ddl = table.to_sql_ddl(if_not_exists=True)
+                    ddl = resource.to_sql_ddl(if_not_exists=True)
                     logger.info(f"Creating table {resource_name} via SQL DDL")
                     
                     # Execute SQL using the workspace client's SQL execution
@@ -131,8 +131,8 @@ class TableExecutor(BaseExecutor[Table]):
                     response = self.client.statement_execution.execute_statement(
                         warehouse_id=warehouse_id,
                         statement=ddl,
-                        catalog=table.resolved_catalog_name if hasattr(table, 'resolved_catalog_name') else None,
-                        schema=table.schema_name
+                        catalog=resource.resolved_catalog_name if hasattr(resource, 'resolved_catalog_name') else None,
+                        schema=resource.schema_name
                     )
                     
                     # Wait for statement to complete
@@ -161,14 +161,14 @@ class TableExecutor(BaseExecutor[Table]):
                     raise sdk_error
             
             # Apply row filter if specified
-            if table.row_filter:
+            if resource.row_filter:
                 logger.info(f"Applying row filter to {resource_name}")
                 # Note: Row filter is set via ALTER TABLE in SQL, not SDK directly
                 # This would need to be done via SQL execution
             
             # Apply column masks if specified
-            if table.column_masks:
-                for column, function in table.column_masks.items():
+            if resource.column_masks:
+                for column, function in resource.column_masks.items():
                     logger.info(f"Applying column mask to {resource_name}.{column}")
                     # Note: Column masks are set via ALTER TABLE in SQL
             
@@ -189,14 +189,14 @@ class TableExecutor(BaseExecutor[Table]):
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, table: Table) -> ExecutionResult:
-        """Update an existing table."""
+    def update(self, resource: Table) -> ExecutionResult:
+        """Update an existing resource."""
         start_time = time.time()
-        resource_name = table.fqdn
+        resource_name = resource.fqdn
         
         try:
             existing = self.client.tables.get(resource_name)
-            changes = self._get_table_changes(existing, table)
+            changes = self._get_table_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -218,7 +218,7 @@ class TableExecutor(BaseExecutor[Table]):
                     changes=changes
                 )
             
-            params = table.to_sdk_update_params()
+            params = resource.to_sdk_update_params()
             logger.info(f"Updating table {resource_name}: {changes}")
             self.execute_with_retry(self.client.tables.update, **params)
             
@@ -236,13 +236,13 @@ class TableExecutor(BaseExecutor[Table]):
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, table: Table) -> ExecutionResult:
-        """Delete a table."""
+    def delete(self, resource: Table) -> ExecutionResult:
+        """Delete a resource."""
         start_time = time.time()
-        resource_name = table.fqdn
+        resource_name = resource.fqdn
         
         try:
-            if not self.exists(table):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,

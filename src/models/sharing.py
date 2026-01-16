@@ -12,8 +12,8 @@ from datetime import datetime
 
 from .base import BaseSecurable, BaseModel, get_current_environment, DEFAULT_SECURABLE_OWNER
 from .references import TableReference, VolumeReference, ModelReference
-from .securables import Schema
-from .access import Principal
+from .schemas import Schema
+from .grants import Principal
 from .enums import SecurableType
 
 

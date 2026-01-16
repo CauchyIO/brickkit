@@ -6,7 +6,8 @@ This module contains Pydantic models for machine learning assets in Unity Catalo
 - ModelVersion: Specific version of a model (Level 4 - under RegisteredModel)
 - ServiceCredential: API credentials for AI services (Level 1)
 - ModelServingEndpoint: Production model deployment endpoints
-- VectorSearchIndex: Vector indexes for similarity search
+
+Note: VectorSearchIndex and VectorSearchEndpoint have been moved to models.vector_search.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from pydantic import Field, field_validator, computed_field
 
 from .base import BaseGovernanceModel, BaseSecurable, DEFAULT_SECURABLE_OWNER, get_current_environment
 from .enums import SecurableType
-from .access import Privilege, Principal
+from .grants import Privilege, Principal
 
 
 class ModelVersionStatus(str, Enum):
@@ -704,125 +705,3 @@ class ModelServingEndpoint(BaseGovernanceModel):
         }
 
 
-class VectorIndexType(str, Enum):
-    """Type of vector index."""
-    DELTA_SYNC = "DELTA_SYNC"  # Auto-sync from Delta table
-    DIRECT_ACCESS = "DIRECT_ACCESS"  # Direct vector operations
-
-
-class VectorSimilarityMetric(str, Enum):
-    """Similarity metric for vector search."""
-    COSINE = "COSINE"
-    DOT_PRODUCT = "DOT_PRODUCT"
-    EUCLIDEAN = "EUCLIDEAN"
-
-
-class VectorSearchIndex(BaseGovernanceModel):
-    """
-    Represents a vector search index for similarity search and RAG applications.
-    
-    Vector indexes enable efficient similarity search over embeddings stored
-    in Delta tables or directly managed vectors.
-    """
-    
-    name: str = Field(..., description="Index name")
-    
-    @computed_field
-    @property
-    def resolved_name(self) -> str:
-        """Return name with environment suffix for namespacing."""
-        env = get_current_environment()
-        return f"{self.name}_{env.value.lower()}"
-    
-    @computed_field
-    @property
-    def name_with_env(self) -> str:
-        """Alias for resolved_name for consistency."""
-        return self.resolved_name
-    
-    # Endpoint configuration
-    endpoint_name: str = Field(
-        ...,
-        description="Name of vector search endpoint"
-    )
-    
-    # Index configuration
-    index_type: VectorIndexType = Field(
-        VectorIndexType.DELTA_SYNC,
-        description="Type of vector index"
-    )
-    
-    # Source configuration for DELTA_SYNC
-    source_table_fqdn: Optional[str] = Field(
-        None,
-        description="Full name of source Delta table (for DELTA_SYNC)"
-    )
-    
-    primary_key: str = Field(
-        "id",
-        description="Primary key column name"
-    )
-    
-    # Embedding configuration
-    embedding_dimension: Optional[int] = Field(
-        None,
-        description="Dimension of embedding vectors"
-    )
-    
-    embedding_vector_column: Optional[str] = Field(
-        None,
-        description="Column containing embedding vectors"
-    )
-    
-    # Columns to sync (for DELTA_SYNC)
-    sync_columns: List[str] = Field(
-        default_factory=list,
-        description="Additional columns to sync from source table"
-    )
-    
-    # Search configuration
-    similarity_metric: VectorSimilarityMetric = Field(
-        VectorSimilarityMetric.COSINE,
-        description="Similarity metric for search"
-    )
-    
-    # Tracking
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    creator: Optional[str] = None
-    
-    @field_validator('source_table_fqdn')
-    def validate_source_table(cls, v: Optional[str], info: Any) -> Optional[str]:
-        """Validate source table is required for DELTA_SYNC."""
-        if info.data.get('index_type') == VectorIndexType.DELTA_SYNC and not v:
-            raise ValueError("source_table_fqdn is required for DELTA_SYNC index type")
-        return v
-    
-    def to_sdk_create_params(self) -> Dict[str, Any]:
-        """Convert to SDK parameters for index creation."""
-        # Add environment suffix to endpoint name too
-        env = get_current_environment()
-        endpoint_name_with_env = f"{self.endpoint_name}_{env.value.lower()}"
-        
-        params = {
-            "name": self.resolved_name,
-            "endpoint_name": endpoint_name_with_env,
-            "index_type": self.index_type.value,
-            "primary_key": self.primary_key,
-        }
-        
-        if self.index_type == VectorIndexType.DELTA_SYNC:
-            params["delta_sync_index_spec"] = {
-                "source_table": self.source_table_fqdn,
-                "embedding_vector_columns": [
-                    {
-                        "name": self.embedding_vector_column,
-                        "dimension": self.embedding_dimension
-                    }
-                ]
-            }
-            
-            if self.sync_columns:
-                params["delta_sync_index_spec"]["columns_to_sync"] = self.sync_columns
-        
-        return params

@@ -16,7 +16,7 @@ from databricks.sdk.errors import (
     PermissionDenied,
     BadRequest,
 )
-from ..models import Privilege, SecurableType
+from models import Privilege, SecurableType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)

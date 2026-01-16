@@ -23,9 +23,9 @@ This module handles these requirements automatically:
 - Instructions.to_dict() sorts sql_functions by (id, identifier)
 
 Usage:
-    from genie.models import GenieSpace, TableDataSource, ColumnConfig
+    from models.genie import GenieSpace, TableDataSource, ColumnConfig
     from models.base import Tag
-    from models.access import Principal, AccessPolicy
+    from models.grants import Principal, AccessPolicy
 
     # Define a governed Genie Space
     space = GenieSpace(
@@ -67,8 +67,8 @@ from pydantic import (
 )
 
 # Import governance base classes
-from models.base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
-from models.enums import SecurableType
+from .base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
+from .enums import SecurableType
 
 
 # =============================================================================
@@ -575,9 +575,9 @@ class GenieSpace(BaseSecurable):
 
     Example:
         ```python
-        from genie.models import GenieSpace
+        from models.genie import GenieSpace
         from models.base import Tag
-        from models.access import Principal, AccessPolicy
+        from models.grants import Principal, AccessPolicy
 
         space = GenieSpace(
             name="sales_analytics",

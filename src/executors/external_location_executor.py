@@ -13,7 +13,7 @@ from databricks.sdk.errors import (
     NotFound,
     PermissionDenied,
 )
-from ..models import ExternalLocation
+from models import ExternalLocation
 from .base import BaseExecutor, ExecutionResult, OperationType
 from .mixins import WorkspaceBindingMixin
 
@@ -27,10 +27,10 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
         """Get the resource type."""
         return "EXTERNAL_LOCATION"
     
-    def exists(self, location: ExternalLocation) -> bool:
+    def exists(self, resource: ExternalLocation) -> bool:
         """Check if an external location exists."""
         try:
-            self.client.external_locations.get(location.resolved_name)
+            self.client.external_locations.get(resource.resolved_name)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -38,15 +38,15 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
             logger.error(f"Permission denied checking external location existence: {e}")
             raise
     
-    def create(self, location: ExternalLocation) -> ExecutionResult:
+    def create(self, resource: ExternalLocation) -> ExecutionResult:
         """
-        Create a new external location.
+        Create a new external resource.
         
         External locations provide a mapping between a storage credential and
         a specific cloud storage path (S3 bucket, Azure container, GCS bucket).
         """
         start_time = time.time()
-        resource_name = location.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             if self.dry_run:
@@ -59,10 +59,10 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
                     message="Would be created (dry run)"
                 )
             
-            params = location.to_sdk_create_params()
-            url = location.url
+            params = resource.to_sdk_create_params()
+            url = resource.url
             cloud_provider = "S3" if url.startswith("s3://") else "Azure" if url.startswith(("abfss://", "wasbs://")) else "GCS" if url.startswith("gs://") else "Unknown"
-            credential_name = location.storage_credential.resolved_name
+            credential_name = resource.storage_credential.resolved_name
 
             logger.info(f"Creating external location {resource_name} ({cloud_provider})")
 
@@ -79,10 +79,10 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
             )
 
             # Apply workspace bindings if specified
-            if location.workspace_ids:
+            if resource.workspace_ids:
                 self.apply_workspace_bindings(
                     resource_name=resource_name,
-                    workspace_ids=[int(ws_id) for ws_id in location.workspace_ids],
+                    workspace_ids=[int(ws_id) for ws_id in resource.workspace_ids],
                     securable_type="external_location"
                 )
 
@@ -99,19 +99,19 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, location: ExternalLocation) -> ExecutionResult:
+    def update(self, resource: ExternalLocation) -> ExecutionResult:
         """
-        Update an existing external location.
+        Update an existing external resource.
         
         Note: The URL cannot be changed after creation. Only metadata and
         credential can be updated.
         """
         start_time = time.time()
-        resource_name = location.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             existing = self.client.external_locations.get(resource_name)
-            changes = self._get_location_changes(existing, location)
+            changes = self._get_location_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -138,7 +138,7 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
                 changes.pop('url')
 
             if changes:
-                params = location.to_sdk_update_params()
+                params = resource.to_sdk_update_params()
                 logger.info(f"Updating external location {resource_name}")
                 if 'credential_name' in changes:
                     logger.warning(f"Credential change for {resource_name} may affect dependent objects")
@@ -158,17 +158,17 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, location: ExternalLocation) -> ExecutionResult:
+    def delete(self, resource: ExternalLocation) -> ExecutionResult:
         """
-        Delete an external location.
+        Delete an external resource.
         
-        Warning: Cannot delete if external tables or volumes are using this location.
+        Warning: Cannot delete if external tables or volumes are using this resource.
         """
         start_time = time.time()
-        resource_name = location.resolved_name
+        resource_name = resource.resolved_name
         
         try:
-            if not self.exists(location):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,

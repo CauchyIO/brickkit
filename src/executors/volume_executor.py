@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk.service.catalog import VolumeInfo
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
-from ..models import Volume, VolumeType
+from models import Volume, VolumeType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,10 @@ class VolumeExecutor(BaseExecutor[Volume]):
         """Get the resource type."""
         return "VOLUME"
     
-    def exists(self, volume: Volume) -> bool:
+    def exists(self, resource: Volume) -> bool:
         """Check if a volume exists."""
         try:
-            self.client.volumes.read(volume.fqdn)
+            self.client.volumes.read(resource.fqdn)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -33,10 +33,10 @@ class VolumeExecutor(BaseExecutor[Volume]):
             logger.error(f"Permission denied checking volume existence: {e}")
             raise
     
-    def create(self, volume: Volume) -> ExecutionResult:
-        """Create a new volume."""
+    def create(self, resource: Volume) -> ExecutionResult:
+        """Create a new resource."""
         start_time = time.time()
-        resource_name = volume.fqdn
+        resource_name = resource.fqdn
         
         try:
             if self.dry_run:
@@ -49,12 +49,12 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     message="Would be created (dry run)"
                 )
             
-            params = volume.to_sdk_create_params()
-            logger.info(f"Creating volume {resource_name} (type: {volume.volume_type.value})")
+            params = resource.to_sdk_create_params()
+            logger.info(f"Creating volume {resource_name} (type: {resource.volume_type.value})")
             
             # Validate external volumes have required location
-            if volume.volume_type == VolumeType.EXTERNAL:
-                if not volume.storage_location and not volume.external_location:
+            if resource.volume_type == VolumeType.EXTERNAL:
+                if not resource.storage_location and not resource.external_location:
                     raise ValueError(
                         f"External volume {resource_name} requires storage_location or external_location"
                     )
@@ -71,21 +71,21 @@ class VolumeExecutor(BaseExecutor[Volume]):
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=f"Created {volume.volume_type.value} volume successfully",
+                message=f"Created {resource.volume_type.value} volume successfully",
                 duration_seconds=duration
             )
             
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, volume: Volume) -> ExecutionResult:
-        """Update an existing volume."""
+    def update(self, resource: Volume) -> ExecutionResult:
+        """Update an existing resource."""
         start_time = time.time()
-        resource_name = volume.fqdn
+        resource_name = resource.fqdn
         
         try:
             existing = self.client.volumes.read(resource_name)
-            changes = self._get_volume_changes(existing, volume)
+            changes = self._get_volume_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -107,7 +107,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     changes=changes
                 )
             
-            params = volume.to_sdk_update_params()
+            params = resource.to_sdk_update_params()
             logger.info(f"Updating volume {resource_name}: {changes}")
             self.execute_with_retry(self.client.volumes.update, **params)
             
@@ -125,13 +125,13 @@ class VolumeExecutor(BaseExecutor[Volume]):
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, volume: Volume) -> ExecutionResult:
-        """Delete a volume."""
+    def delete(self, resource: Volume) -> ExecutionResult:
+        """Delete a resource."""
         start_time = time.time()
-        resource_name = volume.fqdn
+        resource_name = resource.fqdn
         
         try:
-            if not self.exists(volume):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,

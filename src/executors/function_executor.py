@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk.service.catalog import FunctionInfo
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
-from ..models import Function
+from models import Function
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 class FunctionExecutor(BaseExecutor[Function]):
     """Executor for function operations including row filters and column masks."""
 
-    def exists(self, function: Function) -> bool:
+    def exists(self, resource: Function) -> bool:
         """Check if a function exists."""
         try:
-            self.client.functions.get(function.fqdn)
+            self.client.functions.get(resource.fqdn)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -33,15 +33,15 @@ class FunctionExecutor(BaseExecutor[Function]):
         """Get the resource type."""
         return "FUNCTION"
 
-    def create(self, function: Function) -> ExecutionResult:
+    def create(self, resource: Function) -> ExecutionResult:
         """
-        Create a new function.
+        Create a new resource.
         
         Note: In Unity Catalog, row filters and column masks are special functions
         that execute with definer's rights (transparent to users).
         """
         start_time = time.time()
-        resource_name = function.fqdn
+        resource_name = resource.fqdn
         
         try:
             if self.dry_run:
@@ -54,13 +54,13 @@ class FunctionExecutor(BaseExecutor[Function]):
                     message="Would be created (dry run)"
                 )
             
-            params = function.to_sdk_create_params()
+            params = resource.to_sdk_create_params()
             
             # Determine function purpose for logging
             function_purpose = "UDF"
-            if function.is_row_filter:
+            if resource.is_row_filter:
                 function_purpose = "row filter"
-            elif function.is_column_mask:
+            elif resource.is_column_mask:
                 function_purpose = "column mask"
             
             logger.info(f"Creating {function_purpose} function {resource_name}")
@@ -74,7 +74,7 @@ class FunctionExecutor(BaseExecutor[Function]):
             self.execute_with_retry(self.client.functions.create, **params)
             
             # Log if this is a security function
-            if function.is_row_filter or function.is_column_mask:
+            if resource.is_row_filter or resource.is_column_mask:
                 logger.info(
                     f"Security function {resource_name} created with definer's rights. "
                     f"Users will not need EXECUTE permission to use this {function_purpose}."
@@ -97,19 +97,19 @@ class FunctionExecutor(BaseExecutor[Function]):
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, function: Function) -> ExecutionResult:
+    def update(self, resource: Function) -> ExecutionResult:
         """
-        Update an existing function.
+        Update an existing resource.
         
         Note: Functions typically cannot be updated directly - they must be
         dropped and recreated. This method updates metadata only.
         """
         start_time = time.time()
-        resource_name = function.fqdn
+        resource_name = resource.fqdn
         
         try:
             existing = self.client.functions.get(resource_name)
-            changes = self._get_function_changes(existing, function)
+            changes = self._get_function_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -141,7 +141,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                 changes.pop('definition')
             
             if changes:
-                params = function.to_sdk_update_params()
+                params = resource.to_sdk_update_params()
                 logger.info(f"Updating function metadata {resource_name}: {changes}")
                 self.execute_with_retry(self.client.functions.update, **params)
             
@@ -159,13 +159,13 @@ class FunctionExecutor(BaseExecutor[Function]):
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, function: Function) -> ExecutionResult:
-        """Delete a function."""
+    def delete(self, resource: Function) -> ExecutionResult:
+        """Delete a resource."""
         start_time = time.time()
-        resource_name = function.fqdn
+        resource_name = resource.fqdn
         
         try:
-            if not self.exists(function):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -185,9 +185,9 @@ class FunctionExecutor(BaseExecutor[Function]):
                 )
             
             # Check if function is used as row filter or column mask
-            if function.referencing_tables:
+            if resource.referencing_tables:
                 logger.warning(
-                    f"Function {resource_name} is referenced by {len(function.referencing_tables)} tables. "
+                    f"Function {resource_name} is referenced by {len(resource.referencing_tables)} tables. "
                     f"Removing it may affect row-level security or column masking."
                 )
             

@@ -14,8 +14,8 @@ from databricks.sdk.errors import (
     PermissionDenied,
     NotFound,
 )
-from ..models import Catalog
-from ..models.enums import IsolationMode
+from models import Catalog
+from models.enums import IsolationMode
 from .base import BaseExecutor, ExecutionResult, OperationType
 from .mixins import WorkspaceBindingMixin
 
@@ -29,7 +29,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         """Get the resource type."""
         return "CATALOG"
     
-    def exists(self, catalog: Catalog) -> bool:
+    def exists(self, resource: Catalog) -> bool:
         """
         Check if a catalog exists.
         
@@ -40,7 +40,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             True if catalog exists, False otherwise
         """
         try:
-            self.client.catalogs.get(catalog.resolved_name)
+            self.client.catalogs.get(resource.resolved_name)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -49,9 +49,9 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             logger.error(f"Permission denied checking catalog existence: {e}")
             raise
     
-    def create(self, catalog: Catalog) -> ExecutionResult:
+    def create(self, resource: Catalog) -> ExecutionResult:
         """
-        Create a new catalog.
+        Create a new resource.
         
         Args:
             catalog: The catalog to create
@@ -60,7 +60,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             ExecutionResult indicating success or failure
         """
         start_time = time.time()
-        resource_name = catalog.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             if self.dry_run:
@@ -75,12 +75,12 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             
             # Determine workspace IDs to bind (if any) BEFORE creating catalog
             workspace_ids_to_bind = []
-            if catalog.workspace_ids:
-                workspace_ids_to_bind = [str(ws_id) for ws_id in catalog.workspace_ids]
-            elif catalog.isolation_mode == IsolationMode.ISOLATED:
+            if resource.workspace_ids:
+                workspace_ids_to_bind = [str(ws_id) for ws_id in resource.workspace_ids]
+            elif resource.isolation_mode == IsolationMode.ISOLATED:
                 logger.warning(f"ISOLATED catalog {resource_name} has no workspace_ids - use Team.add_catalog()")
 
-            params = catalog.to_sdk_create_params()
+            params = resource.to_sdk_create_params()
             logger.info(f"Creating catalog {resource_name}")
             logger.debug(f"Catalog params: {params}")
             self.execute_with_retry(self.client.catalogs.create, **params)
@@ -94,7 +94,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             # 1. Create catalog (in default/OPEN mode)
             # 2. Apply workspace bindings FIRST (while catalog is still accessible)
             # 3. THEN set isolation mode to ISOLATED
-            if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
+            if workspace_ids_to_bind and resource.isolation_mode == IsolationMode.ISOLATED:
                 workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
                 self.apply_workspace_bindings(
                     resource_name=resource_name,
@@ -103,17 +103,17 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 )
 
             # Set isolation mode AFTER bindings are applied
-            if catalog.isolation_mode:
+            if resource.isolation_mode:
                 from databricks.sdk.service.catalog import CatalogIsolationMode
-                logger.debug(f"Setting isolation mode to {catalog.isolation_mode.value}")
+                logger.debug(f"Setting isolation mode to {resource.isolation_mode.value}")
                 self.execute_with_retry(
                     self.client.catalogs.update,
                     name=resource_name,
-                    isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
+                    isolation_mode=CatalogIsolationMode(resource.isolation_mode.value)
                 )
 
             # Verify bindings were applied
-            if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
+            if workspace_ids_to_bind and resource.isolation_mode == IsolationMode.ISOLATED:
                 workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
                 if not self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
                     logger.warning(f"Workspace binding verification failed for {resource_name}")
@@ -142,9 +142,9 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             error_msg = str(e)
             if "already exists" in error_msg.lower():
                 # Catalog exists - update bindings if needed
-                if workspace_ids_to_bind and catalog.isolation_mode == IsolationMode.ISOLATED:
+                if workspace_ids_to_bind and resource.isolation_mode == IsolationMode.ISOLATED:
                     return self._apply_bindings_to_existing_catalog(
-                        catalog, resource_name, workspace_ids_to_bind
+                        resource, resource_name, workspace_ids_to_bind
                     )
                 return ExecutionResult(
                     success=True,
@@ -155,9 +155,9 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 )
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, catalog: Catalog) -> ExecutionResult:
+    def update(self, resource: Catalog) -> ExecutionResult:
         """
-        Update an existing catalog.
+        Update an existing resource.
 
         Args:
             catalog: The catalog to update
@@ -166,19 +166,19 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             ExecutionResult indicating success or failure
         """
         start_time = time.time()
-        resource_name = catalog.resolved_name
+        resource_name = resource.resolved_name
 
         try:
             # Get current state
             existing = self.client.catalogs.get(resource_name)
 
             # Check if update needed
-            changes = self._get_catalog_changes(existing, catalog)
+            changes = self._get_catalog_changes(existing, resource)
 
             # Check and update workspace bindings for ISOLATED catalogs
             workspace_bindings_updated = False
-            if catalog.isolation_mode == IsolationMode.ISOLATED and catalog.workspace_ids:
-                desired_ws_ids = [int(ws_id) for ws_id in catalog.workspace_ids]
+            if resource.isolation_mode == IsolationMode.ISOLATED and resource.workspace_ids:
+                desired_ws_ids = [int(ws_id) for ws_id in resource.workspace_ids]
                 current_ws_ids = self.get_current_workspace_bindings(resource_name, "catalog")
 
                 if set(current_ws_ids) != set(desired_ws_ids):
@@ -219,7 +219,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             # Only update catalog properties if there are non-binding changes
             if any(k != 'workspace_bindings' for k in changes.keys()):
                 # Convert to SDK parameters
-                params = catalog.to_sdk_update_params()
+                params = resource.to_sdk_update_params()
 
                 # Convert isolation_mode string to SDK enum if present
                 if "isolation_mode" in params:
@@ -243,14 +243,14 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         except ResourceDoesNotExist:
             # Catalog was deleted between exists() and update()
             logger.warning(f"Catalog {resource_name} no longer exists")
-            return self.create(catalog)
+            return self.create(resource)
 
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, catalog: Catalog) -> ExecutionResult:
+    def delete(self, resource: Catalog) -> ExecutionResult:
         """
-        Delete a catalog.
+        Delete a resource.
         
         Args:
             catalog: The catalog to delete
@@ -259,10 +259,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             ExecutionResult indicating success or failure
         """
         start_time = time.time()
-        resource_name = catalog.resolved_name
+        resource_name = resource.resolved_name
         
         try:
-            if not self.exists(catalog):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -307,7 +307,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         resource_name: str,
         workspace_ids_to_bind: List[str]
     ) -> ExecutionResult:
-        """Apply workspace bindings to an existing catalog."""
+        """Apply workspace bindings to an existing resource."""
         workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
 
         if not self.apply_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
@@ -392,39 +392,39 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         
         return changes
     
-    def _needs_update(self, catalog: Catalog) -> bool:
+    def _needs_update(self, resource: Catalog) -> bool:
         """
         Check if a catalog needs updating.
-        
+
         Args:
-            catalog: The catalog to check
-            
+            resource: The catalog to check
+
         Returns:
             True if update needed
         """
         try:
-            existing = self.client.catalogs.get(catalog.resolved_name)
-            changes = self._get_catalog_changes(existing, catalog)
+            existing = self.client.catalogs.get(resource.resolved_name)
+            changes = self._get_catalog_changes(existing, resource)
             return bool(changes)
         except ResourceDoesNotExist:
             return False
         except Exception as e:
             logger.warning(f"Error checking if update needed: {e}")
             return False
-    
-    def _get_changes(self, catalog: Catalog) -> Dict[str, Any]:
+
+    def _get_changes(self, resource: Catalog) -> Dict[str, Any]:
         """
-        Get the changes that would be made to a catalog.
-        
+        Get the changes that would be made to a resource.
+
         Args:
-            catalog: The catalog
-            
+            resource: The catalog
+
         Returns:
             Dictionary of changes
         """
         try:
-            existing = self.client.catalogs.get(catalog.resolved_name)
-            return self._get_catalog_changes(existing, catalog)
+            existing = self.client.catalogs.get(resource.resolved_name)
+            return self._get_catalog_changes(existing, resource)
         except ResourceDoesNotExist:
             return {'action': 'create'}
         except Exception as e:

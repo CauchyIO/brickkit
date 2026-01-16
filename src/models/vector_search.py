@@ -9,9 +9,9 @@ This module provides both:
 - Configuration classes (VectorSearchConfig, VectorSearchIndexConfig) for backward compat
 
 Usage:
-    from vector_search.models import VectorSearchEndpoint, VectorSearchIndex
+    from models.vector_search import VectorSearchEndpoint, VectorSearchIndex
     from models.base import Tag
-    from models.access import Principal, AccessPolicy
+    from models.grants import Principal, AccessPolicy
 
     # Create governed endpoint
     endpoint = VectorSearchEndpoint(
@@ -41,8 +41,8 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import Field, computed_field, field_validator
 
 # Import governance base classes
-from models.base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
-from models.enums import SecurableType
+from .base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
+from .enums import SecurableType
 
 
 # =============================================================================

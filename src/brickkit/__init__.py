@@ -8,38 +8,46 @@ Key Features:
 - Unified governance through BaseSecurable inheritance
 - Tag-based access control (ABAC) support
 - GovernanceDefaults for organization-wide policies
+- Convention pattern for hierarchical governance propagation
 - Environment-aware naming (DEV/ACC/PRD suffixes)
 - Tight integration with databricks-sdk
 
 Quick Start:
     from brickkit import (
-        Catalog, Schema, GenieSpace, VectorSearchEndpoint,
-        GovernanceDefaults, TagDefault, RequiredTag,
-        Tag, Principal, AccessPolicy, SecurableType
+        Metastore, Catalog, Schema,
+        Convention, TagDefault, RequiredTag,
+        Tag, Principal, AccessPolicy
     )
 
-    # Define organization defaults
-    class MyOrgDefaults(GovernanceDefaults):
-        @property
-        def default_tags(self):
-            return [TagDefault(key="managed_by", value="brickkit")]
+    # Define a convention (propagates through hierarchy)
+    convention = Convention(
+        name="org_standards",
+        default_tags=[
+            TagDefault(key="managed_by", value="brickkit"),
+            TagDefault(key="compliance", value="sox"),
+        ],
+        required_tags=[
+            RequiredTag(key="cost_center", applies_to={"CATALOG"}),
+        ],
+    )
 
-        @property
-        def required_tags(self):
-            return [RequiredTag(key="cost_center", applies_to={"CATALOG"})]
+    # Build hierarchy
+    m = Metastore(name="main")
+    c = Catalog(name="finance")
+    s = Schema(name="reports")
 
-    # Create governed securables
-    defaults = MyOrgDefaults()
+    m.add_catalog(c)
+    c.add_schema(s)
 
-    catalog = Catalog(name="analytics").with_defaults(defaults)
-    genie = GenieSpace(
-        name="sales_space",
-        title="Sales Analytics",
-        tags=[Tag(key="domain", value="sales")]
-    ).with_defaults(defaults)
+    # Apply convention at top level - propagates to all descendants
+    m.with_convention(convention)
 
-    # Grant access
-    genie.grant(Principal(name="analysts"), AccessPolicy.READER())
+    # New children automatically inherit the convention
+    s2 = Schema(name="analytics")
+    c.add_schema(s2)  # Convention auto-applied
+
+    # Grant access (also propagates)
+    c.grant(Principal(name="analysts"), AccessPolicy.READER())
 """
 
 # =============================================================================
@@ -53,6 +61,17 @@ from brickkit.defaults import (
     NamingConvention,
     EmptyDefaults,
     StandardDefaults,
+)
+
+from brickkit.manifest import (
+    ProjectManifest,
+    ManifestBasedDefaults,
+    load_project_manifest,
+)
+
+from brickkit.convention import (
+    Convention,
+    ConventionAsDefaults,
 )
 
 # =============================================================================
@@ -82,7 +101,7 @@ from models.enums import (
 # Access Control
 # =============================================================================
 
-from models.access import (
+from models.grants import (
     Principal,
     Privilege,
     AccessPolicy,
@@ -92,13 +111,12 @@ from models.access import (
 # Unity Catalog Securables
 # =============================================================================
 
-from models.securables import (
-    Catalog,
-    Schema,
-    StorageCredential,
-    ExternalLocation,
-    Connection,
-)
+from models.metastores import Metastore
+from models.catalogs import Catalog
+from models.schemas import Schema
+from models.storage_credentials import StorageCredential
+from models.external_locations import ExternalLocation
+from models.connections import Connection
 
 from models.references import (
     TableReference,
@@ -111,7 +129,7 @@ from models.references import (
 # AI/ML Securables
 # =============================================================================
 
-from genie.models import (
+from models.genie import (
     GenieSpace,
     GenieSpaceConfig,  # Backward compatibility
     SerializedSpace,
@@ -126,7 +144,7 @@ from genie.models import (
     quick_function,
 )
 
-from vector_search.models import (
+from models.vector_search import (
     VectorSearchEndpoint,
     VectorSearchIndex,
     VectorIndexType,
@@ -173,6 +191,13 @@ __all__ = [
     "NamingConvention",
     "EmptyDefaults",
     "StandardDefaults",
+    # Convention
+    "Convention",
+    "ConventionAsDefaults",
+    # Project Manifest
+    "ProjectManifest",
+    "ManifestBasedDefaults",
+    "load_project_manifest",
     # Base Classes
     "BaseGovernanceModel",
     "BaseSecurable",
@@ -193,6 +218,7 @@ __all__ = [
     "Privilege",
     "AccessPolicy",
     # Unity Catalog Securables
+    "Metastore",
     "Catalog",
     "Schema",
     "StorageCredential",

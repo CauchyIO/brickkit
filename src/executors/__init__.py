@@ -14,8 +14,8 @@ from .connection_executor import ConnectionExecutor
 from .grant_executor import GrantExecutor
 from .metastore_assignment_executor import MetastoreAssignmentExecutor
 from .workspace_binding_executor import WorkspaceBindingExecutor
-from .genie_executor import GenieSpaceExecutor
-from .vector_search_executor import VectorSearchEndpointExecutor, VectorSearchIndexExecutor
+from .genie_executor import GenieSpaceExecutor, ServicePrincipal, GenieSpacePermission
+from .vector_search_executor import VectorSearchEndpointExecutor, VectorSearchIndexExecutor, EndpointStatus
 
 __all__ = [
     # Base classes
@@ -46,6 +46,9 @@ __all__ = [
 
     # AI/ML executors
     'GenieSpaceExecutor',
+    'ServicePrincipal',
+    'GenieSpacePermission',
     'VectorSearchEndpointExecutor',
     'VectorSearchIndexExecutor',
+    'EndpointStatus',
 ]

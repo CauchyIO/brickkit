@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk.service.catalog import SchemaInfo
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
-from ..models import Schema
+from models import Schema
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,10 @@ class SchemaExecutor(BaseExecutor[Schema]):
         """Get the resource type."""
         return "SCHEMA"
     
-    def exists(self, schema: Schema) -> bool:
+    def exists(self, resource: Schema) -> bool:
         """Check if a schema exists."""
         try:
-            self.client.schemas.get(schema.fqdn)
+            self.client.schemas.get(resource.fqdn)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -33,10 +33,10 @@ class SchemaExecutor(BaseExecutor[Schema]):
             logger.error(f"Permission denied checking schema existence: {e}")
             raise
     
-    def create(self, schema: Schema) -> ExecutionResult:
-        """Create a new schema."""
+    def create(self, resource: Schema) -> ExecutionResult:
+        """Create a new resource."""
         start_time = time.time()
-        resource_name = schema.fqdn
+        resource_name = resource.fqdn
         
         try:
             if self.dry_run:
@@ -49,7 +49,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     message="Would be created (dry run)"
                 )
             
-            params = schema.to_sdk_create_params()
+            params = resource.to_sdk_create_params()
             logger.info(f"Creating schema {resource_name}")
             self.execute_with_retry(self.client.schemas.create, **params)
             
@@ -70,14 +70,14 @@ class SchemaExecutor(BaseExecutor[Schema]):
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, schema: Schema) -> ExecutionResult:
-        """Update an existing schema."""
+    def update(self, resource: Schema) -> ExecutionResult:
+        """Update an existing resource."""
         start_time = time.time()
-        resource_name = schema.fqdn
+        resource_name = resource.fqdn
         
         try:
             existing = self.client.schemas.get(resource_name)
-            changes = self._get_schema_changes(existing, schema)
+            changes = self._get_schema_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -99,7 +99,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     changes=changes
                 )
             
-            params = schema.to_sdk_update_params()
+            params = resource.to_sdk_update_params()
             logger.info(f"Updating schema {resource_name}: {changes}")
             self.execute_with_retry(self.client.schemas.update, **params)
             
@@ -117,13 +117,13 @@ class SchemaExecutor(BaseExecutor[Schema]):
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, schema: Schema) -> ExecutionResult:
-        """Delete a schema."""
+    def delete(self, resource: Schema) -> ExecutionResult:
+        """Delete a resource."""
         start_time = time.time()
-        resource_name = schema.fqdn
+        resource_name = resource.fqdn
         
         try:
-            if not self.exists(schema):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,

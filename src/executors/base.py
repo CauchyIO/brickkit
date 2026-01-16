@@ -7,8 +7,7 @@ idempotency, dry-run support, rollback capabilities, and governance validation.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Generic
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar, Generic
 from enum import Enum
 import logging
 import time
@@ -478,15 +477,18 @@ class BaseExecutor(ABC, Generic[T]):
             return []
 
         # Use resource's validate_governance method if available
-        if hasattr(resource, 'validate_governance'):
-            return resource.validate_governance(self.governance_defaults)
+        validate_method = getattr(resource, 'validate_governance', None)
+        if callable(validate_method):
+            return validate_method(self.governance_defaults)
 
         # Manual validation for resources without the method
-        if not hasattr(resource, 'securable_type') or not hasattr(resource, 'tags'):
+        securable_type = getattr(resource, 'securable_type', None)
+        tags = getattr(resource, 'tags', None)
+        if securable_type is None or tags is None:
             return []
 
-        tag_dict = {t.key: t.value for t in getattr(resource, 'tags', [])}
-        return self.governance_defaults.validate_tags(resource.securable_type, tag_dict)
+        tag_dict = {t.key: t.value for t in tags}
+        return self.governance_defaults.validate_tags(securable_type, tag_dict)
 
     def ensure_governance(self, resource: T, fail_on_error: bool = True) -> Optional[ExecutionResult]:
         """

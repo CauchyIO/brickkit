@@ -9,7 +9,7 @@ from typing import Dict, Any
 import logging
 from databricks.sdk.service.catalog import ConnectionInfo
 from databricks.sdk.errors import ResourceDoesNotExist, NotFound, PermissionDenied
-from ..models import Connection, ConnectionType
+from models import Connection, ConnectionType
 from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
@@ -22,10 +22,10 @@ class ConnectionExecutor(BaseExecutor[Connection]):
         """Get the resource type."""
         return "CONNECTION"
 
-    def exists(self, connection: Connection) -> bool:
+    def exists(self, resource: Connection) -> bool:
         """Check if a connection exists."""
         try:
-            self.client.connections.get(connection.resolved_name)
+            self.client.connections.get(resource.resolved_name)
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -33,9 +33,9 @@ class ConnectionExecutor(BaseExecutor[Connection]):
             logger.error(f"Permission denied checking connection existence: {e}")
             raise
     
-    def create(self, connection: Connection) -> ExecutionResult:
+    def create(self, resource: Connection) -> ExecutionResult:
         """
-        Create a new external database connection.
+        Create a new external database resource.
         
         Connections allow Unity Catalog to access external databases like:
         - MySQL, PostgreSQL
@@ -44,7 +44,7 @@ class ConnectionExecutor(BaseExecutor[Connection]):
         - Other Databricks workspaces
         """
         start_time = time.time()
-        resource_name = connection.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             if self.dry_run:
@@ -57,29 +57,31 @@ class ConnectionExecutor(BaseExecutor[Connection]):
                     message="Would be created (dry run)"
                 )
             
-            params = connection.to_sdk_create_params()
+            params = resource.to_sdk_create_params()
             
             # Log connection type and host (but not credentials)
-            connection_desc = f"{connection.connection_type.value}"
-            if connection.host:
-                connection_desc += f" at {connection.host}"
-                if connection.port:
-                    connection_desc += f":{connection.port}"
-            
+            connection_desc = f"{resource.connection_type.value}"
+            host = resource.options.get('host')
+            port = resource.options.get('port')
+            if host:
+                connection_desc += f" at {host}"
+                if port:
+                    connection_desc += f":{port}"
+
             logger.info(f"Creating connection {resource_name} ({connection_desc})")
-            
+
             # Security note: Connection credentials are sensitive
             # The SDK handles secure transmission
-            if connection.user and connection.password:
+            if resource.options.get('user') and resource.options.get('password'):
                 logger.info(f"Using username/password authentication for {resource_name}")
-            elif connection.options and 'token' in connection.options:
+            elif resource.options.get('token'):
                 logger.info(f"Using token authentication for {resource_name}")
             
             self.execute_with_retry(self.client.connections.create, **params)
             
             logger.info(
                 f"Connection {resource_name} created. "
-                f"You can now create foreign catalogs using this connection."
+                f"You can now create foreign catalogs using this resource."
             )
             
             self._rollback_stack.append(
@@ -92,26 +94,26 @@ class ConnectionExecutor(BaseExecutor[Connection]):
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=f"Created {connection.connection_type.value} connection successfully",
+                message=f"Created {resource.connection_type.value} connection successfully",
                 duration_seconds=duration
             )
             
         except Exception as e:
             return self._handle_error(OperationType.CREATE, resource_name, e)
     
-    def update(self, connection: Connection) -> ExecutionResult:
+    def update(self, resource: Connection) -> ExecutionResult:
         """
-        Update an existing connection.
+        Update an existing resource.
         
         Note: Connection URL and type cannot be changed. Credentials and
         connection options can be updated.
         """
         start_time = time.time()
-        resource_name = connection.resolved_name
+        resource_name = resource.resolved_name
         
         try:
             existing = self.client.connections.get(resource_name)
-            changes = self._get_connection_changes(existing, connection)
+            changes = self._get_connection_changes(existing, resource)
             
             if not changes:
                 return ExecutionResult(
@@ -148,7 +150,7 @@ class ConnectionExecutor(BaseExecutor[Connection]):
                 )
             
             if changes:
-                params = connection.to_sdk_update_params()
+                params = resource.to_sdk_update_params()
                 
                 # Log credential updates without exposing them
                 if 'password' in changes or 'options' in changes:
@@ -171,17 +173,17 @@ class ConnectionExecutor(BaseExecutor[Connection]):
         except Exception as e:
             return self._handle_error(OperationType.UPDATE, resource_name, e)
     
-    def delete(self, connection: Connection) -> ExecutionResult:
+    def delete(self, resource: Connection) -> ExecutionResult:
         """
-        Delete a connection.
+        Delete a resource.
         
-        Warning: Cannot delete if foreign catalogs are using this connection.
+        Warning: Cannot delete if foreign catalogs are using this resource.
         """
         start_time = time.time()
-        resource_name = connection.resolved_name
+        resource_name = resource.resolved_name
         
         try:
-            if not self.exists(connection):
+            if not self.exists(resource):
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -250,20 +252,27 @@ class ConnectionExecutor(BaseExecutor[Connection]):
                     'note': 'Connection type is immutable - requires recreate'
                 }
         
-        # Check host/port
-        if hasattr(existing, 'host') and existing.host != desired.host:
-            changes['host'] = {'from': existing.host, 'to': desired.host}
-        
-        if hasattr(existing, 'port') and existing.port != desired.port:
-            changes['port'] = {'from': existing.port, 'to': desired.port}
-        
+        # Check host/port (stored in options dict)
+        desired_host = desired.options.get('host')
+        desired_port = desired.options.get('port')
+        existing_host = getattr(existing, 'host', None) or (existing.options or {}).get('host')
+        existing_port = getattr(existing, 'port', None) or (existing.options or {}).get('port')
+
+        if existing_host and desired_host and existing_host != desired_host:
+            changes['host'] = {'from': existing_host, 'to': desired_host}
+
+        if existing_port and desired_port and existing_port != desired_port:
+            changes['port'] = {'from': existing_port, 'to': desired_port}
+
         # Check credentials (don't log actual values)
-        if hasattr(existing, 'user') and existing.user != desired.user:
+        desired_user = desired.options.get('user')
+        existing_user = getattr(existing, 'user', None) or (existing.options or {}).get('user')
+        if existing_user and desired_user and existing_user != desired_user:
             changes['user'] = {'from': 'existing', 'to': 'updated'}
-        
+
         # Password changes can't be detected (not returned by API)
         # but we can note if a new password is provided
-        if desired.password:
+        if desired.options.get('password'):
             changes['password'] = {'note': 'Password will be updated'}
         
         # Check options (may contain sensitive data)

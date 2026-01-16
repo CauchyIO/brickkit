@@ -10,7 +10,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import ResourceDoesNotExist, PermissionDenied, NotFound
 
 from .base import BaseExecutor, ExecutionResult, ExecutionPlan, OperationType
-from ..models import Catalog, IsolationMode
+from models import Catalog, IsolationMode
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
             ExecutionResult with operation status
         """
         # Create a temporary catalog object for the operation
-        from ..models import Catalog, IsolationMode
+        from models import Catalog, IsolationMode
         temp_catalog = Catalog(name=catalog_name, isolation_mode=IsolationMode.ISOLATED)
         return self.remove_all_bindings(temp_catalog)
     

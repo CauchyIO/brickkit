@@ -1,36 +1,54 @@
 # Genie Space Management
 
-This module provides tools for defining and deploying Databricks Genie Spaces as code.
+This module provides documentation for defining and deploying Databricks Genie Spaces as code.
 
 ## Overview
 
-- `models.py` - Pydantic models for type-safe Genie Space configuration
-- `genie_space_definitions.py` - Genie Space definitions (add your spaces here)
-- `deploy_genie_spaces.py` - CLI tool to deploy spaces to Databricks
-- `genie_space_table_functions.sql` - SQL functions for managing Genie Space tables at runtime
-- `extract_usage_metadata.py` - Extract metadata from tables for enriching Genie Space descriptions
+Genie Spaces are now managed through the unified executor system:
+
+- `models/genie.py` - Pydantic models for type-safe Genie Space configuration
+- `executors/genie_executor.py` - Executor for deploying spaces to Databricks
 
 ## Quick Start
 
-```bash
-# Deploy all spaces in GENIE_SPACES list
-uv run python src/genie/deploy_genie_spaces.py -p <profile>
+```python
+from databricks.sdk import WorkspaceClient
+from executors import GenieSpaceExecutor
+from models.genie import GenieSpace, SerializedSpace, DataSources, TableDataSource
 
-# Deploy specific space
-uv run python src/genie/deploy_genie_spaces.py -p <profile> -s worldbank_table_finder
+client = WorkspaceClient(profile='my-profile')
+executor = GenieSpaceExecutor(client)
 
-# Dry run (show what would be deployed)
-uv run python src/genie/deploy_genie_spaces.py -p <profile> --dry-run
+# Create a space
+space = GenieSpace(
+    name="analytics",
+    title="Analytics Space",
+    serialized_space=SerializedSpace(
+        data_sources=DataSources(
+            tables=[TableDataSource(identifier="catalog.schema.table")]
+        )
+    )
+)
 
-# List available spaces
-uv run python src/genie/deploy_genie_spaces.py --list
+# Deploy (creates or updates)
+result = executor.create_or_update(space)
+
+# Dry run
+executor_dry = GenieSpaceExecutor(client, dry_run=True)
+result = executor_dry.create_or_update(space)
+
+# Deploy multiple spaces
+results = executor.deploy_all([space1, space2])
+
+# Export to JSON
+executor.export_to_json([space], Path("./exports"))
 ```
 
 ## Defining a Genie Space
 
 ```python
-from genie.models import (
-    GenieSpaceConfig,
+from models.genie import (
+    GenieSpace,
     SerializedSpace,
     DataSources,
     TableDataSource,
@@ -40,8 +58,9 @@ from genie.models import (
     SqlFunction,
 )
 
-MY_SPACE = GenieSpaceConfig(
-    title="My Analytics Space",
+MY_SPACE = GenieSpace(
+    name="my_analytics",  # Internal name (used for environment suffixing)
+    title="My Analytics Space",  # Display title
     description="Description shown to users",
     serialized_space=SerializedSpace(
         data_sources=DataSources(
@@ -105,33 +124,28 @@ space = client.genie.get_space(
 print(space.serialized_space)
 ```
 
-## SQL Functions for Runtime Management
+## Executor Features
 
-The `genie_space_table_functions.sql` file defines SQL functions that can be called from within a Genie Space to manage tables dynamically:
+The `GenieSpaceExecutor` provides:
 
-```sql
--- Add a table to a Genie Space
-SELECT main_catalog.dev.add_table_to_genie_space('<space_id>', 'catalog.schema.table')
+- **Batch deployment**: `deploy_all([space1, space2])`
+- **Dry-run mode**: Preview what would be deployed
+- **JSON export**: Export spaces for version control
+- **Permission management**: Grant service principal access
+- **Automatic warehouse resolution**: Uses first available if not specified
 
--- Add table with column configurations
-SELECT main_catalog.dev.add_table_with_columns_to_genie_space(
-  '<space_id>',
-  'catalog.schema.table',
-  'col1:true:false,col2:true:true'  -- name:get_examples:build_dictionary
-)
+```python
+from executors import GenieSpaceExecutor
+from executors.genie_executor import ServicePrincipal, GenieSpacePermission
 
--- List tables in a Genie Space
-SELECT main_catalog.dev.list_tables_in_genie_space('<space_id>')
+executor = GenieSpaceExecutor(client)
 
--- Remove a table from a Genie Space
-SELECT main_catalog.dev.remove_table_from_genie_space('<space_id>', 'catalog.schema.table')
+# Deploy and grant access
+result = executor.create_or_update(space)
+if result.success:
+    spn = ServicePrincipal(application_id="xxx", name="my_spn")
+    executor.grant_access(space.space_id, spn, GenieSpacePermission.CAN_EDIT)
 ```
-
-## Enriching Genie Space with Table Metadata
-
-Genie Spaces work best when they understand not just the schema of a table, but the actual data within it. For tables with categorical columns (like `sku_name` or `billing_origin_product`), knowing which values exist helps Genie generate accurate queries.
-
-The `extract_usage_metadata.py` script queries a table to discover its data diversity—what values appear in each column, how they're distributed, and which fields are populated. This information can then be incorporated into the Genie Space description or instructions, giving the AI assistant context about what the data actually contains rather than just its structure.
 
 ## Troubleshooting
 
@@ -142,7 +156,7 @@ The `extract_usage_metadata.py` script queries a table to discover its data dive
 
 ### "sql_functions must be sorted by (id, identifier)"
 - The models should handle this automatically
-- If you see this error, check that you're using the latest models.py
+- If you see this error, check that you're using the latest models
 
 ### Space updates fail but creates work
 - Existing space may be in a corrupted state

@@ -22,9 +22,12 @@ examples/
 │   ├── cross_env_access.py       # DEV reads PRD pattern
 │   └── access_manager_usage.py   # Bulk grants, audit trail
 │
-└── 04_patterns/             # Operational patterns
-    ├── physical_segregation.py   # Tiered catalogs by sensitivity
-    └── zone_progression.py       # Bronze/Silver/Gold
+├── 04_patterns/             # Operational patterns
+│   ├── physical_segregation.py   # Tiered catalogs by sensitivity
+│   └── zone_progression.py       # Bronze/Silver/Gold
+│
+└── 05_full_governance/      # End-to-end example
+    └── finance_data_product.py   # Databricks notebook: complete governance
 ```
 
 ## Running Examples
