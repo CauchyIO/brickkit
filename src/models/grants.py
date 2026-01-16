@@ -72,7 +72,7 @@ class Principal(BaseGovernanceModel):
             logger.debug(f"Auto-disabled suffix for special principal: {self.name}")
         return self
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """
@@ -95,7 +95,7 @@ class Principal(BaseGovernanceModel):
         # Priority 3: Auto suffix
         return f"{self.name}_{env.value.lower()}"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def environment_name(self) -> str:
         """Alias for resolved_name for backward compatibility."""

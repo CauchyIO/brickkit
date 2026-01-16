@@ -54,56 +54,56 @@ class GrantExecutor(BaseExecutor[Privilege]):
         """Get the resource type."""
         return "PRIVILEGE"
     
-    def exists(self, privilege: Privilege) -> bool:
+    def exists(self, resource: Privilege) -> bool:
         """
         Check if a privilege grant exists.
-        
+
         Args:
-            privilege: The privilege to check
-            
+            resource: The privilege to check
+
         Returns:
             True if the grant exists
         """
         try:
-            full_name = self._get_full_name(privilege)
+            full_name = self._get_full_name(resource)
             grants = self.client.grants.get(
-                securable_type=privilege.securable_type.value,
+                securable_type=resource.securable_type.value,
                 full_name=full_name
             )
-            
+
             # Check if principal has this specific privilege
             for assignment in grants.privilege_assignments or []:
-                if assignment.principal == privilege.principal:
-                    if privilege.privilege.value in (assignment.privileges or []):
+                if assignment.principal == resource.principal:
+                    if resource.privilege.value in (assignment.privileges or []):
                         return True
-            
+
             return False
-            
+
         except ResourceDoesNotExist:
             return False
         except Exception as e:
             logger.warning(f"Error checking privilege existence: {e}")
             return False
     
-    def create(self, privilege: Privilege) -> ExecutionResult:
+    def create(self, resource: Privilege) -> ExecutionResult:
         """
         Grant a privilege.
-        
+
         Args:
-            privilege: The privilege to grant
-            
+            resource: The privilege to grant
+
         Returns:
             ExecutionResult indicating success or failure
         """
-        return self.grant_privilege(privilege)
-    
-    def update(self, privilege: Privilege) -> ExecutionResult:
+        return self.grant_privilege(resource)
+
+    def update(self, resource: Privilege) -> ExecutionResult:
         """
         Update is not applicable for privileges - use grant/revoke.
-        
+
         Args:
-            privilege: The privilege
-            
+            resource: The privilege
+
         Returns:
             ExecutionResult with NO_OP
         """
@@ -111,21 +111,21 @@ class GrantExecutor(BaseExecutor[Privilege]):
             success=True,
             operation=OperationType.NO_OP,
             resource_type=self.get_resource_type(),
-            resource_name=self._get_privilege_description(privilege),
+            resource_name=self._get_privilege_description(resource),
             message="Privileges are granted or revoked, not updated"
         )
-    
-    def delete(self, privilege: Privilege) -> ExecutionResult:
+
+    def delete(self, resource: Privilege) -> ExecutionResult:
         """
         Revoke a privilege.
-        
+
         Args:
-            privilege: The privilege to revoke
-            
+            resource: The privilege to revoke
+
         Returns:
             ExecutionResult indicating success or failure
         """
-        return self.revoke_privilege(privilege)
+        return self.revoke_privilege(resource)
     
     def grant_privilege(self, privilege: Privilege) -> ExecutionResult:
         """

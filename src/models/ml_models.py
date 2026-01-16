@@ -107,7 +107,7 @@ class RegisteredModel(BaseSecurable):
     _parent_schema: Optional[Any] = None
     _parent_catalog: Optional[Any] = None
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -119,7 +119,7 @@ class RegisteredModel(BaseSecurable):
         """Alias for resolved_name for consistency."""
         return self.resolved_name
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_catalog_name(self) -> str:
         """Get catalog name with environment suffix for runtime resolution."""
@@ -131,7 +131,7 @@ class RegisteredModel(BaseSecurable):
         env = get_current_environment()
         return f"{self.catalog_name}_{env.value.lower()}"
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Fully qualified domain name."""
@@ -140,7 +140,7 @@ class RegisteredModel(BaseSecurable):
             return f"{self.resolved_catalog_name}.{self.schema_name}.{self.name}"
         return self.name
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def securable_type(self) -> SecurableType:
         """Type of this securable."""
@@ -208,7 +208,7 @@ class RegisteredModel(BaseSecurable):
             return None
         return max(self.versions, key=lambda v: v.version)
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def latest_version_number(self) -> Optional[int]:
         """
@@ -394,7 +394,7 @@ class ModelVersion(BaseGovernanceModel):
     # Parent reference
     _parent_model: Optional[RegisteredModel] = None
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Fully qualified name including version."""
@@ -535,7 +535,7 @@ class ServiceCredential(BaseSecurable):
                 raise ValueError("API keys should reference secret scope: {{secrets/scope/key}}")
         return v
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -552,7 +552,7 @@ class ServiceCredential(BaseSecurable):
         """FQDN is just resolved name for Level 1 objects."""
         return self.resolved_name
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def securable_type(self) -> SecurableType:
         """Type of this securable."""
@@ -606,7 +606,7 @@ class ModelServingEndpoint(BaseGovernanceModel):
         description="Description of the endpoint"
     )
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""

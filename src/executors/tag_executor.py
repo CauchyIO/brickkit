@@ -79,16 +79,17 @@ class TagExecutor:
                             entity_type=entity_type,
                             entity_name=entity_name,
                             tag_key=tag.key,
-                            tag_value=tag.value
+                            tag_assignment=assignment,
+                            update_mask="tag_value"
                         )
                         logger.debug(f"Updated tag {tag.key}={tag.value} on {entity_type} {entity_name}")
                     except (NotFound, ResourceDoesNotExist):
                         # Tag doesn't exist, create it
-                        self.tag_api.create(assignment)
+                        self.tag_api.create(tag_assignment=assignment)
                         logger.debug(f"Created tag {tag.key}={tag.value} on {entity_type} {entity_name}")
                 else:
                     # Just create, will fail if exists
-                    self.tag_api.create(assignment)
+                    self.tag_api.create(tag_assignment=assignment)
                     logger.debug(f"Created tag {tag.key}={tag.value} on {entity_type} {entity_name}")
 
                 applied.append(assignment)
@@ -225,7 +226,7 @@ class TagExecutor:
                 # Add new tag
                 try:
                     assignment = tag.to_entity_assignment(entity_name, entity_type)
-                    self.tag_api.create(assignment)
+                    self.tag_api.create(tag_assignment=assignment)
                     results["added"].append(tag)
                     logger.debug(f"Added tag {tag.key}={tag.value}")
                 except ResourceAlreadyExists:
@@ -240,11 +241,13 @@ class TagExecutor:
             elif current_dict[tag.key] != tag.value:
                 # Update existing tag
                 try:
+                    assignment = tag.to_entity_assignment(entity_name, entity_type)
                     self.tag_api.update(
                         entity_type=entity_type,
                         entity_name=entity_name,
                         tag_key=tag.key,
-                        tag_value=tag.value
+                        tag_assignment=assignment,
+                        update_mask="tag_value"
                     )
                     results["updated"].append(tag)
                     logger.debug(f"Updated tag {tag.key} from {current_dict[tag.key]} to {tag.value}")
@@ -252,7 +255,7 @@ class TagExecutor:
                     # Tag was deleted concurrently, try to create instead
                     try:
                         assignment = tag.to_entity_assignment(entity_name, entity_type)
-                        self.tag_api.create(assignment)
+                        self.tag_api.create(tag_assignment=assignment)
                         results["added"].append(tag)
                     except PermissionDenied:
                         raise

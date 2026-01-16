@@ -109,7 +109,7 @@ class Volume(BaseSecurable):
                 raise ValueError("External volumes require either storage_location or external_location")
         return self
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Fully qualified domain name (catalog.schema.volume format)."""
@@ -179,11 +179,11 @@ class Volume(BaseSecurable):
         """Return the level-1 name (resolved catalog name for Privilege storage)."""
         return self.resolved_catalog_name
 
-    def get_level_2_name(self) -> str:
+    def get_level_2_name(self) -> Optional[str]:
         """Return the level-2 name (schema name)."""
         return self.schema_name
 
-    def get_level_3_name(self) -> str:
+    def get_level_3_name(self) -> Optional[str]:
         """Return the level-3 name (volume name)."""
         return self.name
 

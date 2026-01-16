@@ -106,13 +106,13 @@ class ExternalLocation(BaseSecurable):
 
         return v.rstrip('/')  # Normalize by removing trailing slash
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def storage_root(self) -> str:
         """Returns self.url for consistency with SDK expectations."""
         return self.url
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""

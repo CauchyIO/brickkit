@@ -121,7 +121,8 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
     def exists(self, resource: GenieSpace) -> bool:
         """Check if a Genie Space exists by title."""
         try:
-            spaces = list(self.client.genie.list_spaces())
+            response = self.client.genie.list_spaces()
+            spaces = response.spaces if response and response.spaces else []
             return any(s.title == resource.title for s in spaces)
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -132,7 +133,8 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
     def get_space_id_by_title(self, title: str) -> Optional[str]:
         """Get space ID by title, or None if not found."""
         try:
-            spaces = list(self.client.genie.list_spaces())
+            response = self.client.genie.list_spaces()
+            spaces = response.spaces if response and response.spaces else []
             for space in spaces:
                 if space.title == title:
                     return space.space_id
@@ -445,7 +447,8 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
             List of space info dictionaries
         """
         try:
-            spaces = list(self.client.genie.list_spaces())
+            response = self.client.genie.list_spaces()
+            spaces = response.spaces if response and response.spaces else []
             return [
                 {
                     "space_id": s.space_id,

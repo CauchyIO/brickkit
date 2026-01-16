@@ -14,7 +14,7 @@ import os
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -159,7 +159,7 @@ class ValidationResult(BaseModel):
     message: str
     severity: str = "error"  # error, warning, info
     details: Optional[Dict[str, Any]] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class GovernanceValidator:
@@ -524,7 +524,7 @@ def data_lineage_tracking(
         mlflow.set_tag("dataset.version", dataset_version)
         mlflow.set_tag("dataset.source", source)
         mlflow.set_tag("dataset.classification", classification.value)
-        mlflow.set_tag("dataset.logged_at", datetime.utcnow().isoformat())
+        mlflow.set_tag("dataset.logged_at", datetime.now(timezone.utc).isoformat())
         
         # Log data statistics if available
         try:
@@ -553,8 +553,10 @@ class GovernanceMLflowClient(MlflowClient):
         self.policy = policy
         self.validator = GovernanceValidator(policy)
     
-    def create_registered_model(self, name: str, tags: Optional[Dict[str, str]] = None, 
-                               description: Optional[str] = None) -> Any:
+    def create_registered_model(  # type: ignore[override]
+        self, name: str, tags: Optional[Dict[str, str]] = None,
+        description: Optional[str] = None
+    ) -> Any:
         """Override model registration to enforce governance."""
         # Validate model name
         if not self._is_valid_model_name(name):
@@ -573,10 +575,12 @@ class GovernanceMLflowClient(MlflowClient):
         
         return super().create_registered_model(name, tags, description)
     
-    def create_model_version(self, name: str, source: str, run_id: Optional[str] = None,
-                            tags: Optional[Dict[str, str]] = None, 
-                            run_link: Optional[str] = None,
-                            description: Optional[str] = None) -> Any:
+    def create_model_version(  # type: ignore[override]
+        self, name: str, source: str, run_id: Optional[str] = None,
+        tags: Optional[Dict[str, str]] = None,
+        run_link: Optional[str] = None,
+        description: Optional[str] = None
+    ) -> Any:
         """Override version creation to validate governance."""
         # Validate the source model
         validation_results = self.validator.validate_model(source)
@@ -772,7 +776,7 @@ def _auto_add_governance_tags(run: Run, policy: GovernancePolicy) -> None:
                 mlflow.set_tag(tag, value)
 
 
-def _infer_tag_value(tag_name: str) -> Optional[str]:
+def _infer_tag_value(tag_name: str) -> str:
     """Try to infer tag value from environment or defaults."""
     inferences = {
         "team": os.getenv("TEAM_NAME", "data_science"),
@@ -825,9 +829,15 @@ class GovernanceMonitor:
         client = MlflowClient()
         
         while True:
+            # NOTE: This function requires an active MLflow context
+            active_run = mlflow.active_run()
+            if not active_run:
+                logger.warning("No active MLflow run - cannot monitor training")
+                break
+
+            experiment = mlflow.get_experiment(active_run.info.experiment_id)
             active_runs = client.search_runs(
-                experiment_ids=[mlflow.get_experiment_by_name(
-                    mlflow.get_experiment().name).experiment_id],
+                experiment_ids=[experiment.experiment_id] if experiment else [],
                 filter_string="status = 'RUNNING'"
             )
             
@@ -872,7 +882,7 @@ class GovernanceMonitor:
             self.issues_detected.append({
                 "run_id": run.info.run_id,
                 "issue": issue,
-                "timestamp": datetime.utcnow()
+                "timestamp": datetime.now(timezone.utc)
             })
 
 
@@ -911,7 +921,7 @@ def generate_governance_report(run_id: str, output_path: str = "governance_repor
         "metrics": run.data.metrics,
         "approvals": [k for k in run.data.tags if k.startswith("approval.")],
         "passed": all(v == 1.0 for v in validation_metrics.values()),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(timezone.utc).isoformat()
     }
     
     # Save report

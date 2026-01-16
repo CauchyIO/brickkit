@@ -157,7 +157,7 @@ class Team(BaseGovernanceModel):
         """Get all catalogs that should be accessible from a specific workspace."""
         return []  # Placeholder for future implementation
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def workspace_ids(self) -> Dict[str, str]:
         """Get workspace IDs per environment for serialization."""

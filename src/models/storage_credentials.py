@@ -136,7 +136,7 @@ class StorageCredential(BaseSecurable):
             raise ValueError("Exactly one credential type must be specified")
         return self
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix (unless is_existing=True)."""

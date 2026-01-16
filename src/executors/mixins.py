@@ -56,6 +56,7 @@ class WorkspaceBindingMixin:
         Args:
             resource_name: Name of the resource
             securable_type: Type of securable (catalog, storage_credential, external_location)
+                           Note: Only 'catalog' is fully supported by the current SDK.
 
         Returns:
             Set of workspace IDs currently bound
@@ -64,22 +65,18 @@ class WorkspaceBindingMixin:
             PermissionDenied: If caller lacks permission to read bindings
         """
         try:
-            if securable_type and securable_type != "catalog":
-                # Use securable_type parameter for non-catalog resources
-                try:
-                    bindings = self.client.workspace_bindings.get(
-                        securable_type=securable_type,
-                        securable_name=resource_name
-                    )
-                except TypeError:
-                    # Older SDK version
-                    bindings = self.client.workspace_bindings.get(name=resource_name)
-            else:
-                # Catalogs use simpler API
-                bindings = self.client.workspace_bindings.get(name=resource_name)
+            # The SDK workspace_bindings.get() only supports catalog bindings
+            # For other securable types, this may not work correctly
+            bindings = self.client.workspace_bindings.get(name=resource_name)
 
             if bindings and hasattr(bindings, 'workspaces') and bindings.workspaces:
-                return {ws.workspace_id for ws in bindings.workspaces}
+                workspace_ids: Set[int] = set()
+                for ws in bindings.workspaces:
+                    if hasattr(ws, 'workspace_id'):
+                        workspace_ids.add(ws.workspace_id)
+                    elif isinstance(ws, int):
+                        workspace_ids.add(ws)
+                return workspace_ids
             return set()
 
         except (NotFound, ResourceDoesNotExist):
@@ -101,7 +98,7 @@ class WorkspaceBindingMixin:
         Args:
             resource_name: Name of the resource
             workspace_ids: List of workspace IDs to bind
-            securable_type: Type of securable (catalog, storage_credential, external_location)
+            securable_type: Type of securable (for logging only; SDK only supports catalogs)
             wait_for_propagation: If True, wait briefly for bindings to propagate
 
         Returns:
@@ -120,36 +117,12 @@ class WorkspaceBindingMixin:
         try:
             workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids]
 
-            if securable_type and securable_type != "catalog":
-                # Non-catalog resources need WorkspaceBinding objects
-                from databricks.sdk.service.catalog import WorkspaceBinding, WorkspaceBindingBindingType
-
-                workspace_bindings = [
-                    WorkspaceBinding(
-                        workspace_id=ws_id,
-                        binding_type=WorkspaceBindingBindingType.BINDING_TYPE_READ_WRITE
-                    )
-                    for ws_id in workspace_ids_as_ints
-                ]
-
-                try:
-                    self.client.workspace_bindings.update(
-                        securable_type=securable_type,
-                        securable_name=resource_name,
-                        assign_workspaces=workspace_bindings
-                    )
-                except TypeError:
-                    # Older SDK version
-                    self.client.workspace_bindings.update(
-                        name=resource_name,
-                        assign_workspaces=workspace_bindings
-                    )
-            else:
-                # Catalogs use simpler API with just workspace IDs
-                self.client.workspace_bindings.update(
-                    name=resource_name,
-                    assign_workspaces=workspace_ids_as_ints
-                )
+            # The SDK workspace_bindings.update() only supports catalog bindings
+            # and expects List[int] for assign_workspaces
+            self.client.workspace_bindings.update(
+                name=resource_name,
+                assign_workspaces=workspace_ids_as_ints
+            )
 
             logger.info(f"Successfully applied workspace bindings to {resource_name}")
 
@@ -182,7 +155,7 @@ class WorkspaceBindingMixin:
         Args:
             resource_name: Name of the resource
             desired_workspace_ids: Desired list of workspace IDs
-            securable_type: Type of securable
+            securable_type: Type of securable (for logging only; SDK only supports catalogs)
 
         Returns:
             True if bindings were updated successfully
@@ -205,42 +178,13 @@ class WorkspaceBindingMixin:
         logger.info(f"  Adding: {to_add}, Removing: {to_remove}")
 
         try:
-            if securable_type and securable_type != "catalog":
-                from databricks.sdk.service.catalog import WorkspaceBinding, WorkspaceBindingBindingType
-
-                assign_bindings = [
-                    WorkspaceBinding(
-                        workspace_id=ws_id,
-                        binding_type=WorkspaceBindingBindingType.BINDING_TYPE_READ_WRITE
-                    )
-                    for ws_id in to_add
-                ] if to_add else None
-
-                unassign_bindings = [
-                    WorkspaceBinding(workspace_id=ws_id)
-                    for ws_id in to_remove
-                ] if to_remove else None
-
-                try:
-                    self.client.workspace_bindings.update(
-                        securable_type=securable_type,
-                        securable_name=resource_name,
-                        assign_workspaces=assign_bindings,
-                        unassign_workspaces=unassign_bindings
-                    )
-                except TypeError:
-                    self.client.workspace_bindings.update(
-                        name=resource_name,
-                        assign_workspaces=assign_bindings,
-                        unassign_workspaces=unassign_bindings
-                    )
-            else:
-                # Catalogs use simpler API
-                self.client.workspace_bindings.update(
-                    name=resource_name,
-                    assign_workspaces=to_add if to_add else None,
-                    unassign_workspaces=to_remove if to_remove else None
-                )
+            # The SDK workspace_bindings.update() only supports catalog bindings
+            # and expects List[int] for assign/unassign_workspaces
+            self.client.workspace_bindings.update(
+                name=resource_name,
+                assign_workspaces=to_add if to_add else None,
+                unassign_workspaces=to_remove if to_remove else None
+            )
 
             logger.info(f"Successfully updated workspace bindings for {resource_name}")
             return True

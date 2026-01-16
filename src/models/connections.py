@@ -82,7 +82,7 @@ class Connection(BaseSecurable):
 
         return v
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""

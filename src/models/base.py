@@ -165,7 +165,7 @@ class BaseSecurable(BaseGovernanceModel):
             if validation_errors:
                 import warnings
                 warnings.warn(
-                    f"Privilege dependency validation failed for {self.name}:\n" + 
+                    f"Privilege dependency validation failed for {getattr(self, 'name', 'unknown')}:\n" +
                     "\n".join(f"  - {error}" for error in validation_errors),
                     UserWarning,
                     stacklevel=2

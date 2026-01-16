@@ -260,7 +260,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 duration_seconds=time.time() - start_time
             )
 
-    def plan(self, catalog: Catalog) -> ExecutionPlan:
+    def plan(self, catalog: Catalog) -> ExecutionPlan:  # type: ignore[override]
         """
         Create an execution plan for workspace binding updates.
         

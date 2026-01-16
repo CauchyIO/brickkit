@@ -78,7 +78,7 @@ class Provider(BaseSecurable):
         description="Recipient profile configuration"
     )
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -212,7 +212,7 @@ class Recipient(BaseSecurable):
                 )
         return self
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -504,7 +504,7 @@ class Share(BaseSecurable):
         description="Recipients with access to this share"
     )
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -850,7 +850,7 @@ class OnlineTable(BaseSecurable):
         description="Cron schedule for refreshing from source"
     )
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""
@@ -862,7 +862,7 @@ class OnlineTable(BaseSecurable):
         """Alias for resolved_name for consistency."""
         return self.resolved_name
     
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Build fully qualified name."""
@@ -883,23 +883,26 @@ class OnlineTable(BaseSecurable):
     
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK online table create parameters."""
-        params = {
-            "name": self.resolved_name,
-            "spec": {
-                "source_table_full_name": self.source_table_fqdn,
-                "primary_key_columns": self.primary_key_columns
-            }
+        spec: Dict[str, Any] = {
+            "source_table_full_name": self.source_table_fqdn,
+            "primary_key_columns": self.primary_key_columns
         }
-        
+
+        if self.timeseries_key_column:
+            spec["timeseries_key"] = self.timeseries_key_column
+        if self.snapshot_trigger:
+            spec["snapshot_trigger"] = self.snapshot_trigger
+
+        params: Dict[str, Any] = {
+            "name": self.resolved_name,
+            "spec": spec
+        }
+
         if self.catalog_name:
             params["catalog_name"] = self.catalog_name
         if self.schema_name:
             params["schema_name"] = self.schema_name
-        if self.timeseries_key_column:
-            params["spec"]["timeseries_key"] = self.timeseries_key_column
-        if self.snapshot_trigger:
-            params["spec"]["snapshot_trigger"] = self.snapshot_trigger
-            
+
         return params
     
     def to_sdk_update_params(self) -> Dict[str, Any]:

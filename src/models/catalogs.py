@@ -90,13 +90,13 @@ class Catalog(BaseSecurable):
             )
         return self
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def storage_root(self) -> Optional[str]:
         """Returns external_location.url for SDK export."""
         return self.external_location.url if self.external_location else None
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_name(self) -> str:
         """Name with environment suffix."""

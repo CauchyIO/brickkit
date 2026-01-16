@@ -218,7 +218,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
             if hasattr(existing, 'aws_iam_role'):
                 # Compare role ARN
                 existing_role = existing.aws_iam_role.role_arn if existing.aws_iam_role else None
-                desired_role = desired.aws_iam_role.get('role_arn')
+                desired_role = desired.aws_iam_role.role_arn
                 if existing_role != desired_role:
                     changes['aws_iam_role'] = {
                         'from': 'existing',

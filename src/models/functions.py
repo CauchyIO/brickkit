@@ -83,6 +83,18 @@ class Function(BaseSecurable):
         True,
         description="Whether function always returns same result for same input"
     )
+    is_row_filter: bool = Field(
+        False,
+        description="Whether this function is used as a row filter for row-level security"
+    )
+    is_column_mask: bool = Field(
+        False,
+        description="Whether this function is used as a column mask for data masking"
+    )
+    referencing_tables: List[Any] = Field(
+        default_factory=list,
+        description="Tables that use this function as a row filter or column mask"
+    )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the function")
 
     # Metadata
@@ -123,7 +135,7 @@ class Function(BaseSecurable):
             return FunctionType(v.upper())
         return v
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Fully qualified domain name (catalog.schema.function format)."""
@@ -195,11 +207,11 @@ class Function(BaseSecurable):
         """Return the level-1 name (resolved catalog name for Privilege storage)."""
         return self.resolved_catalog_name
 
-    def get_level_2_name(self) -> str:
+    def get_level_2_name(self) -> Optional[str]:
         """Return the level-2 name (schema name)."""
         return self.schema_name
 
-    def get_level_3_name(self) -> str:
+    def get_level_3_name(self) -> Optional[str]:
         """Return the level-3 name (function name)."""
         return self.name
 

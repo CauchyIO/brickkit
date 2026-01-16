@@ -82,13 +82,13 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         description="Parent catalog name (set by add_schema)"
     )
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def storage_root(self) -> Optional[str]:
         """Returns external_location.url for SDK export."""
         return self.external_location.url if self.external_location else None
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def resolved_catalog_name(self) -> str:
         """Get catalog name with environment suffix for runtime resolution."""
@@ -99,7 +99,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         env = get_current_environment()
         return f"{self.catalog_name}_{env.value.lower()}"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def fqdn(self) -> str:
         """Fully qualified domain name (catalog.schema format)."""
@@ -286,24 +286,32 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
     # Reference management methods
     def add_table_reference(self, table_ref: 'TableReference') -> None:
         """Add a reference to a table discovered or created by DABs."""
+        if not self.catalog_name:
+            raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
         table_ref.catalog_name = self.catalog_name
         table_ref.schema_name = self.name
         self.table_refs.append(table_ref)
 
     def add_model_reference(self, model_ref: 'ModelReference') -> None:
         """Add a reference to a model discovered or registered by MLflow."""
+        if not self.catalog_name:
+            raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
         model_ref.catalog_name = self.catalog_name
         model_ref.schema_name = self.name
         self.model_refs.append(model_ref)
 
     def add_volume_reference(self, volume_ref: 'VolumeReference') -> None:
         """Add a reference to a volume discovered or created by DABs."""
+        if not self.catalog_name:
+            raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
         volume_ref.catalog_name = self.catalog_name
         volume_ref.schema_name = self.name
         self.volume_refs.append(volume_ref)
 
     def add_function_reference(self, function_ref: 'FunctionReference') -> None:
         """Add a reference to a function discovered or created by DABs."""
+        if not self.catalog_name:
+            raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
         function_ref.catalog_name = self.catalog_name
         function_ref.schema_name = self.name
         self.function_refs.append(function_ref)
