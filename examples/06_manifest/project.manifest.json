@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "organization": "acme_corp",
+  "default_owner": "data-governance-team",
+
+  "default_tags": [
+    {
+      "key": "managed_by",
+      "value": "brickkit"
+    },
+    {
+      "key": "business_unit",
+      "value": "engineering",
+      "environment_values": {
+        "prd": "engineering_production"
+      }
+    },
+    {
+      "key": "environment",
+      "value": "development",
+      "environment_values": {
+        "acc": "acceptance",
+        "prd": "production"
+      }
+    }
+  ],
+
+  "required_tags": [
+    {
+      "key": "cost_center",
+      "allowed_values": ["cc_finance_001", "cc_engineering_002", "cc_marketing_003", "cc_shared_000"],
+      "applies_to": ["CATALOG"],
+      "error_message": "Catalogs must have a valid cost_center for chargeback"
+    },
+    {
+      "key": "data_classification",
+      "allowed_values": ["public", "internal", "confidential", "restricted"],
+      "applies_to": ["CATALOG", "SCHEMA", "TABLE"]
+    },
+    {
+      "key": "data_owner",
+      "applies_to": ["CATALOG"],
+      "error_message": "Catalogs must specify a data_owner team"
+    }
+  ],
+
+  "naming_conventions": [
+    {
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "applies_to": ["CATALOG", "SCHEMA"],
+      "error_message": "Names must be lowercase, start with a letter, and use underscores"
+    }
+  ]
+}
