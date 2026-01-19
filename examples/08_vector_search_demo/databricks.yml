@@ -8,26 +8,22 @@ include:
 
 sync:
   include:
-    - src/*.py
-    - notebooks/*.ipynb
-    - config/*.yml
+    - conventions/*.yml
+    - "*.py"
 
-# Variable declarations sourced from manifest and environment
+# Variable declarations - matches YAML convention naming pattern: {env}_{team}_{product}
 variables:
-  # From manifest.yml organization
-  company:
-    description: Company identifier from manifest
-    default: acme_financial
+  # From convention
   team:
-    description: Team identifier from manifest
+    description: Team identifier
     default: quant
-  usecase:
-    description: Use case/product identifier from manifest
-    default: risk
+  product:
+    description: Product identifier
+    default: risk_analytics
 
-  # Environment-derived
+  # Environment-derived (set per target)
   catalog:
-    description: The catalog to use (derived from team_usecase_env pattern)
+    description: The catalog to use (follows {env}_{team}_{product} pattern)
   schema:
     description: The schema to use
     default: indicators
@@ -36,13 +32,10 @@ variables:
   vs_endpoint_name:
     description: Vector Search endpoint name
 
-  # Governance
+  # Governance tags (from convention)
   cost_center:
     description: Cost center for tagging
     default: CC-TRD-4521
-  data_classification:
-    description: Data classification level
-    default: confidential
 
 targets:
   dev:
@@ -52,8 +45,8 @@ targets:
       host: ${DATABRICKS_HOST}
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: quant_risk_dev
-      vs_endpoint_name: quant_risk_dev
+      catalog: dev_quant_risk_analytics
+      vs_endpoint_name: dev_quant_risk_analytics
 
   acc:
     mode: development
@@ -61,8 +54,8 @@ targets:
       host: ${DATABRICKS_HOST}
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: quant_risk_acc
-      vs_endpoint_name: quant_risk_acc
+      catalog: acc_quant_risk_analytics
+      vs_endpoint_name: acc_quant_risk_analytics
 
   prd:
     mode: production
@@ -70,7 +63,7 @@ targets:
       host: ${DATABRICKS_HOST}
       root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: quant_risk_prd
-      vs_endpoint_name: quant_risk_prd
+      catalog: prd_quant_risk_analytics
+      vs_endpoint_name: prd_quant_risk_analytics
     run_as:
-      service_principal_name: spn_trading_platform
+      service_principal_name: spn_trading_platform_prd

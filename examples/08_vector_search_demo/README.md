@@ -1,6 +1,29 @@
-# YAML Convention Demo
+# Vector Search Demo with BrickKit
 
-This demo shows how to use the YAML-first convention system for declarative governance.
+This demo shows end-to-end usage of BrickKit for deploying governed Vector Search.
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `vector_search_demo.ipynb` | **Main demo** - Complete end-to-end notebook |
+| `conventions/financial_services.yml` | Governance convention (tags, rules, naming) |
+| `demo_convention.py` | Quick CLI test for convention loading |
+| `config/manifest.yml` | Project manifest with organization metadata |
+
+## Running the Demo
+
+1. Open `vector_search_demo.ipynb` in Databricks
+2. Set the widgets (catalog, schema, environment, dry_run)
+3. Run all cells
+
+The notebook demonstrates:
+- Loading governance conventions from YAML
+- Creating sample data (or optionally fetching from World Bank API)
+- Defining governed resources with BrickKit models
+- Deploying with BrickKit executors (idempotent, with wait logic)
+- Testing vector search
+- Viewing what governance BrickKit applied automatically
 
 ## Quick Start
 
