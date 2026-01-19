@@ -148,6 +148,19 @@ from brickkit.models.vector_search import (
 )
 
 # =============================================================================
+# YAML Convention System
+# =============================================================================
+from brickkit.yaml_convention import (
+    NameGenerator,
+    RuleDefinition,
+    RuleMode,
+    RulesRegistry,
+    YamlConvention,
+    load_convention,
+    load_conventions_dir,
+)
+
+# =============================================================================
 # ML Models (if available)
 # =============================================================================
 
@@ -218,6 +231,14 @@ __all__ = [
     "ProjectManifest",
     "ManifestBasedDefaults",
     "load_project_manifest",
+    # YAML Convention
+    "load_convention",
+    "load_conventions_dir",
+    "YamlConvention",
+    "RulesRegistry",
+    "RuleDefinition",
+    "RuleMode",
+    "NameGenerator",
     # Base Classes
     "BaseGovernanceModel",
     "BaseSecurable",

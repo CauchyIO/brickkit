@@ -22,7 +22,7 @@ from pydantic import (
 from typing_extensions import Self
 
 from .base import BaseGovernanceModel, get_current_environment
-from .enums import Environment, PrivilegeType, SecurableType
+from .enums import Environment, PrincipalType, PrivilegeType, SecurableType
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,10 @@ class Principal(BaseGovernanceModel):
     }
 
     name: str = Field(..., description="Base name as defined by the team")
+    principal_type: Optional[PrincipalType] = Field(
+        None,
+        description="Type of principal (USER, GROUP, SERVICE_PRINCIPAL). Used for ownership validation."
+    )
     add_environment_suffix: bool = Field(True, description="Whether to auto-add environment suffix")
     environment_mapping: Dict[Environment, str] = Field(
         default_factory=dict,
@@ -62,6 +66,18 @@ class Principal(BaseGovernanceModel):
         None,
         description="Optional environment override (for special cases)"
     )
+
+    def is_service_principal(self) -> bool:
+        """Check if this principal is a service principal."""
+        return self.principal_type == PrincipalType.SERVICE_PRINCIPAL
+
+    def is_group(self) -> bool:
+        """Check if this principal is a group."""
+        return self.principal_type == PrincipalType.GROUP
+
+    def is_user(self) -> bool:
+        """Check if this principal is a user."""
+        return self.principal_type == PrincipalType.USER
 
     @model_validator(mode='after')
     def handle_special_principals(self) -> Self:
@@ -144,6 +160,50 @@ class Principal(BaseGovernanceModel):
 
         return False
 
+    # Convenience factory methods for typed principals
+    @classmethod
+    def service_principal(
+        cls,
+        name: str,
+        add_environment_suffix: bool = True,
+        environment_mapping: Optional[Dict[Environment, str]] = None
+    ) -> 'Principal':
+        """Create a service principal."""
+        return cls(
+            name=name,
+            principal_type=PrincipalType.SERVICE_PRINCIPAL,
+            add_environment_suffix=add_environment_suffix,
+            environment_mapping=environment_mapping or {}
+        )
+
+    @classmethod
+    def group(
+        cls,
+        name: str,
+        add_environment_suffix: bool = True,
+        environment_mapping: Optional[Dict[Environment, str]] = None
+    ) -> 'Principal':
+        """Create a group principal."""
+        return cls(
+            name=name,
+            principal_type=PrincipalType.GROUP,
+            add_environment_suffix=add_environment_suffix,
+            environment_mapping=environment_mapping or {}
+        )
+
+    @classmethod
+    def user(
+        cls,
+        name: str,
+        add_environment_suffix: bool = False  # Users typically don't have env suffixes
+    ) -> 'Principal':
+        """Create a user principal."""
+        return cls(
+            name=name,
+            principal_type=PrincipalType.USER,
+            add_environment_suffix=add_environment_suffix
+        )
+
     # Convenience factory methods for special principals
     @classmethod
     def all_workspace_users(cls) -> 'Principal':
@@ -153,7 +213,7 @@ class Principal(BaseGovernanceModel):
         This represents the built-in 'users' group in Databricks that includes
         all users who have access to the workspace.
         """
-        return cls(name='users', add_environment_suffix=False)
+        return cls(name='users', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
     @classmethod
     def workspace_admins(cls) -> 'Principal':
@@ -163,7 +223,7 @@ class Principal(BaseGovernanceModel):
         This represents the built-in 'admins' group in Databricks that includes
         all workspace administrators.
         """
-        return cls(name='admins', add_environment_suffix=False)
+        return cls(name='admins', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
     @classmethod
     def all_account_users(cls) -> 'Principal':
@@ -173,7 +233,7 @@ class Principal(BaseGovernanceModel):
         This represents the built-in 'account users' group in Databricks that
         includes all users in the Databricks account across all workspaces.
         """
-        return cls(name='account users', add_environment_suffix=False)
+        return cls(name='account users', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
 
 # =============================================================================

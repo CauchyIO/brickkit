@@ -33,6 +33,82 @@ class SecurableType(str, Enum):
     VECTOR_SEARCH_ENDPOINT = "VECTOR_SEARCH_ENDPOINT"  # Vector Search endpoints
     VECTOR_SEARCH_INDEX = "VECTOR_SEARCH_INDEX"  # Vector Search indexes
 
+    # Model Serving
+    MODEL_SERVING_ENDPOINT = "MODEL_SERVING_ENDPOINT"  # Model serving endpoints
+
+
+class SecurableAcronym(str, Enum):
+    """
+    Short codes for securables used in naming conventions.
+
+    Pattern: {ENV}_{TEAM}_{USECASE}_{ACRONYM}
+    Example: dev_quant_risk_cat (Development Quant Risk Catalog)
+    """
+    # Core Unity Catalog Objects
+    METASTORE = "mst"
+    CATALOG = "cat"
+    SCHEMA = "sch"
+    TABLE = "tbl"
+    VIEW = "vw"
+    MATERIALIZED_VIEW = "mvw"
+    STREAMING_TABLE = "stbl"
+    VOLUME = "vol"
+    FUNCTION = "fn"
+
+    # ML/AI Objects
+    MODEL = "mdl"
+    MODEL_SERVING_ENDPOINT = "mse"
+    GENIE_SPACE = "gsp"
+    VECTOR_SEARCH_ENDPOINT = "vse"
+    VECTOR_SEARCH_INDEX = "vsi"
+
+    # Infrastructure Objects
+    SERVICE_CREDENTIAL = "scr"
+    STORAGE_CREDENTIAL = "stc"
+    EXTERNAL_LOCATION = "ext"
+    CONNECTION = "con"
+    PIPELINE = "pip"
+
+    # Delta Sharing Objects
+    SHARE = "shr"
+    RECIPIENT = "rcp"
+    PROVIDER = "prv"
+
+    @classmethod
+    def from_securable_type(cls, securable_type: "SecurableType") -> "SecurableAcronym":
+        """Get the acronym for a SecurableType."""
+        mapping = {
+            SecurableType.METASTORE: cls.METASTORE,
+            SecurableType.CATALOG: cls.CATALOG,
+            SecurableType.SCHEMA: cls.SCHEMA,
+            SecurableType.TABLE: cls.TABLE,
+            SecurableType.VOLUME: cls.VOLUME,
+            SecurableType.FUNCTION: cls.FUNCTION,
+            SecurableType.MODEL: cls.MODEL,
+            SecurableType.SERVICE_CREDENTIAL: cls.SERVICE_CREDENTIAL,
+            SecurableType.STORAGE_CREDENTIAL: cls.STORAGE_CREDENTIAL,
+            SecurableType.EXTERNAL_LOCATION: cls.EXTERNAL_LOCATION,
+            SecurableType.CONNECTION: cls.CONNECTION,
+            SecurableType.SHARE: cls.SHARE,
+            SecurableType.RECIPIENT: cls.RECIPIENT,
+            SecurableType.PROVIDER: cls.PROVIDER,
+            SecurableType.PIPELINE: cls.PIPELINE,
+            SecurableType.GENIE_SPACE: cls.GENIE_SPACE,
+            SecurableType.VECTOR_SEARCH_ENDPOINT: cls.VECTOR_SEARCH_ENDPOINT,
+            SecurableType.VECTOR_SEARCH_INDEX: cls.VECTOR_SEARCH_INDEX,
+            SecurableType.MODEL_SERVING_ENDPOINT: cls.MODEL_SERVING_ENDPOINT,
+        }
+        if securable_type not in mapping:
+            raise ValueError(f"No acronym defined for {securable_type}")
+        return mapping[securable_type]
+
+
+class PrincipalType(str, Enum):
+    """Type of principal for ownership and grants."""
+    USER = "USER"
+    GROUP = "GROUP"
+    SERVICE_PRINCIPAL = "SERVICE_PRINCIPAL"
+
 
 class PrivilegeType(str, Enum):
     """

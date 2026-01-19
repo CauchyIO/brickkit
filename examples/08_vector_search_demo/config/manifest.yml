@@ -1,0 +1,127 @@
+# Governance Manifest for Financial Services
+# This manifest defines project metadata used for naming conventions,
+# tagging, and ownership rules across all securables.
+
+# =============================================================================
+# ORGANIZATION HIERARCHY
+# =============================================================================
+# Financial services typically have: Company > Region > BU > Team > Product
+
+organization:
+  company: "acme_financial"           # Top-level company identifier
+  company_full: "ACME Financial Services Inc."
+
+  region: "emea"                      # Geographic region (emea, apac, americas)
+  region_full: "Europe, Middle East & Africa"
+
+  business_unit: "trading"            # Business unit (trading, retail, wealth, ops)
+  business_unit_full: "Trading & Markets"
+
+  team: "quant"                       # Team within the BU
+  team_full: "Quantitative Analytics"
+
+  product: "risk_analytics"           # Product or project name
+  product_full: "Risk Analytics Platform"
+
+# =============================================================================
+# GOVERNANCE & COMPLIANCE
+# =============================================================================
+
+governance:
+  cost_center: "CC-TRD-4521"          # Financial cost center code
+  data_classification: "confidential" # public, internal, confidential, restricted
+  regulatory_scope:                   # Applicable regulations
+    - "MiFID II"
+    - "GDPR"
+    - "SOX"
+  data_retention_days: 2555           # 7 years for financial data
+  audit_required: true
+
+# =============================================================================
+# OWNERSHIP & CONTACTS
+# =============================================================================
+
+ownership:
+  # Primary owner - must be a Service Principal for catalogs
+  catalog_owner:
+    name: "spn_trading_platform"
+    type: "SERVICE_PRINCIPAL"
+
+  # Default owner for schemas and below - can be SP or Group
+  default_owner:
+    name: "grp_quant_team"
+    type: "GROUP"
+
+  # Data steward for governance questions
+  data_steward:
+    name: "john.smith@acme.com"
+    type: "USER"
+
+  # Technical contact
+  technical_contact:
+    name: "platform_oncall@acme.com"
+    type: "USER"
+
+# =============================================================================
+# NAMING CONVENTION COMPONENTS
+# =============================================================================
+# Pattern: {ENV}_{TEAM}_{USECASE}_{SECURABLE_ACRONYM}
+# Example: dev_quant_risk_cat (Development Quant Risk Catalog)
+
+naming:
+  # Environment prefix (resolved at runtime)
+  environment_prefix: true
+
+  # Team identifier for naming
+  team_id: "quant"
+
+  # Use case / project identifier
+  usecase_id: "risk"
+
+  # Full pattern template
+  pattern: "{env}_{team}_{usecase}_{acronym}"
+
+  # Separator character
+  separator: "_"
+
+# =============================================================================
+# TAGS TO AUTO-APPLY
+# =============================================================================
+
+tags:
+  # Organization tags
+  company: "acme_financial"
+  region: "emea"
+  business_unit: "trading"
+  team: "quant"
+  product: "risk_analytics"
+
+  # Governance tags
+  cost_center: "CC-TRD-4521"
+  data_classification: "confidential"
+  managed_by: "brickkit"
+
+  # Compliance tags
+  pii: "false"                        # Override per-table as needed
+  sox_scope: "true"
+  gdpr_scope: "true"
+
+# =============================================================================
+# ENVIRONMENT CONFIGURATION
+# =============================================================================
+
+environments:
+  dev:
+    suffix: "dev"
+    workspace_id: "1234567890"
+    catalog_pattern: "{team}_{usecase}_{suffix}"
+
+  acc:
+    suffix: "acc"
+    workspace_id: "1234567891"
+    catalog_pattern: "{team}_{usecase}_{suffix}"
+
+  prd:
+    suffix: "prd"
+    workspace_id: "1234567892"
+    catalog_pattern: "{team}_{usecase}_{suffix}"
