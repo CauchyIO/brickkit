@@ -35,10 +35,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     def exists(self, resource: Catalog) -> bool:
         """
         Check if a catalog exists.
-        
+
         Args:
             catalog: The catalog to check
-            
+
         Returns:
             True if catalog exists, False otherwise
         """
@@ -55,10 +55,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     def create(self, resource: Catalog) -> ExecutionResult:
         """
         Create a new resource.
-        
+
         Args:
             catalog: The catalog to create
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -254,10 +254,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     def delete(self, resource: Catalog) -> ExecutionResult:
         """
         Delete a resource.
-        
+
         Args:
             catalog: The catalog to delete
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -346,11 +346,11 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     ) -> Dict[str, Any]:
         """
         Compare existing and desired catalog to find changes.
-        
+
         Args:
             existing: Current catalog from Databricks
             desired: Desired catalog configuration
-            
+
         Returns:
             Dictionary of changes needed
         """

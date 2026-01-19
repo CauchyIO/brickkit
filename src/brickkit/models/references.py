@@ -17,7 +17,7 @@ class TableReference(BaseSecurable):
     """
     Reference to a table managed by DABs or created directly.
     Used only for permission management and governance.
-    
+
     Example:
         # Reference an existing table for governance
         table_ref = TableReference(
@@ -26,7 +26,7 @@ class TableReference(BaseSecurable):
             schema_name="bronze",
             tags={"pii": "true", "retention": "7years"}
         )
-        
+
         # Grant permissions
         table_ref.grant(data_engineers, AccessPolicy.WRITER())
     """
@@ -68,7 +68,7 @@ class ModelReference(BaseSecurable):
     """
     Reference to an MLflow model for governance.
     The model itself is managed by MLflow.
-    
+
     Example:
         # Reference a model for governance
         model_ref = ModelReference(
@@ -78,7 +78,7 @@ class ModelReference(BaseSecurable):
             model_tier="PRODUCTION",
             requires_approval=True
         )
-        
+
         # Grant permissions
         model_ref.grant(ml_engineers, AccessPolicy.EXECUTE())
     """
@@ -121,7 +121,7 @@ class VolumeReference(BaseSecurable):
     """
     Reference to a volume for governance.
     Volumes can be created by various means.
-    
+
     Example:
         # Reference a volume for governance
         volume_ref = VolumeReference(
@@ -130,7 +130,7 @@ class VolumeReference(BaseSecurable):
             schema_name="bronze",
             volume_type="EXTERNAL"
         )
-        
+
         # Grant permissions
         volume_ref.grant(data_readers, AccessPolicy.READ_VOLUME())
     """
@@ -166,7 +166,7 @@ class VolumeReference(BaseSecurable):
 class FunctionReference(BaseSecurable):
     """
     Reference to a UDF for governance.
-    
+
     Example:
         # Reference a function for governance
         func_ref = FunctionReference(
@@ -174,7 +174,7 @@ class FunctionReference(BaseSecurable):
             catalog_name="analytics",
             schema_name="functions"
         )
-        
+
         # Grant permissions
         func_ref.grant(analysts, AccessPolicy.EXECUTE())
     """

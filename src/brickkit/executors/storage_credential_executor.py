@@ -44,7 +44,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
     def create(self, resource: StorageCredential) -> ExecutionResult:
         """
         Create a new storage resource.
-        
+
         Storage credentials provide authentication to cloud storage services:
         - AWS: IAM roles
         - Azure: Service principals
@@ -98,7 +98,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
     def update(self, resource: StorageCredential) -> ExecutionResult:
         """
         Update an existing storage resource.
-        
+
         Note: Credential details (IAM role, service principal) can typically be updated,
         but this may affect all external locations using this resource.
         """
@@ -153,7 +153,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
     def delete(self, resource: StorageCredential) -> ExecutionResult:
         """
         Delete a storage resource.
-        
+
         Warning: Cannot delete if external locations are using this resource.
         """
         start_time = time.time()

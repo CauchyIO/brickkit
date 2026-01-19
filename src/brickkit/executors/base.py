@@ -114,7 +114,7 @@ class ExecutionPlan:
 class BaseExecutor(ABC, Generic[T]):
     """
     Base class for all Unity Catalog executors.
-    
+
     Provides common functionality including:
     - Error handling and retries
     - Idempotency checks
@@ -153,10 +153,10 @@ class BaseExecutor(ABC, Generic[T]):
     def create(self, resource: T) -> ExecutionResult:
         """
         Create a new resource.
-        
+
         Args:
             resource: The resource to create
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -166,10 +166,10 @@ class BaseExecutor(ABC, Generic[T]):
     def update(self, resource: T) -> ExecutionResult:
         """
         Update an existing resource.
-        
+
         Args:
             resource: The resource to update
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -179,10 +179,10 @@ class BaseExecutor(ABC, Generic[T]):
     def delete(self, resource: T) -> ExecutionResult:
         """
         Delete a resource.
-        
+
         Args:
             resource: The resource to delete
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -192,10 +192,10 @@ class BaseExecutor(ABC, Generic[T]):
     def exists(self, resource: T) -> bool:
         """
         Check if a resource exists.
-        
+
         Args:
             resource: The resource to check
-            
+
         Returns:
             True if resource exists, False otherwise
         """
@@ -209,10 +209,10 @@ class BaseExecutor(ABC, Generic[T]):
     def create_or_update(self, resource: T) -> ExecutionResult:
         """
         Create resource if it doesn't exist, update if it does.
-        
+
         Args:
             resource: The resource to create or update
-            
+
         Returns:
             ExecutionResult indicating what was done
         """
@@ -231,10 +231,10 @@ class BaseExecutor(ABC, Generic[T]):
     def plan(self, resources: List[T]) -> ExecutionPlan:
         """
         Generate an execution plan for a list of resources.
-        
+
         Args:
             resources: List of resources to process
-            
+
         Returns:
             ExecutionPlan showing what would be done
         """
@@ -272,15 +272,15 @@ class BaseExecutor(ABC, Generic[T]):
     def execute_with_retry(self, operation: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         """
         Execute an operation with retry logic.
-        
+
         Args:
             operation: The operation to execute
             *args: Positional arguments for the operation
             **kwargs: Keyword arguments for the operation
-            
+
         Returns:
             Result of the operation
-            
+
         Raises:
             Exception: If all retries fail
         """
@@ -317,7 +317,7 @@ class BaseExecutor(ABC, Generic[T]):
     def rollback(self):
         """
         Rollback all operations performed by this executor.
-        
+
         Executes rollback operations in reverse order.
         """
         if not self._rollback_stack:
@@ -343,12 +343,12 @@ class BaseExecutor(ABC, Generic[T]):
     ) -> ExecutionResult:
         """
         Handle an error during execution.
-        
+
         Args:
             operation: The operation that failed
             resource_name: Name of the resource
             error: The exception that occurred
-            
+
         Returns:
             ExecutionResult with error details
         """
@@ -392,10 +392,10 @@ class BaseExecutor(ABC, Generic[T]):
     def _get_resource_name(self, resource: T) -> str:
         """
         Get the name of a resource.
-        
+
         Args:
             resource: The resource
-            
+
         Returns:
             Resource name for logging
         """
@@ -411,12 +411,12 @@ class BaseExecutor(ABC, Generic[T]):
     def _needs_update(self, resource: T) -> bool:
         """
         Check if a resource needs updating.
-        
+
         Override in subclasses for specific logic.
-        
+
         Args:
             resource: The resource to check
-            
+
         Returns:
             True if update needed
         """
@@ -425,12 +425,12 @@ class BaseExecutor(ABC, Generic[T]):
     def _get_changes(self, resource: T) -> Dict[str, Any]:
         """
         Get the changes that would be made to a resource.
-        
+
         Override in subclasses for specific logic.
-        
+
         Args:
             resource: The resource
-            
+
         Returns:
             Dictionary of changes
         """

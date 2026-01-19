@@ -23,7 +23,7 @@ class MetastoreAssignmentExecutor:
     def __init__(self, client: WorkspaceClient, dry_run: bool = False):
         """
         Initialize the metastore assignment executor.
-        
+
         Args:
             client: Databricks WorkspaceClient
             dry_run: If True, only simulate operations
@@ -48,12 +48,12 @@ class MetastoreAssignmentExecutor:
     def assign(self, metastore_id: str, workspace_id: int, default_catalog: Optional[str] = None) -> ExecutionResult:
         """
         Assign a metastore to a workspace.
-        
+
         Args:
             metastore_id: The metastore ID to assign
             workspace_id: The workspace ID to assign to
             default_catalog: Optional default catalog for the workspace
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -137,11 +137,11 @@ class MetastoreAssignmentExecutor:
     def unassign(self, metastore_id: str, workspace_id: int) -> ExecutionResult:
         """
         Unassign a metastore from a workspace.
-        
+
         Args:
             metastore_id: The metastore ID to unassign
             workspace_id: The workspace ID to unassign from
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -205,12 +205,12 @@ class MetastoreAssignmentExecutor:
     def update_default_catalog(self, metastore_id: str, workspace_id: int, default_catalog: str) -> ExecutionResult:
         """
         Update the default catalog for a metastore assignment.
-        
+
         Args:
             metastore_id: The metastore ID
             workspace_id: The workspace ID
             default_catalog: The new default catalog
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """

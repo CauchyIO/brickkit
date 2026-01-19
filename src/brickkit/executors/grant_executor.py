@@ -39,7 +39,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ):
         """
         Initialize the grant executor.
-        
+
         Args:
             client: Databricks workspace client
             dry_run: If True, only log actions without executing
@@ -133,10 +133,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
     def grant_privilege(self, privilege: Privilege) -> ExecutionResult:
         """
         Grant a single privilege.
-        
+
         Args:
             privilege: The privilege to grant
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -230,10 +230,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
     def revoke_privilege(self, privilege: Privilege) -> ExecutionResult:
         """
         Revoke a single privilege.
-        
+
         Args:
             privilege: The privilege to revoke
-            
+
         Returns:
             ExecutionResult indicating success or failure
         """
@@ -295,12 +295,12 @@ class GrantExecutor(BaseExecutor[Privilege]):
     def apply_privileges(self, privileges: List[Privilege]) -> List[ExecutionResult]:
         """
         Apply multiple privileges efficiently.
-        
+
         Groups privileges by securable for efficient batching.
-        
+
         Args:
             privileges: List of privileges to apply
-            
+
         Returns:
             List of ExecutionResults
         """
@@ -321,10 +321,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ) -> Dict[Tuple, List[Privilege]]:
         """
         Group privileges by securable for batching.
-        
+
         Args:
             privileges: List of privileges
-            
+
         Returns:
             Dictionary mapping securable key to list of privileges
         """
@@ -348,11 +348,11 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ) -> ExecutionResult:
         """
         Apply all privileges for a single securable.
-        
+
         Args:
             securable_key: Tuple identifying the securable
             privileges: List of privileges for this securable
-            
+
         Returns:
             ExecutionResult for the batch operation
         """
@@ -421,11 +421,11 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ) -> Dict[str, Set[str]]:
         """
         Get current grants for a securable.
-        
+
         Args:
             securable_type: Type of securable
             full_name: Full name of the securable
-            
+
         Returns:
             Dictionary mapping principal to set of privileges
         """
@@ -457,11 +457,11 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ) -> List[PermissionsChange]:
         """
         Calculate privilege changes needed.
-        
+
         Args:
             desired: List of desired privileges
             current: Current privilege state
-            
+
         Returns:
             List of PermissionsChange objects
         """
@@ -490,10 +490,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
     def _get_full_name(self, privilege: Privilege) -> str:
         """
         Get the full name of the securable from a privilege.
-        
+
         Args:
             privilege: The privilege
-            
+
         Returns:
             Full name of the securable
         """
@@ -511,12 +511,12 @@ class GrantExecutor(BaseExecutor[Privilege]):
     ) -> str:
         """
         Build the full name of a securable.
-        
+
         Args:
             l1: Level 1 name (catalog)
             l2: Level 2 name (schema)
             l3: Level 3 name (table/volume/function)
-            
+
         Returns:
             Full name in dot notation
         """
@@ -530,10 +530,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
     def _get_privilege_description(self, privilege: Privilege) -> str:
         """
         Get a human-readable description of a privilege.
-        
+
         Args:
             privilege: The privilege
-            
+
         Returns:
             Description string
         """

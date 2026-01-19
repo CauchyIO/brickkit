@@ -39,7 +39,7 @@ class FunctionExecutor(BaseExecutor[Function]):
     def create(self, resource: Function) -> ExecutionResult:
         """
         Create a new resource.
-        
+
         Note: In Unity Catalog, row filters and column masks are special functions
         that execute with definer's rights (transparent to users).
         """
@@ -103,7 +103,7 @@ class FunctionExecutor(BaseExecutor[Function]):
     def update(self, resource: Function) -> ExecutionResult:
         """
         Update an existing resource.
-        
+
         Note: Functions typically cannot be updated directly - they must be
         dropped and recreated. This method updates metadata only.
         """

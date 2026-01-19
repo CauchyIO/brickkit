@@ -39,7 +39,7 @@ class ConnectionExecutor(BaseExecutor[Connection]):
     def create(self, resource: Connection) -> ExecutionResult:
         """
         Create a new external database resource.
-        
+
         Connections allow Unity Catalog to access external databases like:
         - MySQL, PostgreSQL
         - Snowflake, Redshift
@@ -107,7 +107,7 @@ class ConnectionExecutor(BaseExecutor[Connection]):
     def update(self, resource: Connection) -> ExecutionResult:
         """
         Update an existing resource.
-        
+
         Note: Connection URL and type cannot be changed. Credentials and
         connection options can be updated.
         """
@@ -179,7 +179,7 @@ class ConnectionExecutor(BaseExecutor[Connection]):
     def delete(self, resource: Connection) -> ExecutionResult:
         """
         Delete a resource.
-        
+
         Warning: Cannot delete if foreign catalogs are using this resource.
         """
         start_time = time.time()

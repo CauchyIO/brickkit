@@ -37,8 +37,8 @@ class SecurableType(str, Enum):
 class PrivilegeType(str, Enum):
     """
     Complete list of Unity Catalog privileges from Databricks SDK.
-    
-    IMPORTANT: 
+
+    IMPORTANT:
     - ALL_PRIVILEGES expands at runtime to all applicable privileges (except MANAGE)
     - Privileges are ALWAYS ADDITIVE - multiple grants accumulate
     - To remove privileges, you must explicitly REVOKE
@@ -121,7 +121,7 @@ class PrivilegeType(str, Enum):
 class Environment(str, Enum):
     """
     Deployment environments with standard suffixes.
-    
+
     IMPORTANT: Enum values are UPPERCASE but suffixes use lowercase.
     Example: Environment.DEV -> suffix "_dev"
     """
@@ -212,11 +212,11 @@ def validate_privilege_dependencies(
 ) -> List[str]:
     """
     Validate that all privilege dependencies are satisfied.
-    
+
     Args:
         privileges: Set of privileges to grant
         existing_privileges: Set of privileges already granted
-        
+
     Returns:
         List of validation error messages (empty if valid)
     """

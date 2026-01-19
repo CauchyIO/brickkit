@@ -42,10 +42,10 @@ class ModelVersionStage(str, Enum):
 class RegisteredModel(BaseSecurable):
     """
     Represents a registered ML model in Unity Catalog.
-    
+
     A RegisteredModel is a container for model versions, similar to how a
     schema contains tables. It lives at Level 3 in the hierarchy under a schema.
-    
+
     Hierarchy: Catalog → Schema → RegisteredModel → ModelVersion
     """
 
@@ -151,10 +151,10 @@ class RegisteredModel(BaseSecurable):
     def add_version(self, version: ModelVersion) -> None:
         """
         Add a model version to this registered model.
-        
+
         Args:
             version: The ModelVersion to add
-            
+
         Raises:
             ValueError: If a version with the same number already exists
         """
@@ -180,10 +180,10 @@ class RegisteredModel(BaseSecurable):
     def get_version(self, version: Union[int, str]) -> Optional[ModelVersion]:
         """
         Get a specific version by number or alias.
-        
+
         Args:
             version: Version number or alias name
-            
+
         Returns:
             ModelVersion if found, None otherwise
         """
@@ -202,7 +202,7 @@ class RegisteredModel(BaseSecurable):
     def get_latest_version(self) -> Optional[ModelVersion]:
         """
         Get the latest (highest version number) model version.
-        
+
         Returns:
             Latest ModelVersion if any exist, None otherwise
         """
@@ -215,7 +215,7 @@ class RegisteredModel(BaseSecurable):
     def latest_version_number(self) -> Optional[int]:
         """
         Get the latest (highest) version number.
-        
+
         Returns:
             Latest version number if any versions exist, None otherwise
         """
@@ -225,10 +225,10 @@ class RegisteredModel(BaseSecurable):
     def get_version_by_alias(self, alias: str) -> Optional[ModelVersion]:
         """
         Get a model version by its alias.
-        
+
         Args:
             alias: Alias name (e.g., 'champion', 'production')
-            
+
         Returns:
             ModelVersion if found, None otherwise
         """
@@ -239,9 +239,9 @@ class RegisteredModel(BaseSecurable):
     def set_alias(self, alias: str, version: int) -> None:
         """
         Set an alias for a model version.
-        
+
         Common aliases: 'champion', 'challenger', 'baseline'
-        
+
         Args:
             alias: Alias name
             version: Version number
@@ -321,7 +321,7 @@ class RegisteredModel(BaseSecurable):
 class ModelVersion(BaseGovernanceModel):
     """
     Represents a specific version of a registered model.
-    
+
     ModelVersions are immutable snapshots of a model at a point in time.
     They are Level 4 objects under RegisteredModel.
     """
@@ -407,11 +407,11 @@ class ModelVersion(BaseGovernanceModel):
     def grant(self, principal: Any, policy: Any) -> List[Privilege]:
         """
         Grant privileges on this model version.
-        
+
         Args:
             principal: Principal to grant to
             policy: AccessPolicy defining privileges
-            
+
         Returns:
             List of Privilege objects created
         """
@@ -458,7 +458,7 @@ class ServiceCredentialPurpose(str, Enum):
 class ServiceCredential(BaseSecurable):
     """
     Represents service credentials for AI/ML services.
-    
+
     ServiceCredentials are Level 1 objects (like StorageCredential) that
     manage authentication to external AI services like OpenAI, Anthropic, etc.
     """
@@ -596,7 +596,7 @@ class ServiceCredential(BaseSecurable):
 class ModelServingEndpoint(BaseGovernanceModel):
     """
     Represents a model serving endpoint for production deployment.
-    
+
     Endpoints serve registered models and can handle multiple model versions
     with traffic splitting, A/B testing, and auto-scaling.
     """
@@ -676,7 +676,7 @@ class ModelServingEndpoint(BaseGovernanceModel):
     ) -> None:
         """
         Add a model to serve on this endpoint.
-        
+
         Args:
             model: RegisteredModel to serve
             version: Version number or alias

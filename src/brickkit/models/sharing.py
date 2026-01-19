@@ -750,10 +750,10 @@ class Share(BaseSecurable):
     def to_sdk_add_object_params(self, obj: SharedObject) -> Dict[str, Any]:
         """
         Convert a shared object to SDK parameters for adding to share.
-        
+
         Args:
             obj: The SharedObject to add
-            
+
         Returns:
             SDK parameters for the object itself (not the share update)
         """

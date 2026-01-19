@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     """
     Manages workspace bindings for Unity Catalog catalogs.
-    
-    Only ISOLATED catalogs support workspace bindings. OPEN catalogs are 
+
+    Only ISOLATED catalogs support workspace bindings. OPEN catalogs are
     accessible from all workspaces by default.
     """
 
@@ -33,7 +33,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     ):
         """
         Initialize the workspace binding executor.
-        
+
         Args:
             client: Databricks workspace client
             dry_run: If True, only log actions without executing
@@ -49,11 +49,11 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     ) -> ExecutionResult:
         """
         Update workspace bindings for a catalog.
-        
+
         Args:
             catalog: The catalog to update bindings for
             workspace_ids: List of workspace IDs to bind. If None, uses catalog.workspace_ids
-            
+
         Returns:
             ExecutionResult with operation status
         """
@@ -172,10 +172,10 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     def remove_bindings(self, catalog_name: str) -> ExecutionResult:
         """
         Remove all workspace bindings from a catalog by name.
-        
+
         Args:
             catalog_name: The name of the catalog to remove bindings from
-            
+
         Returns:
             ExecutionResult with operation status
         """
@@ -187,10 +187,10 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     def remove_all_bindings(self, catalog: Catalog) -> ExecutionResult:
         """
         Remove all workspace bindings from a catalog.
-        
+
         Args:
             catalog: The catalog to remove bindings from
-            
+
         Returns:
             ExecutionResult with operation status
         """
@@ -265,10 +265,10 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     def plan(self, catalog: Catalog) -> ExecutionPlan:  # type: ignore[override]
         """
         Create an execution plan for workspace binding updates.
-        
+
         Args:
             catalog: The catalog to plan updates for
-            
+
         Returns:
             ExecutionPlan with planned operations
         """

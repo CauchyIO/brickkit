@@ -175,6 +175,31 @@ except ImportError:
     # Sharing models not available
     pass
 
+# =============================================================================
+# ML Governance (requires mlflow)
+# =============================================================================
+
+try:
+    from brickkit.ml_governance import (  # noqa: F401
+        DataClassification,
+        GovernanceError,
+        GovernanceMLflowClient,
+        GovernanceMonitor,
+        GovernancePolicy,
+        GovernanceValidator,
+        GovernedMLTemplate,
+        ModelTier,
+        ValidationResult,
+        data_lineage_tracking,
+        generate_governance_report,
+        governed_experiment,
+        governed_training,
+        requires_approval,
+    )
+except ImportError:
+    # MLflow not available
+    pass
+
 
 __all__ = [
     # Version
@@ -245,4 +270,19 @@ __all__ = [
     "VectorEndpointType",
     "VectorSearchConfig",
     "VectorSearchIndexConfig",
+    # ML Governance
+    "ModelTier",
+    "DataClassification",
+    "GovernancePolicy",
+    "ValidationResult",
+    "GovernanceValidator",
+    "GovernedMLTemplate",
+    "GovernanceMLflowClient",
+    "GovernanceMonitor",
+    "GovernanceError",
+    "governed_training",
+    "requires_approval",
+    "governed_experiment",
+    "data_lineage_tracking",
+    "generate_governance_report",
 ]

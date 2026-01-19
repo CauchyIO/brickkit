@@ -32,7 +32,7 @@ DEFAULT_SECURABLE_OWNER = os.getenv('DEFAULT_SECURABLE_OWNER', 'platform_automat
 def get_current_environment() -> Environment:
     """
     Get the current environment from DATABRICKS_ENV variable.
-    
+
     Returns Environment.DEV if not set or invalid.
     """
     env_str = os.getenv('DATABRICKS_ENV', 'dev').lower()
@@ -49,7 +49,7 @@ def get_current_environment() -> Environment:
 class BaseGovernanceModel(BaseModel):
     """
     Base model for all governance objects with common configuration.
-    
+
     This provides standard Pydantic v2 configuration and common patterns
     used across all Unity Catalog governance models.
     """
@@ -99,7 +99,7 @@ class BaseSecurable(BaseGovernanceModel):
     def securable_type(self) -> SecurableType:
         """
         Return the type of this securable.
-        
+
         Must be implemented by each securable class.
         """
         raise NotImplementedError(f"{self.__class__.__name__} must implement securable_type property")
@@ -119,18 +119,18 @@ class BaseSecurable(BaseGovernanceModel):
     def grant(self, principal: Any, policy: Any, _skip_validation: bool = False) -> List[Any]:
         """
         Grant privileges to a principal based on an access policy.
-        
+
         The securable automatically extracts the appropriate privileges from the policy
         based on its own securable_type.
-        
+
         Args:
             principal: The principal to grant to
             policy: The access policy defining privileges
             _skip_validation: Internal flag to skip dependency validation during propagation
-            
+
         Returns:
             List of created Privilege objects (including propagated ones)
-            
+
         Raises:
             ValueError: If privilege dependencies are not satisfied
         """
@@ -195,11 +195,11 @@ class BaseSecurable(BaseGovernanceModel):
     def _build_privilege_key(self, principal: Any, priv_type: PrivilegeType) -> tuple:
         """
         Build a unique key for privilege duplicate checking.
-        
+
         Args:
             principal: The principal
             priv_type: The privilege type
-            
+
         Returns:
             Tuple key for the privilege
         """
@@ -214,11 +214,11 @@ class BaseSecurable(BaseGovernanceModel):
     def _create_privilege(self, principal: Any, priv_type: PrivilegeType) -> Any:
         """
         Create a Privilege object for this securable.
-        
+
         Args:
             principal: The principal to grant to
             priv_type: The privilege type
-            
+
         Returns:
             Created Privilege object
         """
@@ -334,21 +334,21 @@ class BaseSecurable(BaseGovernanceModel):
     ) -> Dict[str, List[Any]]:
         """
         Grant privileges to multiple principals at once.
-        
+
         This is a convenience method that calls grant() for each principal
         and returns a dictionary mapping principal names to their granted privileges.
-        
+
         Args:
             principals: List of principals to grant to
             policy: The access policy defining privileges
-            
+
         Returns:
             Dict mapping principal resolved names to granted privileges
-            
+
         Example:
             # Grant reader access to multiple users
             results = catalog.grant_many(
-                [alice, bob, carol], 
+                [alice, bob, carol],
                 AccessPolicy.READER()
             )
             # Returns: {'alice_dev': [...], 'bob_dev': [...], 'carol_dev': [...]}
@@ -365,16 +365,16 @@ class BaseSecurable(BaseGovernanceModel):
     ) -> Dict[str, List[Any]]:
         """
         Apply multiple grant combinations at once.
-        
+
         This allows granting different policies to different principals in
         a single batch operation.
-        
+
         Args:
             grants: List of (principal, policy) tuples
-            
+
         Returns:
             Dict mapping principal resolved names to granted privileges
-            
+
         Example:
             # Different access levels for different users
             results = catalog.grant_all([

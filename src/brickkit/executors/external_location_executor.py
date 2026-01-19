@@ -44,7 +44,7 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
     def create(self, resource: ExternalLocation) -> ExecutionResult:
         """
         Create a new external resource.
-        
+
         External locations provide a mapping between a storage credential and
         a specific cloud storage path (S3 bucket, Azure container, GCS bucket).
         """
@@ -105,7 +105,7 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
     def update(self, resource: ExternalLocation) -> ExecutionResult:
         """
         Update an existing external resource.
-        
+
         Note: The URL cannot be changed after creation. Only metadata and
         credential can be updated.
         """
@@ -164,7 +164,7 @@ class ExternalLocationExecutor(BaseExecutor[ExternalLocation], WorkspaceBindingM
     def delete(self, resource: ExternalLocation) -> ExecutionResult:
         """
         Delete an external resource.
-        
+
         Warning: Cannot delete if external tables or volumes are using this resource.
         """
         start_time = time.time()
