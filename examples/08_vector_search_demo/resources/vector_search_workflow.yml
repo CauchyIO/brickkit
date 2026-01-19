@@ -1,0 +1,45 @@
+# Job definition for Vector Search Demo workflow
+resources:
+  jobs:
+    vector_search_demo:
+      name: "[${bundle.target}] BrickKit Vector Search Demo"
+      description: |
+        Loads World Bank metadata and creates Vector Search index.
+        Demonstrates BrickKit governance patterns.
+
+      tags:
+        team: ${var.team}
+        cost_center: ${var.cost_center}
+        managed_by: brickkit
+
+      tasks:
+        - task_key: load_worldbank_metadata
+          description: Fetch and load World Bank indicator metadata
+          notebook_task:
+            notebook_path: ../notebooks/01_load_worldbank_metadata.ipynb
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            node_type_id: m5d.large
+            num_workers: 0
+            spark_conf:
+              spark.master: "local[*]"
+
+        - task_key: setup_vector_search
+          description: Create Vector Search endpoint and index
+          depends_on:
+            - task_key: load_worldbank_metadata
+          notebook_task:
+            notebook_path: ../notebooks/02_vector_search_setup.ipynb
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              endpoint_name: ${var.vs_endpoint_name}
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            node_type_id: m5d.large
+            num_workers: 0
+            spark_conf:
+              spark.master: "local[*]"

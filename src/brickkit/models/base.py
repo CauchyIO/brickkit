@@ -42,6 +42,26 @@ def get_current_environment() -> Environment:
         logger.warning(f"Invalid DATABRICKS_ENV='{env_str}', defaulting to DEV")
         return Environment.DEV
 
+
+def set_current_environment(env: Environment) -> None:
+    """
+    Set the current environment programmatically.
+
+    This sets the DATABRICKS_ENV environment variable which is used
+    by get_current_environment() and all environment-aware naming.
+
+    Args:
+        env: The environment to set (DEV, ACC, or PRD)
+
+    Example:
+        from brickkit.models.base import set_current_environment
+        from brickkit.models.enums import Environment
+
+        set_current_environment(Environment.PRD)
+    """
+    os.environ['DATABRICKS_ENV'] = env.value
+    logger.info(f"Set current environment to {env.value}")
+
 # =============================================================================
 # BASE CONFIGURATION
 # =============================================================================
@@ -461,6 +481,32 @@ class Tag(BaseGovernanceModel):
         return cls(
             key=assignment.tag_key,
             value=assignment.tag_value or ""
+        )
+
+    def to_vector_search_custom_tag(self) -> Any:
+        """
+        Convert to VectorSearch CustomTag object.
+
+        Returns:
+            databricks.sdk.service.vectorsearch.CustomTag
+        """
+        from databricks.sdk.service.vectorsearch import CustomTag
+        return CustomTag(key=self.key, value=self.value)
+
+    @classmethod
+    def from_vector_search_custom_tag(cls, custom_tag: Any) -> 'Tag':
+        """
+        Create Tag from VectorSearch CustomTag.
+
+        Args:
+            custom_tag: databricks.sdk.service.vectorsearch.CustomTag
+
+        Returns:
+            Tag instance
+        """
+        return cls(
+            key=custom_tag.key or "",
+            value=custom_tag.value or ""
         )
 
 

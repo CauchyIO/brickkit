@@ -1,0 +1,76 @@
+# Databricks Asset Bundle for BrickKit Vector Search Demo
+# See https://docs.databricks.com/dev-tools/bundles/index.html
+bundle:
+  name: brickkit_vector_search_demo
+
+include:
+  - resources/*.yml
+
+sync:
+  include:
+    - src/*.py
+    - notebooks/*.ipynb
+    - config/*.yml
+
+# Variable declarations sourced from manifest and environment
+variables:
+  # From manifest.yml organization
+  company:
+    description: Company identifier from manifest
+    default: acme_financial
+  team:
+    description: Team identifier from manifest
+    default: quant
+  usecase:
+    description: Use case/product identifier from manifest
+    default: risk
+
+  # Environment-derived
+  catalog:
+    description: The catalog to use (derived from team_usecase_env pattern)
+  schema:
+    description: The schema to use
+    default: indicators
+
+  # Vector Search configuration
+  vs_endpoint_name:
+    description: Vector Search endpoint name
+
+  # Governance
+  cost_center:
+    description: Cost center for tagging
+    default: CC-TRD-4521
+  data_classification:
+    description: Data classification level
+    default: confidential
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: quant_risk_dev
+      vs_endpoint_name: quant_risk_dev
+
+  acc:
+    mode: development
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: quant_risk_acc
+      vs_endpoint_name: quant_risk_acc
+
+  prd:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: quant_risk_prd
+      vs_endpoint_name: quant_risk_prd
+    run_as:
+      service_principal_name: spn_trading_platform
