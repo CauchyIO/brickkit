@@ -32,7 +32,9 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from brickkit.models.enums import get_valid_securable_types
 
 if TYPE_CHECKING:
     from brickkit.models.base import BaseSecurable
@@ -56,6 +58,21 @@ class TagDefault(BaseModel):
     environment_values: Dict[str, str] = Field(default_factory=dict)
     applies_to: Set[str] = Field(default_factory=set)
 
+    @field_validator("applies_to")
+    @classmethod
+    def validate_applies_to(cls, v: Set[str]) -> Set[str]:
+        """Validate that applies_to contains valid SecurableType values."""
+        if not v:  # Empty set means "all types"
+            return v
+        valid_types = get_valid_securable_types()
+        invalid = v - valid_types
+        if invalid:
+            raise ValueError(
+                f"Invalid securable type(s): {sorted(invalid)}. "
+                f"Valid types: {sorted(valid_types)}"
+            )
+        return v
+
     def get_value(self, env: 'Environment') -> str:
         """Get tag value for specific environment."""
         return self.environment_values.get(env.value, self.value)
@@ -76,6 +93,21 @@ class RequiredTag(BaseModel):
     applies_to: Set[str] = Field(default_factory=set)
     error_message: Optional[str] = None
 
+    @field_validator("applies_to")
+    @classmethod
+    def validate_applies_to(cls, v: Set[str]) -> Set[str]:
+        """Validate that applies_to contains valid SecurableType values."""
+        if not v:  # Empty set means "all types"
+            return v
+        valid_types = get_valid_securable_types()
+        invalid = v - valid_types
+        if invalid:
+            raise ValueError(
+                f"Invalid securable type(s): {sorted(invalid)}. "
+                f"Valid types: {sorted(valid_types)}"
+            )
+        return v
+
 
 class NamingConvention(BaseModel):
     """
@@ -89,6 +121,21 @@ class NamingConvention(BaseModel):
     pattern: str
     applies_to: Set[str] = Field(default_factory=set)
     error_message: str = "Name does not match required pattern"
+
+    @field_validator("applies_to")
+    @classmethod
+    def validate_applies_to(cls, v: Set[str]) -> Set[str]:
+        """Validate that applies_to contains valid SecurableType values."""
+        if not v:  # Empty set means "all types"
+            return v
+        valid_types = get_valid_securable_types()
+        invalid = v - valid_types
+        if invalid:
+            raise ValueError(
+                f"Invalid securable type(s): {sorted(invalid)}. "
+                f"Valid types: {sorted(valid_types)}"
+            )
+        return v
 
 
 class GovernanceDefaults(ABC):

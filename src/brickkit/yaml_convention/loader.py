@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
-from brickkit.models.base import Tag, get_current_environment
+from brickkit.models.base import RequestForAccess, Tag, get_current_environment
 from brickkit.models.enums import Environment, PrincipalType, SecurableType
 from brickkit.models.grants import Principal
 
@@ -202,19 +202,44 @@ class YamlConvention:
         tag_dict = self._schema.get_tags_for_environment(env.value)
         return [Tag(key=k, value=v) for k, v in tag_dict.items()]
 
+    def get_rfa(
+        self,
+        securable_type: SecurableType,
+    ) -> Optional[RequestForAccess]:
+        """
+        Get Request for Access configuration for a securable type.
+
+        Uses inheritance: Table → Schema → Catalog → default.
+
+        Args:
+            securable_type: Type of securable
+
+        Returns:
+            RequestForAccess or None if no RFA configured
+        """
+        rfa_spec = self._schema.get_rfa_for_type(securable_type.value)
+        if not rfa_spec or not rfa_spec.destination:
+            return None
+
+        return RequestForAccess(
+            destination=rfa_spec.destination,
+            instructions=rfa_spec.instructions,
+        )
+
     def apply_to(
         self,
         securable: Any,
         environment: Optional[Environment] = None,
     ) -> Any:
         """
-        Apply convention tags to a securable.
+        Apply convention to a securable (tags and RFA).
 
         Adds default tags without overwriting existing ones.
+        Applies Request for Access if configured and not already set.
         Returns the securable for method chaining.
 
         Args:
-            securable: Securable to apply tags to
+            securable: Securable to apply convention to
             environment: Environment (uses current if not specified)
 
         Returns:
@@ -229,6 +254,14 @@ class YamlConvention:
             if tag.key not in existing_keys:
                 securable.tags.append(tag)
                 logger.debug(f"Applied tag {tag.key}={tag.value} to {getattr(securable, 'name', 'unknown')}")
+
+        # Apply Request for Access if not already set
+        securable_type = getattr(securable, "securable_type", None)
+        if securable_type and not getattr(securable, "request_for_access", None):
+            rfa = self.get_rfa(securable_type)
+            if rfa:
+                securable.request_for_access = rfa
+                logger.debug(f"Applied RFA (destination={rfa.destination}) to {getattr(securable, 'name', 'unknown')}")
 
         return securable
 
@@ -287,6 +320,9 @@ class YamlConvention:
             validator = rule_def.validator_factory(**params)
             result = validator(securable, ctx)
 
+            # Store the mode on the result for later use
+            result.mode = rule_spec.mode.value
+
             # For advisory mode, don't treat failures as blocking
             if not result.passed and rule_spec.mode == RuleMode.ADVISORY:
                 logger.warning(f"[ADVISORY] {result.message}")
@@ -315,12 +351,13 @@ class YamlConvention:
         results = self.validate(securable, context)
         errors = []
 
-        for i, result in enumerate(results):
+        for result in results:
             if result.passed:
                 continue
 
-            rule_spec = self._schema.rules[i] if i < len(self._schema.rules) else None
-            if rule_spec and rule_spec.mode == RuleMode.ADVISORY:
+            # Use the mode stored on the result (set during validate())
+            is_advisory = result.mode == RuleMode.ADVISORY.value
+            if is_advisory:
                 if include_advisory:
                     errors.append(f"[ADVISORY] {result.message}")
             else:

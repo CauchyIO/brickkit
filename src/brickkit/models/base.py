@@ -90,6 +90,28 @@ class BaseGovernanceModel(BaseModel):
 
 
 # =============================================================================
+# REQUEST FOR ACCESS
+# =============================================================================
+
+class RequestForAccess(BaseGovernanceModel):
+    """
+    Request for Access (RFA) configuration for a securable.
+
+    RFA allows users without access to submit requests to data owners.
+    This is set via the Unity Catalog API and enables self-service access requests.
+
+    Attributes:
+        destination: Email address where access requests are sent
+        instructions: Instructions shown to users requesting access
+    """
+    destination: str = Field(..., description="Email address for access requests")
+    instructions: Optional[str] = Field(
+        None,
+        description="Instructions shown to users requesting access"
+    )
+
+
+# =============================================================================
 # BASE SECURABLE CLASS
 # =============================================================================
 
@@ -105,6 +127,7 @@ class BaseSecurable(BaseGovernanceModel):
 
     Governance features:
     - tags: List of Tag objects for metadata and ABAC
+    - request_for_access: RFA configuration for access requests
     - with_defaults(): Apply GovernanceDefaults to this securable
     - validate_governance(): Validate against governance rules
     """
@@ -114,6 +137,12 @@ class BaseSecurable(BaseGovernanceModel):
 
     # Governance tags for metadata and attribute-based access control
     tags: List["Tag"] = Field(default_factory=list, description="Governance tags")
+
+    # Request for Access configuration
+    request_for_access: Optional[RequestForAccess] = Field(
+        None,
+        description="Request for Access configuration for this securable"
+    )
 
     @property
     def securable_type(self) -> SecurableType:
@@ -424,7 +453,13 @@ class Tag(BaseGovernanceModel):
 
     This class provides conversion methods to Databricks SDK tag objects
     for proper integration with the entity_tag_assignments API.
+
+    Note: Tags are immutable (frozen) because they implement __hash__ and are
+    used in sets. Modifying a Tag after creation would break set operations.
     """
+
+    model_config = ConfigDict(frozen=True)
+
     key: str = Field(..., description="Tag key (e.g., 'environment', 'cost_center', 'pii')")
     value: str = Field(..., description="Tag value (e.g., 'production', 'analytics', 'true')")
 

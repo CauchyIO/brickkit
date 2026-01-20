@@ -55,6 +55,8 @@ class NameGenerator:
         escaped = re.escape(pattern)
 
         # Replace escaped placeholders with regex patterns
+        # Keys are the escaped form (what re.escape produces from "{env}")
+        # Values are the regex capture groups to replace them with
         placeholder_regex = {
             r"\{env\}": r"(?P<env>dev|acc|prd)",
             r"\{team\}": r"(?P<team>[a-z0-9_]+)",
@@ -63,8 +65,8 @@ class NameGenerator:
             r"\{name\}": r"(?P<name>[a-z0-9_]+)",
         }
 
-        for placeholder, regex in placeholder_regex.items():
-            escaped = escaped.replace(re.escape("{" + placeholder[3:-3] + "}"), regex)
+        for escaped_placeholder, regex in placeholder_regex.items():
+            escaped = escaped.replace(escaped_placeholder, regex)
 
         try:
             return re.compile(f"^{escaped}$", re.IGNORECASE)

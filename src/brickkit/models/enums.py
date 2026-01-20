@@ -402,3 +402,35 @@ ALL_PRIVILEGES_EXPANSION = {
         PrivilegeType.MANAGE,  # Full management of index
     ],
 }
+
+
+# =============================================================================
+# VALIDATION HELPERS
+# =============================================================================
+
+def get_valid_securable_types() -> Set[str]:
+    """Return all valid SecurableType string values."""
+    return {st.value for st in SecurableType}
+
+
+def validate_securable_type_strings(values: Set[str]) -> Set[str]:
+    """
+    Validate that all strings in a set are valid SecurableType values.
+
+    Args:
+        values: Set of strings to validate
+
+    Returns:
+        The validated set (unchanged)
+
+    Raises:
+        ValueError: If any value is not a valid SecurableType
+    """
+    valid_types = get_valid_securable_types()
+    invalid = values - valid_types
+    if invalid:
+        raise ValueError(
+            f"Invalid securable type(s): {sorted(invalid)}. "
+            f"Valid types: {sorted(valid_types)}"
+        )
+    return values

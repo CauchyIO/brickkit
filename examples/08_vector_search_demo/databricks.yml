@@ -42,11 +42,11 @@ targets:
     mode: development
     default: true
     workspace:
-      host: ${DATABRICKS_HOST}
+      host: https://dbc-930eaa5c-35a0.cloud.databricks.com
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
-      catalog: dev_quant_risk_analytics
-      vs_endpoint_name: dev_quant_risk_analytics
+      catalog: quant_risk
+      vs_endpoint_name: worldbank_vector_search
 
   acc:
     mode: development
