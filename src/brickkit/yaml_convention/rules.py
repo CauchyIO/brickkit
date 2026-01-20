@@ -25,6 +25,7 @@ class RuleValidationResult:
     passed: bool
     message: Optional[str] = None
     rule_name: str = ""
+    mode: Optional[str] = None  # "enforced" or "advisory" - set by YamlConvention.validate()
 
 
 @dataclass
@@ -262,6 +263,43 @@ def _naming_pattern_factory(
     return validator
 
 
+def _require_rfa_factory(
+    **kwargs: Any
+) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
+    """
+    Factory for require_rfa rule.
+
+    Validates that securables have Request for Access (RFA) configured.
+    RFA must have a destination email set.
+    """
+
+    def validator(securable: Any, context: Dict[str, Any]) -> RuleValidationResult:
+        rfa = getattr(securable, "request_for_access", None)
+
+        if rfa is None:
+            securable_name = getattr(securable, "name", "unknown")
+            securable_type = getattr(securable, "securable_type", None)
+            type_str = securable_type.value if securable_type else "securable"
+            return RuleValidationResult(
+                passed=False,
+                message=f"{type_str} '{securable_name}' must have Request for Access (RFA) configured",
+                rule_name="require_rfa"
+            )
+
+        # Check that destination is set
+        if not rfa.destination:
+            securable_name = getattr(securable, "name", "unknown")
+            return RuleValidationResult(
+                passed=False,
+                message=f"Request for Access on '{securable_name}' must have a destination email",
+                rule_name="require_rfa"
+            )
+
+        return RuleValidationResult(passed=True, rule_name="require_rfa")
+
+    return validator
+
+
 # =============================================================================
 # DEFAULT REGISTRY WITH BUILT-IN RULES
 # =============================================================================
@@ -298,6 +336,12 @@ def create_default_registry() -> RulesRegistry:
         name="naming_pattern",
         description="Names must match a regex pattern",
         validator_factory=_naming_pattern_factory,
+    ))
+
+    registry.register(RuleDefinition(
+        name="require_rfa",
+        description="Securables must have Request for Access (RFA) configured",
+        validator_factory=_require_rfa_factory,
     ))
 
     return registry

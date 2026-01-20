@@ -67,3 +67,24 @@ tag_overrides:
   prd:
     environment: production
     data_classification: confidential
+
+# Request for Access (RFA) configuration
+# Supports inheritance: table → schema → catalog → default
+request_for_access:
+  # Default RFA for all securables
+  default:
+    destination: "data-governance@acme-trading.com"
+    instructions: "Submit access request via ServiceNow ticket"
+
+  # Catalog-level RFA (overrides default)
+  catalog:
+    destination: "catalog-admins@acme-trading.com"
+    instructions: "Contact catalog administrators for access"
+
+  # Schema inherits from catalog (explicit)
+  schema:
+    inherit: true
+
+  # Table inherits from schema (explicit)
+  table:
+    inherit: true
