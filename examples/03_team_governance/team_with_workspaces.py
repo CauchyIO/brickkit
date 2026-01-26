@@ -4,15 +4,13 @@ Team with Workspaces Example
 Shows how to define a team with workspace assignments per environment.
 Teams are the organizational unit that connects workspaces, principals, and catalogs.
 """
+
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from models.access import (
-    Team, Workspace, WorkspaceRegistry,
-    Principal, WorkspaceBindingPattern
-)
+from models.access import Team, Workspace, WorkspaceRegistry, Principal, WorkspaceBindingPattern
 from models.securables import Catalog
 from models.enums import Environment, IsolationMode
 
@@ -26,21 +24,21 @@ ws_dev = registry.get_or_create(
     workspace_id="1234567890",
     name="analytics-dev",
     hostname="analytics-dev.cloud.databricks.com",
-    environment=Environment.DEV
+    environment=Environment.DEV,
 )
 
 ws_acc = registry.get_or_create(
     workspace_id="1234567891",
     name="analytics-acc",
     hostname="analytics-acc.cloud.databricks.com",
-    environment=Environment.ACC
+    environment=Environment.ACC,
 )
 
 ws_prd = registry.get_or_create(
     workspace_id="1234567892",
     name="analytics-prd",
     hostname="analytics-prd.cloud.databricks.com",
-    environment=Environment.PRD
+    environment=Environment.PRD,
 )
 
 # Create team with workspace assignments

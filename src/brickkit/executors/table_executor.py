@@ -49,7 +49,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             # Try SDK API first
@@ -64,17 +64,22 @@ class TableExecutor(BaseExecutor[Table]):
                     self.execute_with_retry(
                         self.client.tables.update,
                         full_name=f"{resource.resolved_catalog_name}.{resource.schema_name}.{resource.name}",
-                        comment=resource.comment
+                        comment=resource.comment,
                     )
 
                 created_via = "SDK API"
             except Exception as sdk_error:
                 # Check if it's a permission error or path overlap error
                 error_msg = str(sdk_error)
-                if "PERMISSION_DENIED" in error_msg or "EXTERNAL USE SCHEMA" in error_msg or "overlaps with other external tables" in error_msg:
+                if (
+                    "PERMISSION_DENIED" in error_msg
+                    or "EXTERNAL USE SCHEMA" in error_msg
+                    or "overlaps with other external tables" in error_msg
+                ):
                     # For overlap errors, extract the conflicting table and provide guidance
                     if "overlaps with other external tables" in error_msg:
                         import re
+
                         # Extract conflicting table name from error
                         conflict_match = re.search(r"Conflicting tables/volumes: ([^.]+\.[^.]+\.[^.]+)", error_msg)
                         if conflict_match:
@@ -82,12 +87,20 @@ class TableExecutor(BaseExecutor[Table]):
                             logger.error("Storage location conflict detected!")
                             logger.error(f"  Attempting to create: {resource_name}")
                             logger.error(f"  Conflicts with: {conflicting_table}")
-                            logger.error("  Resolution: Either drop the conflicting table or use a different storage location")
+                            logger.error(
+                                "  Resolution: Either drop the conflicting table or use a different storage location"
+                            )
 
                             # If it's the same table in a differently named catalog (e.g., mixed or double suffix), skip
-                            if ("_dev_dev" in conflicting_table or "_prd_prd" in conflicting_table or
-                                "_prd_dev" in conflicting_table or "_dev_prd" in conflicting_table):
-                                logger.warning("Detected mixed/double environment suffix in conflicting table, likely from previous test run")
+                            if (
+                                "_dev_dev" in conflicting_table
+                                or "_prd_prd" in conflicting_table
+                                or "_prd_dev" in conflicting_table
+                                or "_dev_prd" in conflicting_table
+                            ):
+                                logger.warning(
+                                    "Detected mixed/double environment suffix in conflicting table, likely from previous test run"
+                                )
                                 logger.info("Skipping table creation due to unresolvable conflict")
                                 duration = time.time() - start_time
                                 return ExecutionResult(
@@ -96,7 +109,7 @@ class TableExecutor(BaseExecutor[Table]):
                                     resource_type=self.get_resource_type(),
                                     resource_name=resource_name,
                                     message=f"Skipped due to conflict with {conflicting_table}",
-                                    duration_seconds=duration
+                                    duration_seconds=duration,
                                 )
 
                         # Check if the table exists at the expected location
@@ -109,7 +122,7 @@ class TableExecutor(BaseExecutor[Table]):
                                 resource_type=self.get_resource_type(),
                                 resource_name=resource_name,
                                 message="Table already exists (overlap detected)",
-                                duration_seconds=duration
+                                duration_seconds=duration,
                             )
 
                     logger.info(f"SDK API failed with error ({error_msg[:100]}...), falling back to SQL DDL")
@@ -134,26 +147,29 @@ class TableExecutor(BaseExecutor[Table]):
                     response = self.client.statement_execution.execute_statement(
                         warehouse_id=warehouse_id,
                         statement=ddl,
-                        catalog=resource.resolved_catalog_name if hasattr(resource, 'resolved_catalog_name') else None,
-                        schema=resource.schema_name
+                        catalog=resource.resolved_catalog_name if hasattr(resource, "resolved_catalog_name") else None,
+                        schema=resource.schema_name,
                     )
 
                     # Wait for statement to complete
                     import time as time_module
+
                     max_wait = 60  # seconds
                     wait_time = 0
                     while wait_time < max_wait:
-                        status = self.client.statement_execution.get_statement(
-                            statement_id=response.statement_id
-                        )
-                        if status.status.state in [StatementState.SUCCEEDED, StatementState.FAILED, StatementState.CLOSED]:
+                        status = self.client.statement_execution.get_statement(statement_id=response.statement_id)
+                        if status.status.state in [
+                            StatementState.SUCCEEDED,
+                            StatementState.FAILED,
+                            StatementState.CLOSED,
+                        ]:
                             break
                         time_module.sleep(1)
                         wait_time += 1
 
                     if status.status.state != StatementState.SUCCEEDED:
                         error_msg = f"SQL DDL execution failed: {status.status.state}"
-                        if hasattr(status.status, 'error') and status.status.error:
+                        if hasattr(status.status, "error") and status.status.error:
                             error_msg += f" - {status.status.error.message}"
                         logger.error(f"SQL DDL:\n{ddl}")
                         raise Exception(error_msg)
@@ -175,9 +191,7 @@ class TableExecutor(BaseExecutor[Table]):
                     logger.info(f"Applying column mask to {resource_name}.{column}")
                     # Note: Column masks are set via ALTER TABLE in SQL
 
-            self._rollback_stack.append(
-                lambda: self.client.tables.delete(resource_name)
-            )
+            self._rollback_stack.append(lambda: self.client.tables.delete(resource_name))
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -186,7 +200,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created successfully via {created_via}",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -207,7 +221,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -218,7 +232,7 @@ class TableExecutor(BaseExecutor[Table]):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
             params = resource.to_sdk_update_params()
@@ -233,7 +247,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -251,7 +265,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -261,7 +275,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting table {resource_name}")
@@ -274,7 +288,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -292,9 +306,10 @@ class TableExecutor(BaseExecutor[Table]):
         # 2. It's not the default owner
         # 3. It's different from the existing owner
         from brickkit.models.base import DEFAULT_SECURABLE_OWNER
+
         if desired.owner and desired.owner.name != DEFAULT_SECURABLE_OWNER:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         return changes

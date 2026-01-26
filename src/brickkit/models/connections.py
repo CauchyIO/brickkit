@@ -32,52 +32,46 @@ class Connection(BaseSecurable):
     systems like MySQL, PostgreSQL, SQL Server, etc. It stores connection
     details and credentials securely.
     """
+
     name: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
         min_length=1,
         max_length=255,
-        description="Connection name (base name without environment suffix)"
+        description="Connection name (base name without environment suffix)",
     )
-    connection_type: ConnectionType = Field(
-        ...,
-        description="Type of external connection"
-    )
+    connection_type: ConnectionType = Field(..., description="Type of external connection")
 
     # Connection options - specific to each connection type
     options: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Connection-specific options (host, port, database, etc.)"
+        default_factory=dict, description="Connection-specific options (host, port, database, etc.)"
     )
 
     # Common fields
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal"
+        description="Owner principal",
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description")
     read_only: bool = Field(False, description="Whether connection is read-only")
 
     # Properties map for additional metadata
-    properties: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Additional properties as key-value pairs"
-    )
+    properties: Dict[str, str] = Field(default_factory=dict, description="Additional properties as key-value pairs")
 
-    @field_validator('options')
+    @field_validator("options")
     @classmethod
     def validate_connection_options(cls, v: Dict[str, str], info) -> Dict[str, str]:
         """Validate required options based on connection type."""
-        conn_type = info.data.get('connection_type')
+        conn_type = info.data.get("connection_type")
 
         if conn_type in [ConnectionType.MYSQL, ConnectionType.POSTGRESQL, ConnectionType.SQLSERVER]:
-            required = {'host', 'port', 'database'}
+            required = {"host", "port", "database"}
             missing = required - set(v.keys())
             if missing:
                 raise ValueError(f"Missing required options for {conn_type}: {missing}")
 
         # Security: Validate no plaintext passwords
-        if 'password' in v:
+        if "password" in v:
             raise ValueError("Passwords must be stored as secrets, not in options")
 
         return v
@@ -100,11 +94,7 @@ class Connection(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK create parameters."""
-        params = {
-            "name": self.resolved_name,
-            "connection_type": self.connection_type.value,
-            "comment": self.comment
-        }
+        params = {"name": self.resolved_name, "connection_type": self.connection_type.value, "comment": self.comment}
 
         # Add connection options
         if self.options:
@@ -118,10 +108,7 @@ class Connection(BaseSecurable):
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
         """Convert to SDK update parameters."""
-        params = {
-            "name": self.resolved_name,
-            "comment": self.comment
-        }
+        params = {"name": self.resolved_name, "comment": self.comment}
 
         # Options can be updated
         if self.options:

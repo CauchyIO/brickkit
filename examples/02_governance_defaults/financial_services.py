@@ -4,6 +4,7 @@ Financial Services Governance Defaults
 Strict regulatory compliance for banking/finance.
 Implements GDPR, SOX, Basel III requirements.
 """
+
 import sys
 from pathlib import Path
 
@@ -33,15 +34,14 @@ class FinancialServicesDefaults(GovernanceDefaults):
             TagDefault(key="managed_by", value="brickkit"),
             TagDefault(key="compliance_framework", value="sox,gdpr"),
             TagDefault(key="audit_enabled", value="true"),
-
             # Environment-aware retention
             TagDefault(
                 key="retention_days",
                 value="90",  # Dev: 90 days
                 environment_values={
-                    "ACC": "180",   # Acceptance: 6 months
+                    "ACC": "180",  # Acceptance: 6 months
                     "PRD": "2555",  # Production: 7 years (SOX)
-                }
+                },
             ),
         ]
 
@@ -52,40 +52,33 @@ class FinancialServicesDefaults(GovernanceDefaults):
             RequiredTag(
                 key="data_classification",
                 allowed_values={"public", "internal", "confidential", "restricted"},
-                error_message="All assets must have data_classification (public/internal/confidential/restricted)"
+                error_message="All assets must have data_classification (public/internal/confidential/restricted)",
             ),
-
             # Catalogs need owner and cost center
             RequiredTag(
                 key="data_owner",
                 applies_to={"CATALOG", "SCHEMA"},
-                error_message="Data owner is mandatory for cost allocation and accountability"
+                error_message="Data owner is mandatory for cost allocation and accountability",
             ),
             RequiredTag(
-                key="cost_center",
-                applies_to={"CATALOG"},
-                error_message="Cost center required for financial reporting"
+                key="cost_center", applies_to={"CATALOG"}, error_message="Cost center required for financial reporting"
             ),
-
             # Tables need PII/PCI declaration
             RequiredTag(
                 key="contains_pii",
                 allowed_values={"true", "false"},
                 applies_to={"TABLE"},
-                error_message="Tables must declare contains_pii status"
+                error_message="Tables must declare contains_pii status",
             ),
             RequiredTag(
                 key="contains_pci",
                 allowed_values={"true", "false"},
                 applies_to={"TABLE"},
-                error_message="Tables must declare contains_pci status (payment card data)"
+                error_message="Tables must declare contains_pci status (payment card data)",
             ),
-
             # Data lineage requirement
             RequiredTag(
-                key="source_system",
-                applies_to={"TABLE"},
-                error_message="Tables must declare source_system for lineage"
+                key="source_system", applies_to={"TABLE"}, error_message="Tables must declare source_system for lineage"
             ),
         ]
 
@@ -96,13 +89,13 @@ class FinancialServicesDefaults(GovernanceDefaults):
             NamingConvention(
                 pattern=r"^[a-z]+_[a-z][a-z0-9_]*$",
                 applies_to={"CATALOG"},
-                error_message="Catalog names must follow domain_function format (e.g., finance_reporting)"
+                error_message="Catalog names must follow domain_function format (e.g., finance_reporting)",
             ),
             # Schemas: zone_subject format
             NamingConvention(
                 pattern=r"^(bronze|silver|gold|raw|staging|curated)_[a-z][a-z0-9_]*$",
                 applies_to={"SCHEMA"},
-                error_message="Schema names must follow zone_subject format (e.g., gold_customers)"
+                error_message="Schema names must follow zone_subject format (e.g., gold_customers)",
             ),
         ]
 

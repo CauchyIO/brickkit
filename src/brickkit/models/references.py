@@ -30,6 +30,7 @@ class TableReference(BaseSecurable):
         # Grant permissions
         table_ref.grant(data_engineers, AccessPolicy.WRITER())
     """
+
     name: str = Field(..., description="Table name")
     catalog_name: str = Field(..., description="Catalog containing the table")
     schema_name: str = Field(..., description="Schema containing the table")
@@ -82,6 +83,7 @@ class ModelReference(BaseSecurable):
         # Grant permissions
         model_ref.grant(ml_engineers, AccessPolicy.EXECUTE())
     """
+
     name: str = Field(..., description="Model name")
     catalog_name: str = Field(..., description="Catalog for models")
     schema_name: str = Field(default="models", description="Schema for models")
@@ -134,6 +136,7 @@ class VolumeReference(BaseSecurable):
         # Grant permissions
         volume_ref.grant(data_readers, AccessPolicy.READ_VOLUME())
     """
+
     name: str = Field(..., description="Volume name")
     catalog_name: str = Field(..., description="Catalog containing the volume")
     schema_name: str = Field(..., description="Schema containing the volume")
@@ -178,6 +181,7 @@ class FunctionReference(BaseSecurable):
         # Grant permissions
         func_ref.grant(analysts, AccessPolicy.EXECUTE())
     """
+
     name: str = Field(..., description="Function name")
     catalog_name: str = Field(..., description="Catalog containing the function")
     schema_name: str = Field(..., description="Schema containing the function")

@@ -44,21 +44,19 @@ logger = logging.getLogger(__name__)
 # COLUMN INFO
 # =============================================================================
 
+
 class ColumnInfo(BaseModel):
     """
     Column definition for tables, matching Databricks SDK format.
 
     This model matches the SDK's ColumnInfo structure for table creation.
     """
-    name: str = Field(
-        ...,
-        pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$',
-        description="Column name (SQL identifier rules)"
-    )
+
+    name: str = Field(..., pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$", description="Column name (SQL identifier rules)")
     type_name: str = Field(
         ...,
-        alias='type',  # Allow 'type' as alias for convenience
-        description="SQL data type (e.g., STRING, INT, BIGINT, DECIMAL(10,2), TIMESTAMP)"
+        alias="type",  # Allow 'type' as alias for convenience
+        description="SQL data type (e.g., STRING, INT, BIGINT, DECIMAL(10,2), TIMESTAMP)",
     )
     nullable: bool = Field(True, description="Whether column allows NULL values")
     comment: Optional[str] = Field(None, max_length=1024, description="Column description")
@@ -70,7 +68,7 @@ class ColumnInfo(BaseModel):
         populate_by_name=True,  # Allow both field name and alias
     )
 
-    @field_validator('type_name', mode='before')
+    @field_validator("type_name", mode="before")
     @classmethod
     def normalize_type_name(cls, v: Any) -> str:
         """Normalize data type to uppercase."""
@@ -78,12 +76,12 @@ class ColumnInfo(BaseModel):
             return v.upper()
         return v
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_column_name(cls, v: str) -> str:
         """Validate column name follows SQL identifier rules."""
         # Check for Python/SQL reserved words
-        sql_reserved = {'SELECT', 'FROM', 'WHERE', 'ORDER', 'GROUP', 'TABLE', 'INDEX'}
+        sql_reserved = {"SELECT", "FROM", "WHERE", "ORDER", "GROUP", "TABLE", "INDEX"}
         if v.upper() in sql_reserved or keyword.iskeyword(v):
             logger.warning(f"Column name '{v}' is a reserved word - consider renaming")
         return v
@@ -93,6 +91,7 @@ class ColumnInfo(BaseModel):
 # TABLE
 # =============================================================================
 
+
 class Table(BaseSecurable):
     """
     Third-level object storing structured data.
@@ -101,34 +100,26 @@ class Table(BaseSecurable):
     including managed, external, views, and streaming tables. They can have
     row-level security filters and column masking functions applied.
     """
+
     name: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Table name (no environment suffix - parent catalog has it)"
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+        description="Table name (no environment suffix - parent catalog has it)",
     )
     table_type: TableType = Field(
-        TableType.MANAGED,
-        description="MANAGED, EXTERNAL, VIEW, MATERIALIZED_VIEW, or STREAMING_TABLE"
+        TableType.MANAGED, description="MANAGED, EXTERNAL, VIEW, MATERIALIZED_VIEW, or STREAMING_TABLE"
     )
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal (defaults to parent schema owner)"
+        description="Owner principal (defaults to parent schema owner)",
     )
-    columns: List[ColumnInfo] = Field(
-        default_factory=list,
-        description="Strongly typed column definitions"
-    )
+    columns: List[ColumnInfo] = Field(default_factory=list, description="Strongly typed column definitions")
     external_location: Optional[ExternalLocation] = Field(
-        None,
-        description="For external tables (inherited from schema if not set)"
+        None, description="For external tables (inherited from schema if not set)"
     )
-    row_filter: Optional[Any] = Field(
-        None,
-        description="Row-level security function (executes with definer's rights)"
-    )
+    row_filter: Optional[Any] = Field(None, description="Row-level security function (executes with definer's rights)")
     column_masks: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Column masking functions by column name (execute with definer's rights)"
+        default_factory=dict, description="Column masking functions by column name (execute with definer's rights)"
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the table")
 
@@ -137,22 +128,15 @@ class Table(BaseSecurable):
 
     # Dependencies
     referencing_functions: List[Any] = Field(
-        default_factory=list,
-        description="Functions that reference this table for dependency tracking"
+        default_factory=list, description="Functions that reference this table for dependency tracking"
     )
 
     # Private parent reference (not serialized)
     _parent_schema: Optional[Schema] = PrivateAttr(default=None)
     _parent_catalog: Optional[Catalog] = PrivateAttr(default=None)
 
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Parent catalog name (set by add_table)"
-    )
-    schema_name: Optional[str] = Field(
-        None,
-        description="Parent schema name (set by add_table)"
-    )
+    catalog_name: Optional[str] = Field(None, description="Parent catalog name (set by add_table)")
+    schema_name: Optional[str] = Field(None, description="Parent schema name (set by add_table)")
 
     @computed_field
     @property
@@ -168,7 +152,7 @@ class Table(BaseSecurable):
         env = get_current_environment()
         return f"{self.catalog_name}_{env.value.lower()}"
 
-    @field_validator('table_type', mode='before')
+    @field_validator("table_type", mode="before")
     @classmethod
     def convert_table_type(cls, v: Any) -> TableType:
         """Convert string to TableType enum if needed."""
@@ -184,7 +168,7 @@ class Table(BaseSecurable):
             raise ValueError(f"Table '{self.name}' is not associated with a catalog and schema")
         return f"{self.resolved_catalog_name}.{self.schema_name}.{self.name}"
 
-    def set_row_filter(self, function: 'Function') -> None:
+    def set_row_filter(self, function: "Function") -> None:
         """
         Set row-level security filter function.
 
@@ -199,7 +183,7 @@ class Table(BaseSecurable):
         if self not in function.referenced_tables:
             function.referenced_tables.append(self)
 
-    def add_column_mask(self, column: str, function: 'Function') -> None:
+    def add_column_mask(self, column: str, function: "Function") -> None:
         """
         Add column masking function.
 
@@ -276,7 +260,7 @@ class Table(BaseSecurable):
                 privileges.append(priv.privilege)
 
         # Naively try to get parent privileges (will just continue if no parent)
-        if hasattr(self, '_parent_schema') and self._parent_schema:
+        if hasattr(self, "_parent_schema") and self._parent_schema:
             privileges.extend(self._parent_schema.get_effective_privileges(principal))
 
         # Handle ALL_PRIVILEGES expansion
@@ -348,7 +332,7 @@ class Table(BaseSecurable):
             else:
                 continue
 
-            base_type = col_type.upper().split('(')[0].strip()
+            base_type = col_type.upper().split("(")[0].strip()
             enum_name = TYPE_MAPPING.get(base_type, "STRING")
             type_json = json.dumps({"type": col_type})
 
@@ -359,7 +343,7 @@ class Table(BaseSecurable):
                 type_json=type_json,
                 nullable=col_nullable,
                 comment=col_comment,
-                position=i
+                position=i,
             )
             sdk_columns.append(sdk_column)
 
@@ -376,9 +360,11 @@ class Table(BaseSecurable):
             params["schema_name"] = self.schema_name
 
         if self.external_location:
-            base_url = self.external_location.url.rstrip('/')
+            base_url = self.external_location.url.rstrip("/")
             catalog_part = self.resolved_catalog_name if self.catalog_name else ""
-            table_path = f"{catalog_part}/{self.schema_name}/{self.name}" if catalog_part else f"{self.schema_name}/{self.name}"
+            table_path = (
+                f"{catalog_part}/{self.schema_name}/{self.name}" if catalog_part else f"{self.schema_name}/{self.name}"
+            )
             params["storage_location"] = f"{base_url}/{table_path}"
         elif self.table_type == TableType.EXTERNAL:
             params["storage_location"] = None
@@ -431,13 +417,15 @@ class Table(BaseSecurable):
 
         ddl_parts.append("USING DELTA")
 
-        if hasattr(self, 'partition_cols') and self.partition_cols:
+        if hasattr(self, "partition_cols") and self.partition_cols:
             ddl_parts.append(f"PARTITIONED BY ({', '.join(self.partition_cols)})")
 
         if self.table_type == TableType.EXTERNAL and self.external_location:
-            base_url = self.external_location.url.rstrip('/')
+            base_url = self.external_location.url.rstrip("/")
             catalog_part = self.resolved_catalog_name if self.catalog_name else ""
-            table_path = f"{catalog_part}/{self.schema_name}/{self.name}" if catalog_part else f"{self.schema_name}/{self.name}"
+            table_path = (
+                f"{catalog_part}/{self.schema_name}/{self.name}" if catalog_part else f"{self.schema_name}/{self.name}"
+            )
             ddl_parts.append(f"LOCATION '{base_url}/{table_path}'")
 
         if self.comment:
@@ -460,11 +448,7 @@ class Table(BaseSecurable):
         spark.sql(self.to_sql_ddl())
 
     def create_from_dataframe(
-        self,
-        df,
-        mode: str = "error",
-        partition_by: Optional[List[str]] = None,
-        cluster_by: Optional[List[str]] = None
+        self, df, mode: str = "error", partition_by: Optional[List[str]] = None, cluster_by: Optional[List[str]] = None
     ) -> None:
         """
         Create or populate table from DataFrame.
@@ -479,7 +463,7 @@ class Table(BaseSecurable):
             raise ValueError(f"DataFrame schema doesn't match table {self.name} definition")
 
         writer = df.write.mode(mode)
-        partitions = partition_by or getattr(self, 'partition_cols', None)
+        partitions = partition_by or getattr(self, "partition_cols", None)
         if partitions:
             writer = writer.partitionBy(*partitions)
 
@@ -494,7 +478,7 @@ class Table(BaseSecurable):
         merge_keys: List[str],
         effective_date_col: str = "effective_date",
         end_date_col: str = "end_date",
-        current_flag_col: str = "is_current"
+        current_flag_col: str = "is_current",
     ) -> None:
         """
         Standard SCD Type 2 pattern - handle slowly changing dimensions.
@@ -512,9 +496,11 @@ class Table(BaseSecurable):
         spark = df.sparkSession
 
         if not spark.catalog.tableExists(self.fqdn):
-            df_with_scd = df.withColumn(effective_date_col, current_date()) \
-                           .withColumn(end_date_col, lit(None).cast("date")) \
-                           .withColumn(current_flag_col, lit(True))
+            df_with_scd = (
+                df.withColumn(effective_date_col, current_date())
+                .withColumn(end_date_col, lit(None).cast("date"))
+                .withColumn(current_flag_col, lit(True))
+            )
             self.create_from_dataframe(df_with_scd)
             return
 
@@ -539,32 +525,25 @@ class Table(BaseSecurable):
         if current_flag_col not in df.columns:
             source_df = source_df.withColumn(current_flag_col, lit(True))
 
-        delta_table.alias("target").merge(
-            source_df.alias("source"),
-            merge_condition
-        ).whenMatchedUpdate(
-            condition=change_condition,
-            set={
-                end_date_col: current_date(),
-                current_flag_col: lit(False)
-            }
+        delta_table.alias("target").merge(source_df.alias("source"), merge_condition).whenMatchedUpdate(
+            condition=change_condition, set={end_date_col: current_date(), current_flag_col: lit(False)}
         ).whenNotMatchedInsertAll().execute()
 
-        changed_records = source_df.alias("source").join(
-            delta_table.toDF().alias("target"),
-            on=[col(f"source.{k}") == col(f"target.{k}") for k in merge_keys],
-            how="inner"
-        ).where(f"target.{current_flag_col} = false AND target.{end_date_col} = current_date()")
+        changed_records = (
+            source_df.alias("source")
+            .join(
+                delta_table.toDF().alias("target"),
+                on=[col(f"source.{k}") == col(f"target.{k}") for k in merge_keys],
+                how="inner",
+            )
+            .where(f"target.{current_flag_col} = false AND target.{end_date_col} = current_date()")
+        )
 
         if changed_records.count() > 0:
             changed_records.select("source.*").write.mode("append").saveAsTable(self.fqdn)
 
     def optimize(
-        self,
-        spark,
-        zorder_by: Optional[List[str]] = None,
-        vacuum: bool = False,
-        vacuum_hours: int = 168
+        self, spark, zorder_by: Optional[List[str]] = None, vacuum: bool = False, vacuum_hours: int = 168
     ) -> None:
         """
         Optimize table performance with OPTIMIZE and optional VACUUM.
@@ -633,6 +612,7 @@ class Table(BaseSecurable):
 # GOVERNANCE-AWARE COLUMN MODEL
 # =============================================================================
 
+
 class Column(BaseGovernanceModel):
     """
     Column definition with governance tags support.
@@ -654,6 +634,7 @@ class Column(BaseGovernanceModel):
             ]
         )
     """
+
     # Core column properties
     name: str = Field(..., description="Column name (output name)")
     data_type: str = Field(..., description="SQL data type (STRING, BIGINT, DATE, etc.)")
@@ -735,26 +716,50 @@ class Column(BaseGovernanceModel):
 # =============================================================================
 
 SCD2_COLUMNS = [
-    Column(name="__valid_from", data_type="TIMESTAMP", nullable=False,
-           description="SCD2: Timestamp when this record version became valid"),
-    Column(name="__valid_to", data_type="TIMESTAMP", nullable=True,
-           description="SCD2: Timestamp when this record version became invalid"),
-    Column(name="__is_current", data_type="BOOLEAN", nullable=False,
-           description="SCD2: Boolean flag indicating if this is the current version"),
-    Column(name="__operation", data_type="STRING", nullable=False,
-           description="SCD2: Type of operation (INSERT, UPDATE, DELETE)"),
-    Column(name="__processed_time", data_type="TIMESTAMP", nullable=False,
-           description="SCD2: Timestamp when this record was processed"),
-    Column(name="__row_hash", data_type="STRING", nullable=False,
-           description="SCD2: MD5 hash of tracked columns for change detection"),
-    Column(name="__version", data_type="INTEGER", nullable=False,
-           description="SCD2: Version number of this record"),
+    Column(
+        name="__valid_from",
+        data_type="TIMESTAMP",
+        nullable=False,
+        description="SCD2: Timestamp when this record version became valid",
+    ),
+    Column(
+        name="__valid_to",
+        data_type="TIMESTAMP",
+        nullable=True,
+        description="SCD2: Timestamp when this record version became invalid",
+    ),
+    Column(
+        name="__is_current",
+        data_type="BOOLEAN",
+        nullable=False,
+        description="SCD2: Boolean flag indicating if this is the current version",
+    ),
+    Column(
+        name="__operation",
+        data_type="STRING",
+        nullable=False,
+        description="SCD2: Type of operation (INSERT, UPDATE, DELETE)",
+    ),
+    Column(
+        name="__processed_time",
+        data_type="TIMESTAMP",
+        nullable=False,
+        description="SCD2: Timestamp when this record was processed",
+    ),
+    Column(
+        name="__row_hash",
+        data_type="STRING",
+        nullable=False,
+        description="SCD2: MD5 hash of tracked columns for change detection",
+    ),
+    Column(name="__version", data_type="INTEGER", nullable=False, description="SCD2: Version number of this record"),
 ]
 
 
 # =============================================================================
 # GOVERNING TABLE MODEL (with full governance support)
 # =============================================================================
+
 
 class GoverningTable(BaseSecurable):
     """
@@ -790,6 +795,7 @@ class GoverningTable(BaseSecurable):
             enable_scd2=True,
         )
     """
+
     # Core table properties
     name: str = Field(..., description="Table name")
     description: Optional[str] = Field(None, description="Table description")
@@ -917,8 +923,7 @@ class GoverningTable(BaseSecurable):
             elif col.is_foreign_key and col.foreign_key_table:
                 create_stmt += f"\t{col.name} {col.data_type} {nullable},\n"
                 fk_statements.append(
-                    f"\tFOREIGN KEY ({col.name}) REFERENCES "
-                    f"{cat}.{sch}.{col.foreign_key_table}({fk_ref_col}),\n"
+                    f"\tFOREIGN KEY ({col.name}) REFERENCES {cat}.{sch}.{col.foreign_key_table}({fk_ref_col}),\n"
                 )
             else:
                 create_stmt += f"\t{col.name} {col.data_type} {nullable},\n"
@@ -958,16 +963,12 @@ class GoverningTable(BaseSecurable):
         # Table comment
         if self.description:
             table_comment = self.description.replace("'", "").replace('"', "")
-            statements.append(
-                f'ALTER TABLE {fqdn} SET TBLPROPERTIES ("comment" = "{table_comment}");'
-            )
+            statements.append(f'ALTER TABLE {fqdn} SET TBLPROPERTIES ("comment" = "{table_comment}");')
 
         # Column comments
         for col in self.all_columns:
             if col.comment:
-                statements.append(
-                    f'ALTER TABLE {fqdn} ALTER COLUMN {col.name} COMMENT "{col.comment}";'
-                )
+                statements.append(f'ALTER TABLE {fqdn} ALTER COLUMN {col.name} COMMENT "{col.comment}";')
 
         return statements
 
@@ -1001,9 +1002,7 @@ class GoverningTable(BaseSecurable):
         for col in self.columns:
             if col.tags:
                 tag_pairs = ", ".join(f"'{t.key}' = '{t.value}'" for t in col.tags)
-                statements.append(
-                    f"ALTER TABLE {fqdn} ALTER COLUMN {col.name} SET TAGS ({tag_pairs});"
-                )
+                statements.append(f"ALTER TABLE {fqdn} ALTER COLUMN {col.name} SET TAGS ({tag_pairs});")
 
         return statements
 
@@ -1028,14 +1027,16 @@ class GoverningTable(BaseSecurable):
                 fk_ref_col = col.foreign_key_column or col.name
                 constraint_name = f"{self.name}_{col.name}_fk_to_{col.foreign_key_table}"
 
-                statements.append({
-                    "constraint_name": constraint_name,
-                    "statement": (
-                        f"ALTER TABLE {fqdn} ADD CONSTRAINT {constraint_name} "
-                        f"FOREIGN KEY ({col.name}) REFERENCES "
-                        f"{cat}.{sch}.{col.foreign_key_table}({fk_ref_col});"
-                    )
-                })
+                statements.append(
+                    {
+                        "constraint_name": constraint_name,
+                        "statement": (
+                            f"ALTER TABLE {fqdn} ADD CONSTRAINT {constraint_name} "
+                            f"FOREIGN KEY ({col.name}) REFERENCES "
+                            f"{cat}.{sch}.{col.foreign_key_table}({fk_ref_col});"
+                        ),
+                    }
+                )
 
         return statements
 

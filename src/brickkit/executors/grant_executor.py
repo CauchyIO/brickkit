@@ -25,6 +25,11 @@ from .base import BaseExecutor, ExecutionResult, OperationType
 logger = logging.getLogger(__name__)
 
 
+def _get_enum_value(val) -> str:
+    """Safely get value from enum or return string as-is."""
+    return val.value if hasattr(val, "value") else val
+
+
 class GrantExecutor(BaseExecutor[Privilege]):
     """Executor for privilege grant operations."""
 
@@ -35,7 +40,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
         force: bool = False,
         validate_principals: bool = False,
         max_retries: int = 3,
-        continue_on_error: bool = False
+        continue_on_error: bool = False,
     ):
         """
         Initialize the grant executor.
@@ -69,24 +74,21 @@ class GrantExecutor(BaseExecutor[Privilege]):
         """
         try:
             full_name = self._get_full_name(resource)
-            grants = self.client.grants.get(
-                securable_type=resource.securable_type.value,
-                full_name=full_name
-            )
+            grants = self.client.grants.get(securable_type=_get_enum_value(resource.securable_type), full_name=full_name)
 
             # Check if principal has this specific privilege
             for assignment in grants.privilege_assignments or []:
                 if assignment.principal == resource.principal:
-                    if resource.privilege.value in (assignment.privileges or []):
+                    if _get_enum_value(resource.privilege) in (assignment.privileges or []):
                         return True
 
             return False
 
         except ResourceDoesNotExist:
             return False
-        except Exception as e:
-            logger.warning(f"Error checking privilege existence: {e}")
-            return False
+        except (NotFound, PermissionDenied, BadRequest) as e:
+            logger.warning(f"Error checking privilege existence for {resource.principal}: {e}")
+            raise
 
     def create(self, resource: Privilege) -> ExecutionResult:
         """
@@ -115,7 +117,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
             operation=OperationType.NO_OP,
             resource_type=self.get_resource_type(),
             resource_name=self._get_privilege_description(resource),
-            message="Privileges are granted or revoked, not updated"
+            message="Privileges are granted or revoked, not updated",
         )
 
     def delete(self, resource: Privilege) -> ExecutionResult:
@@ -153,7 +155,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                         resource_type=self.get_resource_type(),
                         resource_name=description,
                         message=f"Principal '{privilege.principal}' does not exist in Databricks",
-                        duration_seconds=time.time() - start_time
+                        duration_seconds=time.time() - start_time,
                     )
 
             # Check if already granted
@@ -163,7 +165,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=description,
-                    message="Already granted"
+                    message="Already granted",
                 )
 
             if self.dry_run:
@@ -173,7 +175,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     operation=OperationType.GRANT,
                     resource_type=self.get_resource_type(),
                     resource_name=description,
-                    message="Would be granted (dry run)"
+                    message="Would be granted (dry run)",
                 )
 
             full_name = self._get_full_name(privilege)
@@ -182,25 +184,19 @@ class GrantExecutor(BaseExecutor[Privilege]):
             # Create the change request
             # SDK expects Privilege enum objects, not strings
             from databricks.sdk.service.catalog import Privilege as SDKPrivilege
-            sdk_privilege = SDKPrivilege(privilege.privilege.value)
-            changes = [
-                PermissionsChange(
-                    principal=privilege.principal,
-                    add=[sdk_privilege]
-                )
-            ]
+
+            sdk_privilege = SDKPrivilege(_get_enum_value(privilege.privilege))
+            changes = [PermissionsChange(principal=privilege.principal, add=[sdk_privilege])]
 
             self.execute_with_retry(
                 self.client.grants.update,
-                securable_type=privilege.securable_type.value,
+                securable_type=_get_enum_value(privilege.securable_type),
                 full_name=full_name,
-                changes=changes
+                changes=changes,
             )
 
             # Add rollback operation
-            self._rollback_stack.append(
-                lambda: self.revoke_privilege(privilege)
-            )
+            self._rollback_stack.append(lambda: self.revoke_privilege(privilege))
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -209,7 +205,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 resource_type=self.get_resource_type(),
                 resource_name=description,
                 message="Granted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -223,7 +219,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     resource_type="PRIVILEGE",
                     resource_name=description,
                     message=f"Resource not found: {error_msg}",
-                    duration_seconds=duration
+                    duration_seconds=duration,
                 )
             return self._handle_error(OperationType.GRANT, description, e)
 
@@ -248,7 +244,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=description,
-                    message="Not granted"
+                    message="Not granted",
                 )
 
             if self.dry_run:
@@ -258,25 +254,24 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     operation=OperationType.REVOKE,
                     resource_type=self.get_resource_type(),
                     resource_name=description,
-                    message="Would be revoked (dry run)"
+                    message="Would be revoked (dry run)",
                 )
 
             full_name = self._get_full_name(privilege)
             logger.info(f"Revoking {description}")
 
             # Create the change request
-            changes = [
-                PermissionsChange(
-                    principal=privilege.principal,
-                    remove=[privilege.privilege.value]
-                )
-            ]
+            # SDK expects Privilege enum objects, not strings
+            from databricks.sdk.service.catalog import Privilege as SDKPrivilege
+
+            sdk_privilege = SDKPrivilege(_get_enum_value(privilege.privilege))
+            changes = [PermissionsChange(principal=privilege.principal, remove=[sdk_privilege])]
 
             self.execute_with_retry(
                 self.client.grants.update,
-                securable_type=privilege.securable_type.value,
+                securable_type=_get_enum_value(privilege.securable_type),
                 full_name=full_name,
-                changes=changes
+                changes=changes,
             )
 
             duration = time.time() - start_time
@@ -286,7 +281,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 resource_type=self.get_resource_type(),
                 resource_name=description,
                 message="Revoked successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -315,10 +310,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
 
         return results
 
-    def _group_privileges_by_securable(
-        self,
-        privileges: List[Privilege]
-    ) -> Dict[Tuple, List[Privilege]]:
+    def _group_privileges_by_securable(self, privileges: List[Privilege]) -> Dict[Tuple, List[Privilege]]:
         """
         Group privileges by securable for batching.
 
@@ -331,21 +323,12 @@ class GrantExecutor(BaseExecutor[Privilege]):
         by_securable = defaultdict(list)
 
         for priv in privileges:
-            key = (
-                priv.securable_type,
-                priv.level_1,
-                priv.level_2,
-                priv.level_3
-            )
+            key = (priv.securable_type, priv.level_1, priv.level_2, priv.level_3)
             by_securable[key].append(priv)
 
         return by_securable
 
-    def _apply_securable_privileges(
-        self,
-        securable_key: Tuple,
-        privileges: List[Privilege]
-    ) -> ExecutionResult:
+    def _apply_securable_privileges(self, securable_key: Tuple, privileges: List[Privilege]) -> ExecutionResult:
         """
         Apply all privileges for a single securable.
 
@@ -372,7 +355,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     operation=OperationType.NO_OP,
                     resource_type="PRIVILEGE_BATCH",
                     resource_name=full_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -383,16 +366,13 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     resource_type="PRIVILEGE_BATCH",
                     resource_name=full_name,
                     message=f"Would apply {len(changes)} changes (dry run)",
-                    changes={'changes': len(changes)}
+                    changes={"changes": len(changes)},
                 )
 
             # Apply changes
             logger.info(f"Applying {len(changes)} privilege changes to {full_name}")
             self.execute_with_retry(
-                self.client.grants.update,
-                securable_type=securable_type.value,
-                full_name=full_name,
-                changes=changes
+                self.client.grants.update, securable_type=_get_enum_value(securable_type), full_name=full_name, changes=changes
             )
 
             return ExecutionResult(
@@ -401,7 +381,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 resource_type="PRIVILEGE_BATCH",
                 resource_name=full_name,
                 message=f"Applied {len(changes)} privilege changes",
-                changes={'changes': len(changes)}
+                changes={"changes": len(changes)},
             )
 
         except Exception as e:
@@ -411,14 +391,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 resource_type="PRIVILEGE_BATCH",
                 resource_name=full_name,
                 message=str(e),
-                error=e
+                error=e,
             )
 
-    def _get_current_grants(
-        self,
-        securable_type: SecurableType,
-        full_name: str
-    ) -> Dict[str, Set[str]]:
+    def _get_current_grants(self, securable_type: SecurableType, full_name: str) -> Dict[str, Set[str]]:
         """
         Get current grants for a securable.
 
@@ -432,10 +408,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
         current = defaultdict(set)
 
         try:
-            grants = self.client.grants.get(
-                securable_type=securable_type.value,
-                full_name=full_name
-            )
+            grants = self.client.grants.get(securable_type=_get_enum_value(securable_type), full_name=full_name)
 
             for assignment in grants.privilege_assignments or []:
                 principal = assignment.principal
@@ -444,16 +417,15 @@ class GrantExecutor(BaseExecutor[Privilege]):
 
         except ResourceDoesNotExist:
             # Securable doesn't exist yet - no current grants
-            pass
-        except Exception as e:
-            logger.warning(f"Error getting current grants for {full_name}: {e}")
+            logger.debug(f"Securable {full_name} does not exist yet, returning empty grants")
+        except (NotFound, PermissionDenied, BadRequest) as e:
+            logger.error(f"Error getting current grants for {full_name}: {e}")
+            raise
 
         return current
 
     def _calculate_privilege_changes(
-        self,
-        desired: List[Privilege],
-        current: Dict[str, Set[str]]
+        self, desired: List[Privilege], current: Dict[str, Set[str]]
     ) -> List[PermissionsChange]:
         """
         Calculate privilege changes needed.
@@ -465,10 +437,12 @@ class GrantExecutor(BaseExecutor[Privilege]):
         Returns:
             List of PermissionsChange objects
         """
+        from databricks.sdk.service.catalog import Privilege as SDKPrivilege
+
         # Group desired privileges by principal
         desired_by_principal = defaultdict(set)
         for priv in desired:
-            desired_by_principal[priv.principal].add(priv.privilege.value)
+            desired_by_principal[priv.principal].add(_get_enum_value(priv.privilege))
 
         changes = []
 
@@ -478,12 +452,9 @@ class GrantExecutor(BaseExecutor[Privilege]):
             to_add = desired_privs - current_privs
 
             if to_add:
-                changes.append(
-                    PermissionsChange(
-                        principal=principal,
-                        add=list(to_add)
-                    )
-                )
+                # Convert string privileges to SDK enum objects
+                sdk_privileges = [SDKPrivilege(p) for p in to_add]
+                changes.append(PermissionsChange(principal=principal, add=sdk_privileges))
 
         return changes
 
@@ -497,18 +468,9 @@ class GrantExecutor(BaseExecutor[Privilege]):
         Returns:
             Full name of the securable
         """
-        return self._build_full_name(
-            privilege.level_1,
-            privilege.level_2,
-            privilege.level_3
-        )
+        return self._build_full_name(privilege.level_1, privilege.level_2, privilege.level_3)
 
-    def _build_full_name(
-        self,
-        l1: str,
-        l2: Optional[str] = None,
-        l3: Optional[str] = None
-    ) -> str:
+    def _build_full_name(self, l1: str, l2: Optional[str] = None, l3: Optional[str] = None) -> str:
         """
         Build the full name of a securable.
 
@@ -538,10 +500,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
             Description string
         """
         full_name = self._get_full_name(privilege)
-        return (
-            f"{privilege.privilege.value} on {privilege.securable_type.value} "
-            f"{full_name} to {privilege.principal}"
-        )
+        return f"{_get_enum_value(privilege.privilege)} on {_get_enum_value(privilege.securable_type)} {full_name} to {privilege.principal}"
 
     def _validate_principal_exists(self, principal_name: str) -> bool:
         """

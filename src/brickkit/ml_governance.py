@@ -32,16 +32,19 @@ logger = logging.getLogger(__name__)
 # GOVERNANCE POLICIES - Define what's allowed/required
 # ============================================================================
 
+
 class ModelTier(str, Enum):
     """Model tier determines governance requirements."""
+
     EXPERIMENTAL = "experimental"  # Low risk, minimal requirements
-    DEVELOPMENT = "development"    # Medium risk, standard requirements
-    PRODUCTION = "production"      # High risk, strict requirements
-    CRITICAL = "critical"          # Mission-critical, maximum requirements
+    DEVELOPMENT = "development"  # Medium risk, standard requirements
+    PRODUCTION = "production"  # High risk, strict requirements
+    CRITICAL = "critical"  # Mission-critical, maximum requirements
 
 
 class DataClassification(str, Enum):
     """Data sensitivity classification."""
+
     PUBLIC = "public"
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
@@ -57,17 +60,14 @@ class GovernancePolicy:
     This is configured at the team/project level and enforced
     during training and registration.
     """
+
     # Basic requirements
     tier: ModelTier = ModelTier.DEVELOPMENT
     data_classification: DataClassification = DataClassification.INTERNAL
 
     # Required metadata
-    required_tags: Set[str] = field(default_factory=lambda: {
-        "team", "project", "owner", "business_unit"
-    })
-    required_metrics: Set[str] = field(default_factory=lambda: {
-        "accuracy", "precision", "recall"
-    })
+    required_tags: Set[str] = field(default_factory=lambda: {"team", "project", "owner", "business_unit"})
+    required_metrics: Set[str] = field(default_factory=lambda: {"accuracy", "precision", "recall"})
 
     # Model requirements
     require_signature: bool = True
@@ -98,13 +98,13 @@ class GovernancePolicy:
     min_reviewers: int = 1
     require_manager_approval: bool = False
 
-    def for_tier(self, tier: ModelTier) -> 'GovernancePolicy':
+    def for_tier(self, tier: ModelTier) -> "GovernancePolicy":
         """Get policy adjusted for specific tier."""
         policy = GovernancePolicy(
             tier=tier,
             data_classification=self.data_classification,
             required_tags=self.required_tags.copy(),
-            required_metrics=self.required_metrics.copy()
+            required_metrics=self.required_metrics.copy(),
         )
 
         if tier == ModelTier.EXPERIMENTAL:
@@ -153,8 +153,10 @@ class GovernancePolicy:
 # VALIDATION FRAMEWORK - Check compliance during development
 # ============================================================================
 
+
 class ValidationResult(BaseModel):
     """Result of a governance validation check."""
+
     passed: bool
     check_name: str
     message: str
@@ -180,22 +182,26 @@ class GovernanceValidator:
 
         # Check experiment naming
         if not self._is_valid_name(experiment.name):
-            results.append(ValidationResult(
-                passed=False,
-                check_name="experiment_naming",
-                message=f"Experiment name '{experiment.name}' doesn't follow naming convention",
-                severity="warning"
-            ))
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    check_name="experiment_naming",
+                    message=f"Experiment name '{experiment.name}' doesn't follow naming convention",
+                    severity="warning",
+                )
+            )
 
         # Check experiment tags
         missing_tags = self.policy.required_tags - set(experiment.tags.keys())
         if missing_tags:
-            results.append(ValidationResult(
-                passed=False,
-                check_name="experiment_tags",
-                message=f"Missing required tags: {missing_tags}",
-                severity="error"
-            ))
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    check_name="experiment_tags",
+                    message=f"Missing required tags: {missing_tags}",
+                    severity="error",
+                )
+            )
 
         return results
 
@@ -207,43 +213,51 @@ class GovernanceValidator:
         logged_metrics = set(run.data.metrics.keys())
         missing_metrics = self.policy.required_metrics - logged_metrics
         if missing_metrics:
-            results.append(ValidationResult(
-                passed=False,
-                check_name="required_metrics",
-                message=f"Missing required metrics: {missing_metrics}",
-                severity="error"
-            ))
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    check_name="required_metrics",
+                    message=f"Missing required metrics: {missing_metrics}",
+                    severity="error",
+                )
+            )
 
         # Check performance thresholds
         if self.policy.min_accuracy and "accuracy" in run.data.metrics:
             accuracy = run.data.metrics["accuracy"]
             if accuracy < self.policy.min_accuracy:
-                results.append(ValidationResult(
-                    passed=False,
-                    check_name="min_accuracy",
-                    message=f"Accuracy {accuracy:.3f} below minimum {self.policy.min_accuracy}",
-                    severity="error"
-                ))
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        check_name="min_accuracy",
+                        message=f"Accuracy {accuracy:.3f} below minimum {self.policy.min_accuracy}",
+                        severity="error",
+                    )
+                )
 
         # Check tags
         missing_tags = self.policy.required_tags - set(run.data.tags.keys())
         if missing_tags:
-            results.append(ValidationResult(
-                passed=False,
-                check_name="run_tags",
-                message=f"Missing required tags: {missing_tags}",
-                severity="error"
-            ))
+            results.append(
+                ValidationResult(
+                    passed=False,
+                    check_name="run_tags",
+                    message=f"Missing required tags: {missing_tags}",
+                    severity="error",
+                )
+            )
 
         # Check code version
         if self.policy.require_code_version:
             if "mlflow.source.git.commit" not in run.data.tags:
-                results.append(ValidationResult(
-                    passed=False,
-                    check_name="code_version",
-                    message="Git commit hash not logged",
-                    severity="error" if self.policy.tier >= ModelTier.PRODUCTION else "warning"
-                ))
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        check_name="code_version",
+                        message="Git commit hash not logged",
+                        severity="error" if self.policy.tier >= ModelTier.PRODUCTION else "warning",
+                    )
+                )
 
         return results
 
@@ -256,21 +270,25 @@ class GovernanceValidator:
 
             # Check signature
             if self.policy.require_signature and not model.signature:
-                results.append(ValidationResult(
-                    passed=False,
-                    check_name="model_signature",
-                    message="Model signature is required but not found",
-                    severity="error"
-                ))
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        check_name="model_signature",
+                        message="Model signature is required but not found",
+                        severity="error",
+                    )
+                )
 
             # Check input example
             if self.policy.require_input_example and not model.saved_input_example_info:
-                results.append(ValidationResult(
-                    passed=False,
-                    check_name="input_example",
-                    message="Input example is required but not found",
-                    severity="error"
-                ))
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        check_name="input_example",
+                        message="Input example is required but not found",
+                        severity="error",
+                    )
+                )
 
             # Check model metadata
             if model.metadata:
@@ -278,20 +296,21 @@ class GovernanceValidator:
                 if self.policy.max_memory_mb:
                     model_size_mb = self._get_model_size_mb(model_path)
                     if model_size_mb > self.policy.max_memory_mb:
-                        results.append(ValidationResult(
-                            passed=False,
-                            check_name="model_size",
-                            message=f"Model size {model_size_mb:.1f}MB exceeds limit {self.policy.max_memory_mb}MB",
-                            severity="error"
-                        ))
+                        results.append(
+                            ValidationResult(
+                                passed=False,
+                                check_name="model_size",
+                                message=f"Model size {model_size_mb:.1f}MB exceeds limit {self.policy.max_memory_mb}MB",
+                                severity="error",
+                            )
+                        )
 
         except Exception as e:
-            results.append(ValidationResult(
-                passed=False,
-                check_name="model_loading",
-                message=f"Failed to load model: {e}",
-                severity="error"
-            ))
+            results.append(
+                ValidationResult(
+                    passed=False, check_name="model_loading", message=f"Failed to load model: {e}", severity="error"
+                )
+            )
 
         return results
 
@@ -301,27 +320,30 @@ class GovernanceValidator:
 
         if self.policy.require_data_lineage:
             # Check for dataset tags
-            dataset_tags = {k: v for k, v in run.data.tags.items()
-                          if k.startswith("dataset.")}
+            dataset_tags = {k: v for k, v in run.data.tags.items() if k.startswith("dataset.")}
 
             if not dataset_tags:
-                results.append(ValidationResult(
-                    passed=False,
-                    check_name="data_lineage",
-                    message="No dataset information logged",
-                    severity="error"
-                ))
+                results.append(
+                    ValidationResult(
+                        passed=False,
+                        check_name="data_lineage",
+                        message="No dataset information logged",
+                        severity="error",
+                    )
+                )
             else:
                 # Check specific dataset attributes
                 required_dataset_info = {"dataset.name", "dataset.version", "dataset.source"}
                 missing_info = required_dataset_info - set(dataset_tags.keys())
                 if missing_info:
-                    results.append(ValidationResult(
-                        passed=False,
-                        check_name="data_lineage_details",
-                        message=f"Missing dataset info: {missing_info}",
-                        severity="warning"
-                    ))
+                    results.append(
+                        ValidationResult(
+                            passed=False,
+                            check_name="data_lineage_details",
+                            message=f"Missing dataset info: {missing_info}",
+                            severity="warning",
+                        )
+                    )
 
         return results
 
@@ -329,7 +351,8 @@ class GovernanceValidator:
         """Check if name follows naming convention."""
         # Example: team_project_model_YYYYMMDD
         import re
-        pattern = r'^[a-z]+_[a-z]+_[a-z]+_\d{8}$'
+
+        pattern = r"^[a-z]+_[a-z]+_[a-z]+_\d{8}$"
         return bool(re.match(pattern, name.lower()))
 
     def _get_model_size_mb(self, model_path: str) -> float:
@@ -346,10 +369,9 @@ class GovernanceValidator:
 # DECORATORS - Embed governance into training code
 # ============================================================================
 
+
 def governed_training(
-    policy: Optional[GovernancePolicy] = None,
-    tier: ModelTier = ModelTier.DEVELOPMENT,
-    auto_fix: bool = True
+    policy: Optional[GovernancePolicy] = None, tier: ModelTier = ModelTier.DEVELOPMENT, auto_fix: bool = True
 ):
     """
     Decorator for training functions that enforces governance.
@@ -361,6 +383,7 @@ def governed_training(
             model.fit(X, y)
             return model
     """
+
     def decorator(train_func: Callable) -> Callable:
         @functools.wraps(train_func)
         def wrapper(*args, **kwargs):
@@ -388,12 +411,10 @@ def governed_training(
 
                     # Log validation results
                     for val_result in validation_results:
-                        mlflow.log_metric(f"governance.{val_result.check_name}",
-                                         1.0 if val_result.passed else 0.0)
+                        mlflow.log_metric(f"governance.{val_result.check_name}", 1.0 if val_result.passed else 0.0)
 
                     # Fail if critical validations failed
-                    critical_failures = [r for r in validation_results
-                                        if not r.passed and r.severity == "error"]
+                    critical_failures = [r for r in validation_results if not r.passed and r.severity == "error"]
                     if critical_failures:
                         error_msg = "\n".join([f"- {r.message}" for r in critical_failures])
                         raise GovernanceError(f"Governance validation failed:\n{error_msg}")
@@ -405,13 +426,11 @@ def governed_training(
                     raise
 
         return wrapper
+
     return decorator
 
 
-def requires_approval(
-    min_reviewers: int = 1,
-    approval_tags: Optional[List[str]] = None
-):
+def requires_approval(min_reviewers: int = 1, approval_tags: Optional[List[str]] = None):
     """
     Decorator that requires approval before model registration.
 
@@ -420,6 +439,7 @@ def requires_approval(
         def register_model(model_uri, name):
             return mlflow.register_model(model_uri, name)
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -427,13 +447,10 @@ def requires_approval(
             run = mlflow.active_run()
 
             if run:
-                approvals = [tag for tag in run.data.tags
-                           if tag.startswith("approval.reviewer.")]
+                approvals = [tag for tag in run.data.tags if tag.startswith("approval.reviewer.")]
 
                 if len(approvals) < min_reviewers:
-                    raise GovernanceError(
-                        f"Model requires {min_reviewers} approvals, found {len(approvals)}"
-                    )
+                    raise GovernanceError(f"Model requires {min_reviewers} approvals, found {len(approvals)}")
 
                 # Check specific approval tags if provided
                 if approval_tags:
@@ -444,6 +461,7 @@ def requires_approval(
             return func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -451,12 +469,13 @@ def requires_approval(
 # CONTEXT MANAGERS - Governance contexts for training
 # ============================================================================
 
+
 @contextmanager
 def governed_experiment(
     name: str,
     policy: Optional[GovernancePolicy] = None,
     tier: ModelTier = ModelTier.DEVELOPMENT,
-    tags: Optional[Dict[str, str]] = None
+    tags: Optional[Dict[str, str]] = None,
 ):
     """
     Context manager for governed experiments.
@@ -509,7 +528,7 @@ def data_lineage_tracking(
     dataset_name: str,
     dataset_version: str,
     source: str,
-    classification: DataClassification = DataClassification.INTERNAL
+    classification: DataClassification = DataClassification.INTERNAL,
 ):
     """
     Context manager for tracking data lineage.
@@ -532,8 +551,8 @@ def data_lineage_tracking(
             # This would integrate with your data profiling tools
             mlflow.log_metric("dataset.row_count", 0)  # Placeholder
             mlflow.log_metric("dataset.column_count", 0)  # Placeholder
-        except (AttributeError, TypeError):
-            pass
+        except (AttributeError, TypeError) as e:
+            logger.debug(f"Could not log dataset statistics: {e}")
 
         yield run
 
@@ -541,6 +560,7 @@ def data_lineage_tracking(
 # ============================================================================
 # MLFLOW HOOKS - Intercept MLflow operations for governance
 # ============================================================================
+
 
 class GovernanceMLflowClient(MlflowClient):
     """
@@ -555,8 +575,7 @@ class GovernanceMLflowClient(MlflowClient):
         self.validator = GovernanceValidator(policy)
 
     def create_registered_model(  # type: ignore[override]
-        self, name: str, tags: Optional[Dict[str, str]] = None,
-        description: Optional[str] = None
+        self, name: str, tags: Optional[Dict[str, str]] = None, description: Optional[str] = None
     ) -> Any:
         """Override model registration to enforce governance."""
         # Validate model name
@@ -577,18 +596,20 @@ class GovernanceMLflowClient(MlflowClient):
         return super().create_registered_model(name, tags, description)
 
     def create_model_version(  # type: ignore[override]
-        self, name: str, source: str, run_id: Optional[str] = None,
+        self,
+        name: str,
+        source: str,
+        run_id: Optional[str] = None,
         tags: Optional[Dict[str, str]] = None,
         run_link: Optional[str] = None,
-        description: Optional[str] = None
+        description: Optional[str] = None,
     ) -> Any:
         """Override version creation to validate governance."""
         # Validate the source model
         validation_results = self.validator.validate_model(source)
 
         # Check for blocking issues
-        blocking_issues = [r for r in validation_results
-                          if not r.passed and r.severity == "error"]
+        blocking_issues = [r for r in validation_results if not r.passed and r.severity == "error"]
         if blocking_issues:
             error_msg = "\n".join([f"- {r.message}" for r in blocking_issues])
             raise GovernanceError(f"Model validation failed:\n{error_msg}")
@@ -597,45 +618,44 @@ class GovernanceMLflowClient(MlflowClient):
         if run_id:
             run = self.get_run(run_id)
             run_validation = self.validator.validate_run(run)
-            blocking_issues = [r for r in run_validation
-                              if not r.passed and r.severity == "error"]
+            blocking_issues = [r for r in run_validation if not r.passed and r.severity == "error"]
             if blocking_issues:
                 error_msg = "\n".join([f"- {r.message}" for r in blocking_issues])
                 raise GovernanceError(f"Run validation failed:\n{error_msg}")
 
         return super().create_model_version(name, source, run_id, tags, run_link, description)
 
-    def transition_model_version_stage(self, name: str, version: str, stage: str,
-                                      archive_existing_versions: bool = False) -> Any:
+    def transition_model_version_stage(
+        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
+    ) -> Any:
         """Override stage transition to enforce approval requirements."""
         # Check approval requirements for production transitions
         if stage.lower() in ["production", "staging"]:
             model_version = self.get_model_version(name, version)
 
             # Check for approval tags
-            approval_tags = [tag for tag in model_version.tags
-                           if tag.startswith("approval.")]
+            approval_tags = [tag for tag in model_version.tags if tag.startswith("approval.")]
 
             if len(approval_tags) < self.policy.min_reviewers:
                 raise GovernanceError(
-                    f"Transition to {stage} requires {self.policy.min_reviewers} approvals, "
-                    f"found {len(approval_tags)}"
+                    f"Transition to {stage} requires {self.policy.min_reviewers} approvals, found {len(approval_tags)}"
                 )
 
-        return super().transition_model_version_stage(name, version, stage,
-                                                     archive_existing_versions)
+        return super().transition_model_version_stage(name, version, stage, archive_existing_versions)
 
     def _is_valid_model_name(self, name: str) -> bool:
         """Validate model naming convention."""
         # Example: team_project_model
         import re
-        pattern = r'^[a-z]+_[a-z]+_[a-z_]+$'
+
+        pattern = r"^[a-z]+_[a-z]+_[a-z_]+$"
         return bool(re.match(pattern, name.lower()))
 
 
 # ============================================================================
 # TEMPLATES - Pre-configured governance patterns
 # ============================================================================
+
 
 class GovernedMLTemplate:
     """
@@ -644,23 +664,24 @@ class GovernedMLTemplate:
     Provides standard patterns that embed governance by default.
     """
 
-    def __init__(self,
-                 experiment_name: str,
-                 tier: ModelTier = ModelTier.DEVELOPMENT,
-                 policy: Optional[GovernancePolicy] = None):
+    def __init__(
+        self, experiment_name: str, tier: ModelTier = ModelTier.DEVELOPMENT, policy: Optional[GovernancePolicy] = None
+    ):
         self.experiment_name = experiment_name
         self.tier = tier
         self.policy = policy or GovernancePolicy().for_tier(tier)
         self.validator = GovernanceValidator(self.policy)
         self.client = GovernanceMLflowClient(self.policy)
 
-    def train(self,
-              train_func: Callable,
-              X_train: Any,
-              y_train: Any,
-              X_val: Optional[Any] = None,
-              y_val: Optional[Any] = None,
-              **kwargs) -> Any:
+    def train(
+        self,
+        train_func: Callable,
+        X_train: Any,
+        y_train: Any,
+        X_val: Optional[Any] = None,
+        y_val: Optional[Any] = None,
+        **kwargs,
+    ) -> Any:
         """
         Standard training workflow with governance.
 
@@ -703,7 +724,7 @@ class GovernedMLTemplate:
                 "model",
                 signature=signature,
                 input_example=input_example,
-                registered_model_name=self._generate_model_name()
+                registered_model_name=self._generate_model_name(),
             )
 
             # Run post-training validation
@@ -720,9 +741,9 @@ class GovernedMLTemplate:
 
         metrics = {
             f"{prefix}_accuracy": accuracy_score(y, y_pred),
-            f"{prefix}_precision": precision_score(y, y_pred, average='weighted'),
-            f"{prefix}_recall": recall_score(y, y_pred, average='weighted'),
-            f"{prefix}_f1": f1_score(y, y_pred, average='weighted')
+            f"{prefix}_precision": precision_score(y, y_pred, average="weighted"),
+            f"{prefix}_recall": recall_score(y, y_pred, average="weighted"),
+            f"{prefix}_f1": f1_score(y, y_pred, average="weighted"),
         }
 
         for name, value in metrics.items():
@@ -731,20 +752,21 @@ class GovernedMLTemplate:
     def _generate_model_name(self) -> str:
         """Generate compliant model name."""
         import re
+
         # Clean experiment name to create model name
-        base_name = re.sub(r'[^a-z0-9_]', '_', self.experiment_name.lower())
+        base_name = re.sub(r"[^a-z0-9_]", "_", self.experiment_name.lower())
         return f"{base_name}_model"
 
     def _handle_validation_results(self, results: List[ValidationResult]) -> None:
         """Handle validation results based on policy."""
         import warnings as warnings_module
+
         errors = [r for r in results if not r.passed and r.severity == "error"]
         warning_results = [r for r in results if not r.passed and r.severity == "warning"]
 
         # Log all results
         for result in results:
-            mlflow.log_metric(f"validation.{result.check_name}",
-                            1.0 if result.passed else 0.0)
+            mlflow.log_metric(f"validation.{result.check_name}", 1.0 if result.passed else 0.0)
 
         # Handle based on tier
         if errors:
@@ -763,8 +785,10 @@ class GovernedMLTemplate:
 # HELPER FUNCTIONS
 # ============================================================================
 
+
 class GovernanceError(Exception):
     """Raised when governance validation fails."""
+
     pass
 
 
@@ -789,10 +813,10 @@ def _infer_tag_value(tag_name: str) -> str:
     return inferences.get(tag_name, f"missing_{tag_name}")
 
 
-def _handle_validation_results(results: List[ValidationResult],
-                              policy: GovernancePolicy) -> None:
+def _handle_validation_results(results: List[ValidationResult], policy: GovernancePolicy) -> None:
     """Handle validation results based on policy settings."""
     import warnings as warnings_module
+
     errors = [r for r in results if not r.passed and r.severity == "error"]
     warning_results = [r for r in results if not r.passed and r.severity == "warning"]
 
@@ -807,6 +831,7 @@ def _handle_validation_results(results: List[ValidationResult],
 # ============================================================================
 # EARLY WARNING SYSTEM - Detect issues during training
 # ============================================================================
+
 
 class GovernanceMonitor:
     """
@@ -838,8 +863,7 @@ class GovernanceMonitor:
 
             experiment = mlflow.get_experiment(active_run.info.experiment_id)
             active_runs = client.search_runs(
-                experiment_ids=[experiment.experiment_id] if experiment else [],
-                filter_string="status = 'RUNNING'"
+                experiment_ids=[experiment.experiment_id] if experiment else [], filter_string="status = 'RUNNING'"
             )
 
             for run in active_runs:
@@ -880,16 +904,15 @@ class GovernanceMonitor:
             with mlflow.start_run(run_id=run.info.run_id):
                 mlflow.set_tag(f"governance.issue.{len(self.issues_detected)}", issue)
 
-            self.issues_detected.append({
-                "run_id": run.info.run_id,
-                "issue": issue,
-                "timestamp": datetime.now(timezone.utc)
-            })
+            self.issues_detected.append(
+                {"run_id": run.info.run_id, "issue": issue, "timestamp": datetime.now(timezone.utc)}
+            )
 
 
 # ============================================================================
 # INTEGRATION WITH CI/CD
 # ============================================================================
+
 
 def generate_governance_report(run_id: str, output_path: str = "governance_report.json") -> Dict:
     """
@@ -901,12 +924,12 @@ def generate_governance_report(run_id: str, output_path: str = "governance_repor
     run = client.get_run(run_id)
 
     # Extract governance metadata
-    governance_tags = {k: v for k, v in run.data.tags.items()
-                      if k.startswith("governance.")}
+    governance_tags = {k: v for k, v in run.data.tags.items() if k.startswith("governance.")}
 
     # Extract validation metrics
-    validation_metrics = {k: v for k, v in run.data.metrics.items()
-                         if k.startswith("validation.") or k.startswith("governance.")}
+    validation_metrics = {
+        k: v for k, v in run.data.metrics.items() if k.startswith("validation.") or k.startswith("governance.")
+    }
 
     report = {
         "run_id": run_id,
@@ -917,16 +940,16 @@ def generate_governance_report(run_id: str, output_path: str = "governance_repor
             "validated": governance_tags.get("governance.validated", "false") == "true",
             "policy_version": governance_tags.get("governance.policy_version", "unknown"),
             "tags": governance_tags,
-            "validation_results": validation_metrics
+            "validation_results": validation_metrics,
         },
         "metrics": run.data.metrics,
         "approvals": [k for k in run.data.tags if k.startswith("approval.")],
         "passed": all(v == 1.0 for v in validation_metrics.values()),
-        "generated_at": datetime.now(timezone.utc).isoformat()
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
     # Save report
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(report, f, indent=2)
 
     return report

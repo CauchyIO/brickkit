@@ -34,7 +34,8 @@ class GenieSpaceImporter(ResourceImporter[GenieSpace]):
         try:
             self.client.genie.list_spaces()
             return True
-        except Exception:
+        except (PermissionDenied, NotFound, AttributeError) as e:
+            logger.debug(f"Genie API not available: {e}")
             return False
 
     def pull_all(self) -> ImportResult:

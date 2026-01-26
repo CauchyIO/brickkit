@@ -67,7 +67,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Would assign metastore (dry run)"
+                    message="Would assign metastore (dry run)",
                 )
 
             # Check current assignment
@@ -79,7 +79,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Already assigned"
+                    message="Already assigned",
                 )
 
             logger.info(f"Assigning metastore {metastore_id} to workspace {workspace_id}")
@@ -87,9 +87,7 @@ class MetastoreAssignmentExecutor:
             # Perform assignment
             if default_catalog:
                 self.client.metastores.assign(
-                    metastore_id=metastore_id,
-                    workspace_id=workspace_id,
-                    default_catalog_name=default_catalog
+                    metastore_id=metastore_id, workspace_id=workspace_id, default_catalog_name=default_catalog
                 )
             else:
                 # Try to find an existing catalog to use as default
@@ -101,13 +99,11 @@ class MetastoreAssignmentExecutor:
                         resource_type=self.get_resource_type(),
                         resource_name=f"{metastore_id}_{workspace_id}",
                         message="No catalogs available in metastore to set as default. Create a catalog first or specify default_catalog parameter.",
-                        duration_seconds=time.time() - start_time
+                        duration_seconds=time.time() - start_time,
                     )
 
                 self.client.metastores.assign(
-                    metastore_id=metastore_id,
-                    workspace_id=workspace_id,
-                    default_catalog_name=default_catalog_name
+                    metastore_id=metastore_id, workspace_id=workspace_id, default_catalog_name=default_catalog_name
                 )
 
             duration = time.time() - start_time
@@ -117,7 +113,7 @@ class MetastoreAssignmentExecutor:
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message="Assigned metastore successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -131,7 +127,7 @@ class MetastoreAssignmentExecutor:
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
                 duration_seconds=time.time() - start_time,
-                error=e
+                error=e,
             )
 
     def unassign(self, metastore_id: str, workspace_id: int) -> ExecutionResult:
@@ -155,7 +151,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Would unassign metastore (dry run)"
+                    message="Would unassign metastore (dry run)",
                 )
 
             # Check current assignment
@@ -167,16 +163,13 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Not assigned"
+                    message="Not assigned",
                 )
 
             logger.info(f"Unassigning metastore {metastore_id} from workspace {workspace_id}")
 
             # Perform unassignment
-            self.client.metastores.unassign(
-                metastore_id=metastore_id,
-                workspace_id=workspace_id
-            )
+            self.client.metastores.unassign(metastore_id=metastore_id, workspace_id=workspace_id)
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -185,7 +178,7 @@ class MetastoreAssignmentExecutor:
                 resource_type=self.get_resource_type(),
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message="Unassigned metastore successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -199,7 +192,7 @@ class MetastoreAssignmentExecutor:
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
                 duration_seconds=time.time() - start_time,
-                error=e
+                error=e,
             )
 
     def update_default_catalog(self, metastore_id: str, workspace_id: int, default_catalog: str) -> ExecutionResult:
@@ -224,7 +217,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.UPDATE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Would update default catalog (dry run)"
+                    message="Would update default catalog (dry run)",
                 )
 
             # Check current assignment
@@ -236,7 +229,7 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.UPDATE,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Metastore not assigned to workspace"
+                    message="Metastore not assigned to workspace",
                 )
 
             if current.default_catalog_name == default_catalog:
@@ -246,16 +239,14 @@ class MetastoreAssignmentExecutor:
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=f"{metastore_id}_{workspace_id}",
-                    message="Default catalog unchanged"
+                    message="Default catalog unchanged",
                 )
 
             logger.info(f"Updating default catalog from {current.default_catalog_name} to {default_catalog}")
 
             # Update assignment
             self.client.metastores.update_assignment(
-                workspace_id=workspace_id,
-                metastore_id=metastore_id,
-                default_catalog_name=default_catalog
+                workspace_id=workspace_id, metastore_id=metastore_id, default_catalog_name=default_catalog
             )
 
             duration = time.time() - start_time
@@ -266,7 +257,7 @@ class MetastoreAssignmentExecutor:
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=f"Updated default catalog to {default_catalog}",
                 duration_seconds=duration,
-                changes={"default_catalog": {"from": current.default_catalog_name, "to": default_catalog}}
+                changes={"default_catalog": {"from": current.default_catalog_name, "to": default_catalog}},
             )
 
         except PermissionDenied as e:
@@ -280,7 +271,7 @@ class MetastoreAssignmentExecutor:
                 resource_name=f"{metastore_id}_{workspace_id}",
                 message=str(e),
                 duration_seconds=time.time() - start_time,
-                error=e
+                error=e,
             )
 
     def _find_default_catalog(self, metastore_id: str) -> Optional[str]:

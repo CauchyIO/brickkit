@@ -33,11 +33,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')  # Generic type for models
+T = TypeVar("T")  # Generic type for models
 
 
 class OperationType(str, Enum):
     """Types of operations that can be performed."""
+
     CREATE = "CREATE"
     UPDATE = "UPDATE"
     DELETE = "DELETE"
@@ -63,10 +64,7 @@ class ExecutionResult:
     def __str__(self) -> str:
         """String representation of the result."""
         status = "✅" if self.success else "❌"
-        return (
-            f"{status} {self.operation.value} {self.resource_type} "
-            f"{self.resource_name}: {self.message}"
-        )
+        return f"{status} {self.operation.value} {self.resource_type} {self.resource_name}: {self.message}"
 
 
 @dataclass
@@ -77,21 +75,19 @@ class ExecutionPlan:
     estimated_duration_seconds: float = 0.0
 
     def add_operation(
-        self,
-        operation: OperationType,
-        resource_type: str,
-        resource_name: str,
-        changes: Optional[Dict[str, Any]] = None
+        self, operation: OperationType, resource_type: str, resource_name: str, changes: Optional[Dict[str, Any]] = None
     ):
         """Add an operation to the plan."""
-        self.operations.append(ExecutionResult(
-            success=True,  # Plan assumes success
-            operation=operation,
-            resource_type=resource_type,
-            resource_name=resource_name,
-            message="Planned",
-            changes=changes or {}
-        ))
+        self.operations.append(
+            ExecutionResult(
+                success=True,  # Plan assumes success
+                operation=operation,
+                resource_type=resource_type,
+                resource_name=resource_name,
+                message="Planned",
+                changes=changes or {},
+            )
+        )
 
     def __str__(self) -> str:
         """String representation of the plan."""
@@ -129,7 +125,7 @@ class BaseExecutor(ABC, Generic[T]):
         dry_run: bool = False,
         max_retries: int = 3,
         continue_on_error: bool = False,
-        governance_defaults: Optional['GovernanceDefaults'] = None
+        governance_defaults: Optional["GovernanceDefaults"] = None,
     ):
         """
         Initialize the executor.
@@ -222,11 +218,7 @@ class BaseExecutor(ABC, Generic[T]):
             else:
                 return self.create(resource)
         except Exception as e:
-            return self._handle_error(
-                OperationType.CREATE,
-                self._get_resource_name(resource),
-                e
-            )
+            return self._handle_error(OperationType.CREATE, self._get_resource_name(resource), e)
 
     def plan(self, resources: List[T]) -> ExecutionPlan:
         """
@@ -246,23 +238,12 @@ class BaseExecutor(ABC, Generic[T]):
                 if self._needs_update(resource):
                     changes = self._get_changes(resource)
                     plan.add_operation(
-                        OperationType.UPDATE,
-                        self.get_resource_type(),
-                        self._get_resource_name(resource),
-                        changes
+                        OperationType.UPDATE, self.get_resource_type(), self._get_resource_name(resource), changes
                     )
                 else:
-                    plan.add_operation(
-                        OperationType.NO_OP,
-                        self.get_resource_type(),
-                        self._get_resource_name(resource)
-                    )
+                    plan.add_operation(OperationType.NO_OP, self.get_resource_type(), self._get_resource_name(resource))
             else:
-                plan.add_operation(
-                    OperationType.CREATE,
-                    self.get_resource_type(),
-                    self._get_resource_name(resource)
-                )
+                plan.add_operation(OperationType.CREATE, self.get_resource_type(), self._get_resource_name(resource))
 
         # Estimate duration (simple heuristic)
         plan.estimated_duration_seconds = len(plan.operations) * 2.0
@@ -290,20 +271,25 @@ class BaseExecutor(ABC, Generic[T]):
             try:
                 result = operation(*args, **kwargs)
                 return result
-            except (ResourceDoesNotExist, ResourceAlreadyExists, PermissionDenied,
-                    InvalidParameterValue, NotFound, AlreadyExists, BadRequest,
-                    Unauthenticated, NotImplemented):
+            except (
+                ResourceDoesNotExist,
+                ResourceAlreadyExists,
+                PermissionDenied,
+                InvalidParameterValue,
+                NotFound,
+                AlreadyExists,
+                BadRequest,
+                Unauthenticated,
+                NotImplemented,
+            ):
                 # These are not transient errors - don't retry
                 raise
             except (TemporarilyUnavailable, InternalError, ResourceExhausted) as e:
                 # These are transient errors - retry with backoff
                 last_error = e
                 if attempt < self.max_retries - 1:
-                    wait_time = 2 ** attempt  # Exponential backoff
-                    logger.warning(
-                        f"Attempt {attempt + 1} failed: {e}. "
-                        f"Retrying in {wait_time} seconds..."
-                    )
+                    wait_time = 2**attempt  # Exponential backoff
+                    logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
                     logger.error(f"All {self.max_retries} attempts failed")
@@ -335,12 +321,7 @@ class BaseExecutor(ABC, Generic[T]):
                 if not self.continue_on_error:
                     raise
 
-    def _handle_error(
-        self,
-        operation: OperationType,
-        resource_name: str,
-        error: Exception
-    ) -> ExecutionResult:
+    def _handle_error(self, operation: OperationType, resource_name: str, error: Exception) -> ExecutionResult:
         """
         Handle an error during execution.
 
@@ -368,7 +349,9 @@ class BaseExecutor(ABC, Generic[T]):
         elif isinstance(error, ResourceExhausted):
             message = f"Resource limit exceeded: {str(error)}. Check quotas and limits."
         elif isinstance(error, NotImplemented):
-            message = f"Feature not implemented: {str(error)}. This feature may not be available in your workspace tier."
+            message = (
+                f"Feature not implemented: {str(error)}. This feature may not be available in your workspace tier."
+            )
         else:
             message = str(error)
 
@@ -378,7 +361,7 @@ class BaseExecutor(ABC, Generic[T]):
             resource_type=self.get_resource_type(),
             resource_name=resource_name,
             message=message,
-            error=error
+            error=error,
         )
 
         self.results.append(result)
@@ -400,7 +383,7 @@ class BaseExecutor(ABC, Generic[T]):
             Resource name for logging
         """
         # Try common attribute names
-        for attr in ['resolved_name', 'fqdn', 'name']:
+        for attr in ["resolved_name", "fqdn", "name"]:
             if hasattr(resource, attr):
                 value = getattr(resource, attr)
                 if callable(value):
@@ -453,7 +436,7 @@ class BaseExecutor(ABC, Generic[T]):
             "Execution Summary:",
             f"  Total operations: {len(self.results)}",
             f"  Successful: {successful}",
-            f"  Failed: {failed}"
+            f"  Failed: {failed}",
         ]
 
         if failed > 0:
@@ -478,13 +461,13 @@ class BaseExecutor(ABC, Generic[T]):
             return []
 
         # Use resource's validate_governance method if available
-        validate_method = getattr(resource, 'validate_governance', None)
+        validate_method = getattr(resource, "validate_governance", None)
         if callable(validate_method):
             return validate_method(self.governance_defaults)
 
         # Manual validation for resources without the method
-        securable_type = getattr(resource, 'securable_type', None)
-        tags = getattr(resource, 'tags', None)
+        securable_type = getattr(resource, "securable_type", None)
+        tags = getattr(resource, "tags", None)
         if securable_type is None or tags is None:
             return []
 
@@ -512,7 +495,7 @@ class BaseExecutor(ABC, Generic[T]):
                 operation=OperationType.SKIPPED,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=f"Governance validation failed: {error_msg}"
+                message=f"Governance validation failed: {error_msg}",
             )
         elif errors:
             resource_name = self._get_resource_name(resource)

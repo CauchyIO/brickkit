@@ -12,6 +12,7 @@ from typing import Dict, List, Set
 
 class SecurableType(str, Enum):
     """Identifies the type of Unity Catalog object for privilege management."""
+
     METASTORE = "METASTORE"
     CATALOG = "CATALOG"
     SCHEMA = "SCHEMA"
@@ -44,6 +45,7 @@ class SecurableAcronym(str, Enum):
     Pattern: {ENV}_{TEAM}_{USECASE}_{ACRONYM}
     Example: dev_quant_risk_cat (Development Quant Risk Catalog)
     """
+
     # Core Unity Catalog Objects
     METASTORE = "mst"
     CATALOG = "cat"
@@ -105,6 +107,7 @@ class SecurableAcronym(str, Enum):
 
 class PrincipalType(str, Enum):
     """Type of principal for ownership and grants."""
+
     USER = "USER"
     GROUP = "GROUP"
     SERVICE_PRINCIPAL = "SERVICE_PRINCIPAL"
@@ -120,6 +123,7 @@ class PrivilegeType(str, Enum):
     - To remove privileges, you must explicitly REVOKE
     - BROWSE is a metadata-only privilege for discovery without data access
     """
+
     # General privileges
     ACCESS = "ACCESS"
     ALL_PRIVILEGES = "ALL_PRIVILEGES"  # Expands to all applicable privileges
@@ -201,6 +205,7 @@ class Environment(str, Enum):
     IMPORTANT: Enum values are UPPERCASE but suffixes use lowercase.
     Example: Environment.DEV -> suffix "_dev"
     """
+
     DEV = "DEV"
     ACC = "ACC"  # Acceptance environment
     PRD = "PRD"  # Production
@@ -208,18 +213,21 @@ class Environment(str, Enum):
 
 class BindingType(str, Enum):
     """Workspace binding access levels for catalogs and other securables."""
+
     BINDING_TYPE_READ_WRITE = "BINDING_TYPE_READ_WRITE"
     BINDING_TYPE_READ_ONLY = "BINDING_TYPE_READ_ONLY"
 
 
 class IsolationMode(str, Enum):
     """Catalog isolation configuration for workspace access."""
+
     OPEN = "OPEN"  # Accessible from all bound workspaces
     ISOLATED = "ISOLATED"  # Restricted to specific workspaces
 
 
 class TableType(str, Enum):
     """Types of tables in Unity Catalog."""
+
     MANAGED = "MANAGED"
     EXTERNAL = "EXTERNAL"
     VIEW = "VIEW"
@@ -229,12 +237,14 @@ class TableType(str, Enum):
 
 class VolumeType(str, Enum):
     """Types of volumes in Unity Catalog."""
+
     MANAGED = "MANAGED"
     EXTERNAL = "EXTERNAL"
 
 
 class FunctionType(str, Enum):
     """Types of functions in Unity Catalog."""
+
     SQL = "SQL"
     PYTHON = "PYTHON"
     SCALAR = "SCALAR"
@@ -243,6 +253,7 @@ class FunctionType(str, Enum):
 
 class ConnectionType(str, Enum):
     """Types of external connections."""
+
     MYSQL = "MYSQL"
     POSTGRESQL = "POSTGRESQL"
     SNOWFLAKE = "SNOWFLAKE"
@@ -262,29 +273,24 @@ PRIVILEGE_DEPENDENCIES: Dict[PrivilegeType, Set[PrivilegeType]] = {
     PrivilegeType.CREATE_TABLE: {PrivilegeType.USE_SCHEMA},
     PrivilegeType.SELECT: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
     PrivilegeType.MODIFY: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
-
     # Schema operations require catalog access
     PrivilegeType.CREATE_SCHEMA: {PrivilegeType.USE_CATALOG},
     PrivilegeType.CREATE_VIEW: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
     PrivilegeType.CREATE_MATERIALIZED_VIEW: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
     PrivilegeType.CREATE_FUNCTION: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
     PrivilegeType.CREATE_VOLUME: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
-
     # Volume operations require schema access
     PrivilegeType.READ_VOLUME: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
     PrivilegeType.WRITE_VOLUME: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG, PrivilegeType.READ_VOLUME},
-
     # External location operations
     PrivilegeType.CREATE_EXTERNAL_LOCATION: {PrivilegeType.CREATE_STORAGE_CREDENTIAL},
-
     # Function operations
     PrivilegeType.EXECUTE: {PrivilegeType.USE_SCHEMA, PrivilegeType.USE_CATALOG},
 }
 
 
 def validate_privilege_dependencies(
-    privileges: Set[PrivilegeType],
-    existing_privileges: Set[PrivilegeType]
+    privileges: Set[PrivilegeType], existing_privileges: Set[PrivilegeType]
 ) -> List[str]:
     """
     Validate that all privilege dependencies are satisfied.
@@ -304,9 +310,7 @@ def validate_privilege_dependencies(
             required = PRIVILEGE_DEPENDENCIES[priv]
             missing = required - all_privileges
             if missing:
-                errors.append(
-                    f"Privilege {priv.value} requires: {', '.join(p.value for p in missing)}"
-                )
+                errors.append(f"Privilege {priv.value} requires: {', '.join(p.value for p in missing)}")
 
     return errors
 
@@ -408,6 +412,7 @@ ALL_PRIVILEGES_EXPANSION = {
 # VALIDATION HELPERS
 # =============================================================================
 
+
 def get_valid_securable_types() -> Set[str]:
     """Return all valid SecurableType string values."""
     return {st.value for st in SecurableType}
@@ -429,8 +434,65 @@ def validate_securable_type_strings(values: Set[str]) -> Set[str]:
     valid_types = get_valid_securable_types()
     invalid = values - valid_types
     if invalid:
-        raise ValueError(
-            f"Invalid securable type(s): {sorted(invalid)}. "
-            f"Valid types: {sorted(valid_types)}"
-        )
+        raise ValueError(f"Invalid securable type(s): {sorted(invalid)}. Valid types: {sorted(valid_types)}")
     return values
+
+
+# =============================================================================
+# PRINCIPAL MANAGEMENT ENUMS
+# =============================================================================
+
+
+class PrincipalSource(str, Enum):
+    """
+    Origin of the principal - determines if we can create/modify it.
+
+    DATABRICKS: Native Databricks principal (can create/modify/delete)
+    EXTERNAL: Synced from external IdP like Entra ID (read-only, validate only)
+    """
+
+    DATABRICKS = "DATABRICKS"
+    EXTERNAL = "EXTERNAL"
+
+
+class WorkspaceEntitlement(str, Enum):
+    """
+    Well-known workspace entitlement values.
+
+    These are passed as ComplexValue.value to the SCIM API.
+    See: https://docs.databricks.com/administration-guide/users-groups/index.html#assigning-entitlements
+    """
+
+    WORKSPACE_ACCESS = "workspace-access"
+    DATABRICKS_SQL_ACCESS = "databricks-sql-access"
+    CLUSTER_CREATE = "allow-cluster-create"
+    INSTANCE_POOL_CREATE = "allow-instance-pool-create"
+
+
+class AclObjectType(str, Enum):
+    """
+    Object types that support ACL permissions via the Permissions API.
+
+    These values are used as the request_object_type parameter in
+    PermissionsAPI.get/set/update calls.
+    """
+
+    ALERTS = "alerts"
+    AUTHORIZATION = "authorization"
+    CLUSTERS = "clusters"
+    CLUSTER_POLICIES = "cluster-policies"
+    DASHBOARDS = "dashboards"
+    DBSQL_DASHBOARDS = "dbsql-dashboards"
+    DIRECTORIES = "directories"
+    EXPERIMENTS = "experiments"
+    FILES = "files"
+    GENIE = "genie"
+    INSTANCE_POOLS = "instance-pools"
+    JOBS = "jobs"
+    NOTEBOOKS = "notebooks"
+    PIPELINES = "pipelines"
+    QUERIES = "queries"
+    REGISTERED_MODELS = "registered-models"
+    REPOS = "repos"
+    SERVING_ENDPOINTS = "serving-endpoints"
+    WAREHOUSES = "warehouses"

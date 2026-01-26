@@ -94,31 +94,17 @@ class Convention(BaseModel):
     """
 
     name: str = Field(..., description="Convention identifier for logging")
-    default_tags: List[TagDefault] = Field(
-        default_factory=list,
-        description="Default tags to apply to securables"
-    )
+    default_tags: List[TagDefault] = Field(default_factory=list, description="Default tags to apply to securables")
     required_tags: List[RequiredTag] = Field(
-        default_factory=list,
-        description="Tags that must be present on securables"
+        default_factory=list, description="Tags that must be present on securables"
     )
-    naming_conventions: List[NamingConvention] = Field(
-        default_factory=list,
-        description="Naming convention rules"
-    )
-    default_owner: Optional[str] = Field(
-        None,
-        description="Default owner principal name"
-    )
+    naming_conventions: List[NamingConvention] = Field(default_factory=list, description="Naming convention rules")
+    default_owner: Optional[str] = Field(None, description="Default owner principal name")
 
     class Config:
         arbitrary_types_allowed = True
 
-    def get_default_tags_for(
-        self,
-        securable_type: 'SecurableType',
-        environment: 'Environment'
-    ) -> Dict[str, str]:
+    def get_default_tags_for(self, securable_type: "SecurableType", environment: "Environment") -> Dict[str, str]:
         """
         Get default tags for a specific securable type and environment.
 
@@ -136,11 +122,7 @@ class Convention(BaseModel):
                 result[tag_default.key] = tag_default.get_value(environment)
         return result
 
-    def validate_tags(
-        self,
-        securable_type: 'SecurableType',
-        tags: Dict[str, str]
-    ) -> List[str]:
+    def validate_tags(self, securable_type: "SecurableType", tags: Dict[str, str]) -> List[str]:
         """
         Validate tags against required tag rules.
 
@@ -162,16 +144,11 @@ class Convention(BaseModel):
                 errors.append(msg)
             elif required.allowed_values and tags[required.key] not in required.allowed_values:
                 errors.append(
-                    f"Tag '{required.key}' has invalid value '{tags[required.key]}'. "
-                    f"Allowed: {required.allowed_values}"
+                    f"Tag '{required.key}' has invalid value '{tags[required.key]}'. Allowed: {required.allowed_values}"
                 )
         return errors
 
-    def validate_naming(
-        self,
-        securable_type: 'SecurableType',
-        name: str
-    ) -> List[str]:
+    def validate_naming(self, securable_type: "SecurableType", name: str) -> List[str]:
         """
         Validate a name against naming conventions.
 
@@ -195,7 +172,7 @@ class Convention(BaseModel):
 
         return errors
 
-    def apply_to(self, securable: Any, environment: 'Environment') -> Any:
+    def apply_to(self, securable: Any, environment: "Environment") -> Any:
         """
         Apply convention defaults to a single securable.
 
@@ -211,13 +188,15 @@ class Convention(BaseModel):
         """
         from brickkit.models.base import Tag
 
-        logger.debug(f"Applying convention '{self.name}' to {securable.securable_type.value} '{getattr(securable, 'name', 'unknown')}'")
+        logger.debug(
+            f"Applying convention '{self.name}' to {securable.securable_type.value} '{getattr(securable, 'name', 'unknown')}'"
+        )
 
         # Get default tags for this securable type
         default_tags = self.get_default_tags_for(securable.securable_type, environment)
 
         # Get existing tag keys
-        existing_tag_keys = {t.key for t in getattr(securable, 'tags', [])}
+        existing_tag_keys = {t.key for t in getattr(securable, "tags", [])}
 
         # Add missing default tags
         for key, value in default_tags.items():
@@ -242,17 +221,17 @@ class Convention(BaseModel):
         errors = []
 
         # Validate tags
-        tag_dict = {t.key: t.value for t in getattr(securable, 'tags', [])}
+        tag_dict = {t.key: t.value for t in getattr(securable, "tags", [])}
         errors.extend(self.validate_tags(securable.securable_type, tag_dict))
 
         # Validate naming
-        name = getattr(securable, 'name', None)
+        name = getattr(securable, "name", None)
         if name:
             errors.extend(self.validate_naming(securable.securable_type, name))
 
         return errors
 
-    def to_governance_defaults(self) -> 'ConventionAsDefaults':
+    def to_governance_defaults(self) -> "ConventionAsDefaults":
         """
         Convert this Convention to a GovernanceDefaults instance.
 
@@ -264,11 +243,7 @@ class Convention(BaseModel):
         return ConventionAsDefaults(self)
 
     @classmethod
-    def from_governance_defaults(
-        cls,
-        name: str,
-        defaults: GovernanceDefaults
-    ) -> 'Convention':
+    def from_governance_defaults(cls, name: str, defaults: GovernanceDefaults) -> "Convention":
         """
         Create a Convention from an existing GovernanceDefaults instance.
 

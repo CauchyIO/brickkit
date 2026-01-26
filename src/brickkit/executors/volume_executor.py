@@ -49,7 +49,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             params = resource.to_sdk_create_params()
@@ -58,15 +58,11 @@ class VolumeExecutor(BaseExecutor[Volume]):
             # Validate external volumes have required location
             if resource.volume_type == VolumeType.EXTERNAL:
                 if not resource.storage_location and not resource.external_location:
-                    raise ValueError(
-                        f"External volume {resource_name} requires storage_location or external_location"
-                    )
+                    raise ValueError(f"External volume {resource_name} requires storage_location or external_location")
 
             self.execute_with_retry(self.client.volumes.create, **params)
 
-            self._rollback_stack.append(
-                lambda: self.client.volumes.delete(resource_name)
-            )
+            self._rollback_stack.append(lambda: self.client.volumes.delete(resource_name))
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -75,7 +71,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created {resource.volume_type.value} volume successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -96,7 +92,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -107,7 +103,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
             params = resource.to_sdk_update_params()
@@ -122,7 +118,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -140,7 +136,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -150,7 +146,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting volume {resource_name}")
@@ -163,7 +159,7 @@ class VolumeExecutor(BaseExecutor[Volume]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -174,14 +170,14 @@ class VolumeExecutor(BaseExecutor[Volume]):
         changes = {}
 
         # Comment is typically updatable
-        if hasattr(existing, 'comment') and existing.comment != desired.comment:
-            changes['comment'] = {'from': existing.comment, 'to': desired.comment}
+        if hasattr(existing, "comment") and existing.comment != desired.comment:
+            changes["comment"] = {"from": existing.comment, "to": desired.comment}
 
         # Owner can be changed
         if desired.owner:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         # Note: Volume type and storage location cannot be changed after creation
 

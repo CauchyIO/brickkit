@@ -37,50 +37,50 @@ class Catalog(BaseSecurable):
     Catalogs are the top-level containers for schemas and provide a way to organize
     data assets. They support isolation modes and workspace bindings for access control.
     """
+
     name: str = Field(
-        ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Catalog name (base name without environment suffix)"
+        ..., pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", description="Catalog name (base name without environment suffix)"
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the catalog")
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal"
+        description="Owner principal",
     )
     external_location: Optional[ExternalLocation] = Field(
+        None, description="Optional external storage location (use storage_root for simple cases)"
+    )
+    managed_location: Optional[str] = Field(
         None,
-        description="Optional external storage location"
+        description="Managed storage location URL (e.g., abfss://container@account.dfs.core.windows.net/path). "
+        "Use this for 'Default Storage' workspaces or when you don't need a full ExternalLocation.",
     )
-    isolation_mode: IsolationMode = Field(
-        IsolationMode.OPEN,
-        description="OPEN or ISOLATED workspace access mode"
-    )
+    isolation_mode: IsolationMode = Field(IsolationMode.OPEN, description="OPEN or ISOLATED workspace access mode")
 
     # Workspace bindings for ISOLATED catalogs
     workspace_ids: List[int] = Field(
-        default_factory=list,
-        description="List of workspace IDs that can access this catalog (only for ISOLATED mode)"
+        default_factory=list, description="List of workspace IDs that can access this catalog (only for ISOLATED mode)"
     )
 
     # Child containers
     schemas: List[Schema] = Field(default_factory=list, description="Child schemas")
 
     # References to discovered objects (for governance of DABs/MLflow created resources)
-    table_refs: List['TableReference'] = Field(default_factory=list, description="References to discovered tables")
-    model_refs: List['ModelReference'] = Field(default_factory=list, description="References to discovered models")
-    volume_refs: List['VolumeReference'] = Field(default_factory=list, description="References to discovered volumes")
-    function_refs: List['FunctionReference'] = Field(default_factory=list, description="References to discovered functions")
+    table_refs: List["TableReference"] = Field(default_factory=list, description="References to discovered tables")
+    model_refs: List["ModelReference"] = Field(default_factory=list, description="References to discovered models")
+    volume_refs: List["VolumeReference"] = Field(default_factory=list, description="References to discovered volumes")
+    function_refs: List["FunctionReference"] = Field(
+        default_factory=list, description="References to discovered functions"
+    )
 
     # Metadata
     tags: List[Tag] = Field(default_factory=list, description="Metadata tags for ABAC")
 
     # Optional environment override (for workspace bindings)
     environment: Optional[Environment] = Field(
-        None,
-        description="Optional environment override (mainly for workspace bindings)"
+        None, description="Optional environment override (mainly for workspace bindings)"
     )
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_workspace_bindings(self) -> Self:
         """Validate workspace bindings are only used with ISOLATED mode."""
         if self.workspace_ids and self.isolation_mode != IsolationMode.ISOLATED:
@@ -93,7 +93,15 @@ class Catalog(BaseSecurable):
     @computed_field
     @property
     def storage_root(self) -> Optional[str]:
-        """Returns external_location.url for SDK export."""
+        """
+        Returns storage location URL for SDK export.
+
+        Priority:
+        1. managed_location (simple URL string)
+        2. external_location.url (full ExternalLocation model)
+        """
+        if self.managed_location:
+            return self.managed_location
         return self.external_location.url if self.external_location else None
 
     @computed_field
@@ -139,22 +147,22 @@ class Catalog(BaseSecurable):
         if not schema.owner or (schema.owner and schema.owner.name == DEFAULT_SECURABLE_OWNER):
             schema.owner = self.owner
 
-    def add_table_reference(self, table_ref: 'TableReference') -> None:
+    def add_table_reference(self, table_ref: "TableReference") -> None:
         """Add a reference to a table discovered or created by DABs."""
         table_ref.catalog_name = self.name
         self.table_refs.append(table_ref)
 
-    def add_model_reference(self, model_ref: 'ModelReference') -> None:
+    def add_model_reference(self, model_ref: "ModelReference") -> None:
         """Add a reference to a model discovered from MLflow."""
         model_ref.catalog_name = self.name
         self.model_refs.append(model_ref)
 
-    def add_volume_reference(self, volume_ref: 'VolumeReference') -> None:
+    def add_volume_reference(self, volume_ref: "VolumeReference") -> None:
         """Add a reference to a discovered volume."""
         volume_ref.catalog_name = self.name
         self.volume_refs.append(volume_ref)
 
-    def add_function_reference(self, function_ref: 'FunctionReference') -> None:
+    def add_function_reference(self, function_ref: "FunctionReference") -> None:
         """Add a reference to a discovered function."""
         function_ref.catalog_name = self.name
         self.function_refs.append(function_ref)
@@ -207,11 +215,7 @@ class Catalog(BaseSecurable):
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
         """Convert to SDK update parameters."""
-        params = {
-            "name": self.resolved_name,
-            "comment": self.comment,
-            "isolation_mode": self.isolation_mode.value
-        }
+        params = {"name": self.resolved_name, "comment": self.comment, "isolation_mode": self.isolation_mode.value}
 
         if self.owner:
             params["owner"] = self.owner.resolved_name

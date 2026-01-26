@@ -46,28 +46,20 @@ class Team(BaseGovernanceModel):
     Teams reference existing Workspace objects from the global registry
     to ensure workspace uniqueness across the system.
     """
-    name: str = Field(
-        ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Team identifier"
-    )
+
+    name: str = Field(..., pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$", description="Team identifier")
     workspaces: Dict[Environment, Workspace] = Field(
-        default_factory=dict,
-        description="Workspace assignments per environment"
+        default_factory=dict, description="Workspace assignments per environment"
     )
     binding_pattern: Optional[WorkspaceBindingPattern] = Field(
-        default=None,
-        description="Cross-environment access pattern"
+        default=None, description="Cross-environment access pattern"
     )
-    principals: List[Principal] = Field(
-        default_factory=list,
-        description="Team members and service principals"
-    )
+    principals: List[Principal] = Field(default_factory=list, description="Team members and service principals")
 
     # Private workspace references for serialization
     _workspace_refs: Dict[Environment, str] = PrivateAttr(default_factory=dict)
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def track_workspace_references(self) -> Self:
         """Track workspace IDs for serialization."""
         for env, workspace in self.workspaces.items():
@@ -96,7 +88,7 @@ class Team(BaseGovernanceModel):
         """Get workspace for a specific environment."""
         return self.workspaces.get(environment)
 
-    def add_catalog(self, catalog: 'Catalog') -> None:
+    def add_catalog(self, catalog: "Catalog") -> None:
         """
         Add a catalog to the team and configure its workspace bindings.
 
@@ -106,15 +98,15 @@ class Team(BaseGovernanceModel):
         if catalog.isolation_mode == IsolationMode.ISOLATED:
             catalog_env = None
 
-            if hasattr(catalog, 'environment') and catalog.environment:
+            if hasattr(catalog, "environment") and catalog.environment:
                 catalog_env = catalog.environment
             else:
                 resolved_name = catalog.resolved_name.lower()
-                if resolved_name.endswith('_dev'):
+                if resolved_name.endswith("_dev"):
                     catalog_env = Environment.DEV
-                elif resolved_name.endswith('_acc'):
+                elif resolved_name.endswith("_acc"):
                     catalog_env = Environment.ACC
-                elif resolved_name.endswith('_prd'):
+                elif resolved_name.endswith("_prd"):
                     catalog_env = Environment.PRD
                 else:
                     catalog_env = get_current_environment()
@@ -134,26 +126,28 @@ class Team(BaseGovernanceModel):
                         continue
 
             catalog.workspace_ids = list(set(workspace_ids_to_bind))
-            logger.info(f"Catalog {catalog.resolved_name} (env={catalog_env}) bound to workspace IDs: {catalog.workspace_ids}")
+            logger.info(
+                f"Catalog {catalog.resolved_name} (env={catalog_env}) bound to workspace IDs: {catalog.workspace_ids}"
+            )
 
         elif catalog.isolation_mode == IsolationMode.OPEN:
             catalog.workspace_ids = []
 
-    def add_storage_credential(self, storage_credential: 'StorageCredential') -> None:
+    def add_storage_credential(self, storage_credential: "StorageCredential") -> None:
         """Add a storage credential to the team and configure its workspace bindings."""
         workspace_ids_to_bind = []
         for workspace in self.workspaces.values():
             workspace_ids_to_bind.append(int(workspace.workspace_id))
         storage_credential.workspace_ids = list(set(workspace_ids_to_bind))
 
-    def add_external_location(self, external_location: 'ExternalLocation') -> None:
+    def add_external_location(self, external_location: "ExternalLocation") -> None:
         """Add an external location to the team and configure its workspace bindings."""
         workspace_ids_to_bind = []
         for workspace in self.workspaces.values():
             workspace_ids_to_bind.append(int(workspace.workspace_id))
         external_location.workspace_ids = list(set(workspace_ids_to_bind))
 
-    def get_catalogs_for_workspace(self, workspace_id: str) -> List['Catalog']:
+    def get_catalogs_for_workspace(self, workspace_id: str) -> List["Catalog"]:
         """Get all catalogs that should be accessible from a specific workspace."""
         return []  # Placeholder for future implementation
 
@@ -161,10 +155,7 @@ class Team(BaseGovernanceModel):
     @property
     def workspace_ids(self) -> Dict[str, str]:
         """Get workspace IDs per environment for serialization."""
-        return {
-            env.value.lower(): workspace.workspace_id
-            for env, workspace in self.workspaces.items()
-        }
+        return {env.value.lower(): workspace.workspace_id for env, workspace in self.workspaces.items()}
 
 
 class AccessManager(BaseGovernanceModel):
@@ -179,19 +170,17 @@ class AccessManager(BaseGovernanceModel):
     2. Bulk operations for common patterns
     3. Team-specific access organization
     """
+
     team_name: str = Field(default="default", description="Team owning these access declarations")
-    grants: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="Audit trail of all grants made"
-    )
+    grants: List[Dict[str, Any]] = Field(default_factory=list, description="Audit trail of all grants made")
 
     @property
     def privileges(self) -> List[Privilege]:
         """Return list of all privileges created through this manager."""
         result = []
         for grant in self.grants:
-            if 'privileges' in grant:
-                result.extend(grant['privileges'])
+            if "privileges" in grant:
+                result.extend(grant["privileges"])
         return result
 
     def grant(self, principal: Principal, securable: BaseSecurable, policy: AccessPolicy) -> None:
@@ -203,26 +192,28 @@ class AccessManager(BaseGovernanceModel):
             securable: The securable object
             policy: The access policy to apply
         """
-        if not hasattr(principal, 'resolved_name'):
+        if not hasattr(principal, "resolved_name"):
             raise TypeError(f"principal must have a resolved_name attribute, got {type(principal)}")
         if not isinstance(policy, AccessPolicy):
             raise TypeError(f"policy must be an AccessPolicy object, got {type(policy)}")
-        if not hasattr(securable, 'grant'):
+        if not hasattr(securable, "grant"):
             raise TypeError(f"securable must have a grant() method, got {type(securable)}")
 
         # Delegate to the securable's grant method
         privileges = securable.grant(principal, policy)
 
         # Record the grant for audit
-        self.grants.append({
-            "team": self.team_name,
-            "principal": principal.resolved_name,
-            "securable_type": securable.securable_type.value,
-            "securable_name": getattr(securable, 'name', str(securable)),
-            "policy": policy.name,
-            "privileges": privileges,
-            "timestamp": None
-        })
+        self.grants.append(
+            {
+                "team": self.team_name,
+                "principal": principal.resolved_name,
+                "securable_type": securable.securable_type.value,
+                "securable_name": getattr(securable, "name", str(securable)),
+                "policy": policy.name,
+                "privileges": privileges,
+                "timestamp": None,
+            }
+        )
 
     def grant_many(self, principal: Principal, securables: List[Any], policy: AccessPolicy) -> None:
         """Bulk grant to multiple securables."""

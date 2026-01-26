@@ -46,14 +46,17 @@ from .enums import SecurableType
 # ENUMS
 # =============================================================================
 
+
 class VectorIndexType(str, Enum):
     """Type of vector index."""
+
     DELTA_SYNC = "DELTA_SYNC"
     DIRECT_ACCESS = "DIRECT_ACCESS"
 
 
 class VectorSimilarityMetric(str, Enum):
     """Similarity metric for vector search."""
+
     COSINE = "COSINE"
     DOT_PRODUCT = "DOT_PRODUCT"
     EUCLIDEAN = "EUCLIDEAN"
@@ -61,12 +64,14 @@ class VectorSimilarityMetric(str, Enum):
 
 class VectorEndpointType(str, Enum):
     """Type of vector search endpoint."""
+
     STANDARD = "STANDARD"
 
 
 # =============================================================================
 # VECTOR SEARCH ENDPOINT - GOVERNED SECURABLE
 # =============================================================================
+
 
 class VectorSearchEndpoint(BaseSecurable):
     """
@@ -93,10 +98,7 @@ class VectorSearchEndpoint(BaseSecurable):
     """
 
     name: str = Field(..., description="Endpoint name (base, without env suffix)")
-    endpoint_type: VectorEndpointType = Field(
-        VectorEndpointType.STANDARD,
-        description="Type of endpoint"
-    )
+    endpoint_type: VectorEndpointType = Field(VectorEndpointType.STANDARD, description="Type of endpoint")
     comment: Optional[str] = Field(None, description="Description")
 
     @computed_field
@@ -121,15 +123,18 @@ class VectorSearchEndpoint(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for endpoint creation."""
+        # Handle both enum and string values for endpoint_type
+        endpoint_type = self.endpoint_type.value if hasattr(self.endpoint_type, "value") else self.endpoint_type
         return {
             "name": self.resolved_name,
-            "endpoint_type": self.endpoint_type.value,
+            "endpoint_type": endpoint_type,
         }
 
 
 # =============================================================================
 # VECTOR SEARCH INDEX - GOVERNED SECURABLE
 # =============================================================================
+
 
 class VectorSearchIndex(BaseSecurable):
     """
@@ -204,29 +209,38 @@ class VectorSearchIndex(BaseSecurable):
     def get_level_3_name(self) -> Optional[str]:
         return None
 
-    @field_validator('source_table')
+    @field_validator("source_table")
     @classmethod
     def validate_source_table(cls, v: str) -> str:
         """Validate source table is fully qualified."""
-        parts = v.split('.')
+        parts = v.split(".")
         if len(parts) != 3:
             raise ValueError(f"source_table must be fully qualified (catalog.schema.table), got: {v}")
         return v
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for index creation."""
+        # Handle both enum and string values
+        index_type = self.index_type.value if hasattr(self.index_type, "value") else self.index_type
+        pipeline_type = self.pipeline_type.value if hasattr(self.pipeline_type, "value") else self.pipeline_type
+
         params = {
             "name": self.resolved_name,
             "endpoint_name": self.resolved_endpoint_name,
-            "index_type": self.index_type.value,
+            "index_type": index_type,
             "primary_key": self.primary_key,
         }
 
-        if self.index_type == VectorIndexType.DELTA_SYNC:
+        # Check for DELTA_SYNC (works with both enum and string)
+        is_delta_sync = (
+            self.index_type == VectorIndexType.DELTA_SYNC
+            or index_type == "DELTA_SYNC"
+        )
+        if is_delta_sync:
             delta_spec = {
                 "source_table": self.source_table,
                 "embedding_source_column": self.embedding_column,
-                "pipeline_type": self.pipeline_type,
+                "pipeline_type": pipeline_type,
             }
             if self.embedding_model:
                 delta_spec["embedding_model_endpoint_name"] = self.embedding_model
@@ -241,6 +255,7 @@ class VectorSearchIndex(BaseSecurable):
 # BACKWARD COMPATIBILITY - Configuration Classes
 # =============================================================================
 
+
 class VectorSearchIndexConfig(BaseGovernanceModel):
     """
     Configuration for a single Vector Search Index.
@@ -248,6 +263,7 @@ class VectorSearchIndexConfig(BaseGovernanceModel):
     Backward compatible with existing usage patterns.
     For new code, prefer using VectorSearchIndex directly.
     """
+
     source_table: str
     primary_key: str = "indicator_id"
     embedding_column: str = "embedding_text"
@@ -268,6 +284,7 @@ class VectorSearchConfig(BaseGovernanceModel):
     Backward compatible with existing usage patterns.
     For new code, prefer using VectorSearchEndpoint and VectorSearchIndex directly.
     """
+
     catalog: str = "main_catalog"
     schema_name: str = "dev"
     endpoint_name: str = "dev_vector_search"

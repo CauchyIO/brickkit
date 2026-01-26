@@ -49,16 +49,14 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             params = resource.to_sdk_create_params()
             logger.info(f"Creating schema {resource_name}")
             self.execute_with_retry(self.client.schemas.create, **params)
 
-            self._rollback_stack.append(
-                lambda: self.client.schemas.delete(resource_name, force=True)
-            )
+            self._rollback_stack.append(lambda: self.client.schemas.delete(resource_name, force=True))
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -67,7 +65,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Created successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -88,7 +86,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -99,7 +97,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
             params = resource.to_sdk_update_params()
@@ -114,7 +112,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -132,7 +130,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -142,7 +140,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting schema {resource_name}")
@@ -155,7 +153,7 @@ class SchemaExecutor(BaseExecutor[Schema]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -165,12 +163,12 @@ class SchemaExecutor(BaseExecutor[Schema]):
         """Compare existing and desired schema to find changes."""
         changes = {}
 
-        if hasattr(existing, 'comment') and existing.comment != desired.comment:
-            changes['comment'] = {'from': existing.comment, 'to': desired.comment}
+        if hasattr(existing, "comment") and existing.comment != desired.comment:
+            changes["comment"] = {"from": existing.comment, "to": desired.comment}
 
         if desired.owner:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         return changes

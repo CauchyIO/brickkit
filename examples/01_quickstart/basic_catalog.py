@@ -4,6 +4,7 @@ Basic Catalog Example
 Creates a simple catalog with environment-aware naming and tags.
 The catalog name automatically gets a suffix based on DATABRICKS_ENV.
 """
+
 import sys
 from pathlib import Path
 
@@ -24,7 +25,7 @@ catalog = Catalog(
     tags=[
         Tag(key="domain", value="analytics"),
         Tag(key="cost_center", value="data-platform"),
-    ]
+    ],
 )
 
 # Check resolved name (includes environment suffix)

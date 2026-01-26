@@ -40,26 +40,20 @@ class Volume(BaseSecurable):
     ML models, images, and documents within Unity Catalog. They can be either
     managed (storage handled by Databricks) or external (references external storage).
     """
+
     name: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Volume name (no environment suffix - parent catalog has it)"
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+        description="Volume name (no environment suffix - parent catalog has it)",
     )
-    volume_type: VolumeType = Field(
-        VolumeType.MANAGED,
-        description="MANAGED or EXTERNAL"
-    )
+    volume_type: VolumeType = Field(VolumeType.MANAGED, description="MANAGED or EXTERNAL")
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal (defaults to parent schema owner)"
+        description="Owner principal (defaults to parent schema owner)",
     )
-    storage_location: Optional[str] = Field(
-        None,
-        description="For external volumes - the storage path"
-    )
+    storage_location: Optional[str] = Field(None, description="For external volumes - the storage path")
     external_location: Optional[ExternalLocation] = Field(
-        None,
-        description="External location object (inherited from schema if not set)"
+        None, description="External location object (inherited from schema if not set)"
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the volume")
 
@@ -70,14 +64,8 @@ class Volume(BaseSecurable):
     _parent_schema: Optional[Schema] = PrivateAttr(default=None)
     _parent_catalog: Optional[Catalog] = PrivateAttr(default=None)
 
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Parent catalog name (set by add_volume)"
-    )
-    schema_name: Optional[str] = Field(
-        None,
-        description="Parent schema name (set by add_volume)"
-    )
+    catalog_name: Optional[str] = Field(None, description="Parent catalog name (set by add_volume)")
+    schema_name: Optional[str] = Field(None, description="Parent schema name (set by add_volume)")
 
     @computed_field
     @property
@@ -93,7 +81,7 @@ class Volume(BaseSecurable):
         env = get_current_environment()
         return f"{self.catalog_name}_{env.value.lower()}"
 
-    @field_validator('volume_type', mode='before')
+    @field_validator("volume_type", mode="before")
     @classmethod
     def convert_volume_type(cls, v: Any) -> VolumeType:
         """Convert string to VolumeType enum if needed."""
@@ -101,7 +89,7 @@ class Volume(BaseSecurable):
             return VolumeType(v.upper())
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_external_volume(self) -> Self:
         """Ensure external volumes have either storage_location or external_location."""
         if self.volume_type == VolumeType.EXTERNAL:
@@ -154,7 +142,7 @@ class Volume(BaseSecurable):
                 privileges.append(priv.privilege)
 
         # Naively try to get parent privileges (will just continue if no parent)
-        if hasattr(self, '_parent_schema') and self._parent_schema:
+        if hasattr(self, "_parent_schema") and self._parent_schema:
             # Just add all parent privileges, let the natural structure handle filtering
             privileges.extend(self._parent_schema.get_effective_privileges(principal))
 
@@ -194,7 +182,7 @@ class Volume(BaseSecurable):
             "catalog_name": self.catalog_name,
             "schema_name": self.schema_name,
             "volume_type": self.volume_type.value,
-            "comment": self.comment
+            "comment": self.comment,
         }
         if self.storage_location:
             params["storage_location"] = self.storage_location
@@ -204,7 +192,4 @@ class Volume(BaseSecurable):
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
         """Convert to SDK update parameters."""
-        return {
-            "full_name": self.fqdn,
-            "comment": self.comment
-        }
+        return {"full_name": self.fqdn, "comment": self.comment}

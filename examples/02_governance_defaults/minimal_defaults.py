@@ -4,6 +4,7 @@ Minimal Governance Defaults
 Lightweight governance for startups or small teams.
 Only the essentials, no bureaucracy.
 """
+
 import sys
 from pathlib import Path
 

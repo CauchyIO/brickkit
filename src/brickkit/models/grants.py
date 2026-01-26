@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # PRINCIPAL MODEL
 # =============================================================================
 
+
 class Principal(BaseGovernanceModel):
     """
     Represents a grantee (user, group, or service principal) with flexible environment-specific name resolution.
@@ -45,27 +46,23 @@ class Principal(BaseGovernanceModel):
     - 'account users': All account users
     These special principals never receive environment suffixes.
     """
+
     # Define special built-in principals that should never get suffixes
     SPECIAL_PRINCIPALS: ClassVar[Set[str]] = {
-        'users',           # All workspace users
-        'admins',          # Workspace admins
-        'account users'    # All account users
+        "users",  # All workspace users
+        "admins",  # Workspace admins
+        "account users",  # All account users
     }
 
     name: str = Field(..., description="Base name as defined by the team")
     principal_type: Optional[PrincipalType] = Field(
-        None,
-        description="Type of principal (USER, GROUP, SERVICE_PRINCIPAL). Used for ownership validation."
+        None, description="Type of principal (USER, GROUP, SERVICE_PRINCIPAL). Used for ownership validation."
     )
     add_environment_suffix: bool = Field(True, description="Whether to auto-add environment suffix")
     environment_mapping: Dict[Environment, str] = Field(
-        default_factory=dict,
-        description="Custom per-environment names"
+        default_factory=dict, description="Custom per-environment names"
     )
-    environment: Optional[Environment] = Field(
-        None,
-        description="Optional environment override (for special cases)"
-    )
+    environment: Optional[Environment] = Field(None, description="Optional environment override (for special cases)")
 
     def is_service_principal(self) -> bool:
         """Check if this principal is a service principal."""
@@ -79,7 +76,7 @@ class Principal(BaseGovernanceModel):
         """Check if this principal is a user."""
         return self.principal_type == PrincipalType.USER
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def handle_special_principals(self) -> Self:
         """Automatically disable suffix for special built-in principals."""
         if self.name in self.SPECIAL_PRINCIPALS:
@@ -166,14 +163,14 @@ class Principal(BaseGovernanceModel):
         cls,
         name: str,
         add_environment_suffix: bool = True,
-        environment_mapping: Optional[Dict[Environment, str]] = None
-    ) -> 'Principal':
+        environment_mapping: Optional[Dict[Environment, str]] = None,
+    ) -> "Principal":
         """Create a service principal."""
         return cls(
             name=name,
             principal_type=PrincipalType.SERVICE_PRINCIPAL,
             add_environment_suffix=add_environment_suffix,
-            environment_mapping=environment_mapping or {}
+            environment_mapping=environment_mapping or {},
         )
 
     @classmethod
@@ -181,64 +178,61 @@ class Principal(BaseGovernanceModel):
         cls,
         name: str,
         add_environment_suffix: bool = True,
-        environment_mapping: Optional[Dict[Environment, str]] = None
-    ) -> 'Principal':
+        environment_mapping: Optional[Dict[Environment, str]] = None,
+    ) -> "Principal":
         """Create a group principal."""
         return cls(
             name=name,
             principal_type=PrincipalType.GROUP,
             add_environment_suffix=add_environment_suffix,
-            environment_mapping=environment_mapping or {}
+            environment_mapping=environment_mapping or {},
         )
 
     @classmethod
     def user(
         cls,
         name: str,
-        add_environment_suffix: bool = False  # Users typically don't have env suffixes
-    ) -> 'Principal':
+        add_environment_suffix: bool = False,  # Users typically don't have env suffixes
+    ) -> "Principal":
         """Create a user principal."""
-        return cls(
-            name=name,
-            principal_type=PrincipalType.USER,
-            add_environment_suffix=add_environment_suffix
-        )
+        return cls(name=name, principal_type=PrincipalType.USER, add_environment_suffix=add_environment_suffix)
 
     # Convenience factory methods for special principals
     @classmethod
-    def all_workspace_users(cls) -> 'Principal':
+    def all_workspace_users(cls) -> "Principal":
         """
         Create principal for all workspace users.
 
         This represents the built-in 'users' group in Databricks that includes
         all users who have access to the workspace.
         """
-        return cls(name='users', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
+        return cls(name="users", principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
     @classmethod
-    def workspace_admins(cls) -> 'Principal':
+    def workspace_admins(cls) -> "Principal":
         """
         Create principal for workspace admins.
 
         This represents the built-in 'admins' group in Databricks that includes
         all workspace administrators.
         """
-        return cls(name='admins', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
+        return cls(name="admins", principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
     @classmethod
-    def all_account_users(cls) -> 'Principal':
+    def all_account_users(cls) -> "Principal":
         """
         Create principal for all account users.
 
         This represents the built-in 'account users' group in Databricks that
         includes all users in the Databricks account across all workspaces.
         """
-        return cls(name='account users', principal_type=PrincipalType.GROUP, add_environment_suffix=False)
+        return cls(name="account users", principal_type=PrincipalType.GROUP, add_environment_suffix=False)
 
 
 # =============================================================================
 # PRIVILEGE MODEL
 # =============================================================================
+
 
 class Privilege(BaseGovernanceModel):
     """
@@ -247,6 +241,7 @@ class Privilege(BaseGovernanceModel):
     IMPORTANT: Stores strings (not object references) for clean SDK export.
     This is an internal model - users interact via AccessManager and grant methods.
     """
+
     level_1: str = Field(default="", description="Catalog/StorageCredential/ExternalLocation name")
     level_2: Optional[str] = Field(None, description="Schema name (if applicable)")
     level_3: Optional[str] = Field(None, description="Table/Volume/Function name (if applicable)")
@@ -259,30 +254,31 @@ class Privilege(BaseGovernanceModel):
 
     model_config = ConfigDict(
         populate_by_name=True,  # Allow both field name and alias
+        use_enum_values=False,  # Keep enums as enum objects (required for grant_executor)
     )
 
-    @field_validator('principal', mode='before')
+    @field_validator("principal", mode="before")
     @classmethod
     def resolve_principal(cls, v):
         """Accept Principal object or string."""
-        if hasattr(v, 'resolved_name'):
+        if hasattr(v, "resolved_name"):
             return v.resolved_name
         return v
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def parse_securable_name(cls, values):
         """Parse securable_name into level_1/2/3."""
-        if isinstance(values, dict) and 'securable_name' in values:
-            name = values.pop('securable_name')  # Remove from dict to avoid field assignment
+        if isinstance(values, dict) and "securable_name" in values:
+            name = values.pop("securable_name")  # Remove from dict to avoid field assignment
             if name:
-                parts = name.split('.')
+                parts = name.split(".")
                 if len(parts) >= 1:
-                    values['level_1'] = parts[0]
+                    values["level_1"] = parts[0]
                 if len(parts) >= 2:
-                    values['level_2'] = parts[1]
+                    values["level_2"] = parts[1]
                 if len(parts) >= 3:
-                    values['level_3'] = parts[2]
+                    values["level_3"] = parts[2]
         return values
 
     @computed_field
@@ -294,12 +290,13 @@ class Privilege(BaseGovernanceModel):
             parts.append(self.level_2)
         if self.level_3:
             parts.append(self.level_3)
-        return '.'.join(parts)
+        return ".".join(parts)
 
 
 # =============================================================================
 # ACCESS POLICY MODEL
 # =============================================================================
+
 
 class AccessPolicy(BaseGovernanceModel):
     """
@@ -309,10 +306,10 @@ class AccessPolicy(BaseGovernanceModel):
     They propagate through the hierarchy - when granted at catalog level, the same
     AccessPolicy object flows to schemas and tables, each extracting relevant privileges.
     """
+
     name: str = Field(..., description="Policy name (e.g., READER, WRITER)")
     privilege_map: Dict[SecurableType, List[PrivilegeType]] = Field(
-        default_factory=dict,
-        description="Privileges per securable type"
+        default_factory=dict, description="Privileges per securable type"
     )
 
     def get_privileges(self, securable_type: SecurableType) -> List[PrivilegeType]:
@@ -340,10 +337,10 @@ class AccessPolicy(BaseGovernanceModel):
         return securable_type in self.privilege_map and len(self.privilege_map[securable_type]) > 0
 
     @classmethod
-    def READER(cls) -> 'AccessPolicy':
+    def READER(cls) -> "AccessPolicy":
         """Reader access policy - SELECT and READ privileges."""
         return cls(
-            name='READER',
+            name="READER",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.USE_CATALOG, PrivilegeType.BROWSE],
                 SecurableType.SCHEMA: [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT, PrivilegeType.READ_VOLUME],
@@ -356,21 +353,24 @@ class AccessPolicy(BaseGovernanceModel):
                 SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS],  # Access Genie Space
                 SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS],  # Access endpoint
                 SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS],  # Query index
-            }
+            },
         )
 
     @classmethod
-    def WRITER(cls) -> 'AccessPolicy':
+    def WRITER(cls) -> "AccessPolicy":
         """Writer access policy - READ + WRITE privileges."""
         return cls(
-            name='WRITER',
+            name="WRITER",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.USE_CATALOG, PrivilegeType.CREATE_SCHEMA],
                 SecurableType.SCHEMA: [
-                    PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT,
-                    PrivilegeType.CREATE_TABLE, PrivilegeType.CREATE_VOLUME,
-                    PrivilegeType.CREATE_FUNCTION, PrivilegeType.CREATE_MODEL,
-                    PrivilegeType.MODIFY
+                    PrivilegeType.USE_SCHEMA,
+                    PrivilegeType.SELECT,
+                    PrivilegeType.CREATE_TABLE,
+                    PrivilegeType.CREATE_VOLUME,
+                    PrivilegeType.CREATE_FUNCTION,
+                    PrivilegeType.CREATE_MODEL,
+                    PrivilegeType.MODIFY,
                 ],
                 SecurableType.TABLE: [PrivilegeType.SELECT, PrivilegeType.MODIFY],
                 SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME],
@@ -381,117 +381,123 @@ class AccessPolicy(BaseGovernanceModel):
                 SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS],
                 SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS],
                 SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS],
-            }
+            },
         )
 
     @classmethod
-    def ADMIN(cls) -> 'AccessPolicy':
+    def ADMIN(cls) -> "AccessPolicy":
         """Admin access policy - full management privileges."""
         return cls(
-            name='ADMIN',
+            name="ADMIN",
             privilege_map={
                 SecurableType.CATALOG: [
                     PrivilegeType.ALL_PRIVILEGES  # ALL_PRIVILEGES only at catalog level
                 ],
                 SecurableType.SCHEMA: [
-                    PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT,
-                    PrivilegeType.CREATE_TABLE, PrivilegeType.CREATE_VOLUME,
-                    PrivilegeType.CREATE_FUNCTION, PrivilegeType.CREATE_MODEL,
-                    PrivilegeType.MODIFY, PrivilegeType.MANAGE
+                    PrivilegeType.USE_SCHEMA,
+                    PrivilegeType.SELECT,
+                    PrivilegeType.CREATE_TABLE,
+                    PrivilegeType.CREATE_VOLUME,
+                    PrivilegeType.CREATE_FUNCTION,
+                    PrivilegeType.CREATE_MODEL,
+                    PrivilegeType.MODIFY,
+                    PrivilegeType.MANAGE,
                 ],
                 SecurableType.TABLE: [PrivilegeType.SELECT, PrivilegeType.MODIFY, PrivilegeType.MANAGE],
                 SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME, PrivilegeType.MANAGE],
                 SecurableType.FUNCTION: [PrivilegeType.EXECUTE, PrivilegeType.MANAGE],
                 SecurableType.MODEL: [PrivilegeType.EXECUTE, PrivilegeType.APPLY_TAG, PrivilegeType.MANAGE],
-                SecurableType.SERVICE_CREDENTIAL: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],  # Full access to service credentials
+                SecurableType.SERVICE_CREDENTIAL: [
+                    PrivilegeType.ACCESS,
+                    PrivilegeType.MANAGE,
+                ],  # Full access to service credentials
                 # AI/ML Assets - full management
                 SecurableType.GENIE_SPACE: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
                 SecurableType.VECTOR_SEARCH_ENDPOINT: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
                 SecurableType.VECTOR_SEARCH_INDEX: [PrivilegeType.ACCESS, PrivilegeType.MANAGE],
-            }
+            },
         )
 
     @classmethod
-    def ALL_PRIVILEGES(cls) -> 'AccessPolicy':
+    def ALL_PRIVILEGES(cls) -> "AccessPolicy":
         """All privileges access policy."""
         return cls(
-            name='ALL_PRIVILEGES',
+            name="ALL_PRIVILEGES",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.ALL_PRIVILEGES],
-            }
+            },
         )
 
     @classmethod
-    def ALL_PRIVILEGES_CATALOG(cls) -> 'AccessPolicy':
+    def ALL_PRIVILEGES_CATALOG(cls) -> "AccessPolicy":
         """All privileges for catalog only (no propagation)."""
         return cls(
-            name='ALL_PRIVILEGES_CATALOG',
+            name="ALL_PRIVILEGES_CATALOG",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.ALL_PRIVILEGES],
-            }
+            },
         )
 
     @classmethod
-    def OWNER_ADMIN(cls) -> 'AccessPolicy':
+    def OWNER_ADMIN(cls) -> "AccessPolicy":
         """Owner admin privileges."""
         return cls(
-            name='OWNER_ADMIN',
+            name="OWNER_ADMIN",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.ALL_PRIVILEGES, PrivilegeType.MANAGE],
                 SecurableType.SCHEMA: [
-                    PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT,
-                    PrivilegeType.CREATE_TABLE, PrivilegeType.CREATE_VOLUME,
-                    PrivilegeType.CREATE_FUNCTION, PrivilegeType.MODIFY,
-                    PrivilegeType.MANAGE
+                    PrivilegeType.USE_SCHEMA,
+                    PrivilegeType.SELECT,
+                    PrivilegeType.CREATE_TABLE,
+                    PrivilegeType.CREATE_VOLUME,
+                    PrivilegeType.CREATE_FUNCTION,
+                    PrivilegeType.MODIFY,
+                    PrivilegeType.MANAGE,
                 ],
-                SecurableType.TABLE: [
-                    PrivilegeType.SELECT, PrivilegeType.MODIFY,
-                    PrivilegeType.MANAGE
-                ],
-                SecurableType.VOLUME: [
-                    PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME,
-                    PrivilegeType.MANAGE
-                ],
-                SecurableType.FUNCTION: [
-                    PrivilegeType.EXECUTE, PrivilegeType.MANAGE
-                ],
+                SecurableType.TABLE: [PrivilegeType.SELECT, PrivilegeType.MODIFY, PrivilegeType.MANAGE],
+                SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME, PrivilegeType.MANAGE],
+                SecurableType.FUNCTION: [PrivilegeType.EXECUTE, PrivilegeType.MANAGE],
                 SecurableType.STORAGE_CREDENTIAL: [
-                    PrivilegeType.CREATE_EXTERNAL_LOCATION, PrivilegeType.CREATE_EXTERNAL_TABLE,
-                    PrivilegeType.CREATE_EXTERNAL_VOLUME, PrivilegeType.MANAGE
+                    PrivilegeType.CREATE_EXTERNAL_LOCATION,
+                    PrivilegeType.CREATE_EXTERNAL_TABLE,
+                    PrivilegeType.CREATE_EXTERNAL_VOLUME,
+                    PrivilegeType.MANAGE,
                 ],
                 SecurableType.EXTERNAL_LOCATION: [
-                    PrivilegeType.CREATE_EXTERNAL_TABLE, PrivilegeType.CREATE_EXTERNAL_VOLUME,
-                    PrivilegeType.MANAGE
+                    PrivilegeType.CREATE_EXTERNAL_TABLE,
+                    PrivilegeType.CREATE_EXTERNAL_VOLUME,
+                    PrivilegeType.MANAGE,
                 ],
                 SecurableType.CONNECTION: [
-                    PrivilegeType.USE_CONNECTION, PrivilegeType.CREATE_FOREIGN_CATALOG,
-                    PrivilegeType.MANAGE
-                ]
-            }
+                    PrivilegeType.USE_CONNECTION,
+                    PrivilegeType.CREATE_FOREIGN_CATALOG,
+                    PrivilegeType.MANAGE,
+                ],
+            },
         )
 
     @classmethod
-    def BROWSE_ONLY(cls) -> 'AccessPolicy':
+    def BROWSE_ONLY(cls) -> "AccessPolicy":
         """Browse-only access policy for metadata discovery."""
         return cls(
-            name='BROWSE_ONLY',
+            name="BROWSE_ONLY",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.BROWSE],
                 SecurableType.SCHEMA: [PrivilegeType.BROWSE],
                 SecurableType.TABLE: [PrivilegeType.BROWSE],
                 SecurableType.VOLUME: [PrivilegeType.BROWSE],
-            }
+            },
         )
 
     @classmethod
-    def DISCOVERER(cls) -> 'AccessPolicy':
+    def DISCOVERER(cls) -> "AccessPolicy":
         """Discoverer access policy - USE + BROWSE."""
         return cls(
-            name='DISCOVERER',
+            name="DISCOVERER",
             privilege_map={
                 SecurableType.CATALOG: [PrivilegeType.USE_CATALOG, PrivilegeType.BROWSE],
                 SecurableType.SCHEMA: [PrivilegeType.USE_SCHEMA, PrivilegeType.BROWSE],
                 SecurableType.TABLE: [PrivilegeType.BROWSE],
                 SecurableType.VOLUME: [PrivilegeType.BROWSE],
-            }
+            },
         )

@@ -69,6 +69,7 @@ print(f"Current Environment: {get_current_environment()}")
 
 # COMMAND ----------
 
+
 class FinanceGovernancePolicy(GovernanceDefaults):
     """
     Finance domain governance policy.
@@ -89,10 +90,8 @@ class FinanceGovernancePolicy(GovernanceDefaults):
             # Infrastructure tracking
             TagDefault(key="managed_by", value="brickkit"),
             TagDefault(key="domain", value="finance"),
-
             # Compliance framework
             TagDefault(key="compliance_framework", value="sox"),
-
             # Environment-aware tags
             TagDefault(
                 key="environment",
@@ -101,20 +100,18 @@ class FinanceGovernancePolicy(GovernanceDefaults):
                     "DEV": "development",
                     "ACC": "acceptance",
                     "PRD": "production",
-                }
+                },
             ),
-
             # Audit requirement (SOX)
             TagDefault(key="audit_enabled", value="true"),
-
             # Default retention (overridden per zone)
             TagDefault(
                 key="retention_days",
                 value="90",  # DEV: 90 days
                 environment_values={
-                    "ACC": "180",   # ACC: 6 months
+                    "ACC": "180",  # ACC: 6 months
                     "PRD": "2555",  # PRD: 7 years (SOX requirement)
-                }
+                },
             ),
         ]
 
@@ -127,39 +124,35 @@ class FinanceGovernancePolicy(GovernanceDefaults):
             RequiredTag(
                 key="data_classification",
                 allowed_values={"public", "internal", "confidential", "restricted"},
-                error_message="All assets must declare data_classification (public/internal/confidential/restricted)"
+                error_message="All assets must declare data_classification (public/internal/confidential/restricted)",
             ),
-
             # Catalogs and schemas need owner for accountability
             # Reference: DATA_GOVERNANCE_PRINCIPLES.md §3.1 (Data Owner role)
             RequiredTag(
                 key="data_owner",
                 applies_to={"CATALOG", "SCHEMA"},
-                error_message="Catalogs and schemas must have a data_owner for accountability"
+                error_message="Catalogs and schemas must have a data_owner for accountability",
             ),
-
             # Tables must declare PII status
             # Reference: DATA_GOVERNANCE_PRINCIPLES.md §6.2
             RequiredTag(
                 key="pii",
                 allowed_values={"true", "false"},
                 applies_to={"TABLE"},
-                error_message="Tables must declare pii=true or pii=false"
+                error_message="Tables must declare pii=true or pii=false",
             ),
-
             # Tables must declare retention
             # Reference: DATA_GOVERNANCE_PRINCIPLES.md §6.4
             RequiredTag(
                 key="retention_days",
                 applies_to={"TABLE"},
-                error_message="Tables must declare retention_days for lifecycle management"
+                error_message="Tables must declare retention_days for lifecycle management",
             ),
-
             # Cost center for chargeback (SOX)
             RequiredTag(
                 key="cost_center",
                 applies_to={"CATALOG"},
-                error_message="Catalogs must have cost_center for financial reporting"
+                error_message="Catalogs must have cost_center for financial reporting",
             ),
         ]
 
@@ -171,13 +164,13 @@ class FinanceGovernancePolicy(GovernanceDefaults):
             NamingConvention(
                 pattern=r"^[a-z]+(_[a-z][a-z0-9_]*)?$",
                 applies_to={"CATALOG"},
-                error_message="Catalog names must be lowercase (e.g., 'finance', 'finance_reporting')"
+                error_message="Catalog names must be lowercase (e.g., 'finance', 'finance_reporting')",
             ),
             # Schemas: zone or function name
             NamingConvention(
                 pattern=r"^[a-z][a-z0-9_]*$",
                 applies_to={"SCHEMA"},
-                error_message="Schema names must be lowercase with underscores"
+                error_message="Schema names must be lowercase with underscores",
             ),
         ]
 
@@ -342,7 +335,6 @@ transactions_raw = Table(
             description="Unique transaction identifier",
             tags=[Tag(key="pii", value="false")],
         ),
-
         # PII Columns - Must be tagged for compliance
         Column(
             name="customer_id",
@@ -376,7 +368,6 @@ transactions_raw = Table(
                 Tag(key="gdpr_sensitive", value="true"),
             ],
         ),
-
         # Non-PII transaction data
         Column(
             name="amount",
@@ -462,7 +453,6 @@ transactions_validated = Table(
             description="Unique transaction identifier",
             tags=[Tag(key="pii", value="false")],
         ),
-
         # Masked PII - Derived from bronze
         Column(
             name="customer_id_hash",
@@ -497,7 +487,6 @@ transactions_validated = Table(
                 Tag(key="masking_method", value="domain_only"),
             ],
         ),
-
         # Non-PII transaction data (validated)
         Column(
             name="amount",
@@ -601,7 +590,6 @@ daily_revenue_metrics = Table(
             description="Currency of the metrics",
             tags=[Tag(key="pii", value="false")],
         ),
-
         # Aggregate metrics - no individual data
         Column(
             name="transaction_count",
@@ -645,7 +633,6 @@ daily_revenue_metrics = Table(
             description="Count of unique customer hashes (not identifiable)",
             tags=[Tag(key="pii", value="false")],
         ),
-
         # Quality metadata
         Column(
             name="data_quality_score",
@@ -741,8 +728,8 @@ fraud_detection_model = RegisteredModel(
     Training Data: finance.silver.transactions_validated (2023-01-01 to 2024-01-01)
     """,
     aliases={
-        "champion": 5,      # Current production model
-        "challenger": 6,    # A/B testing candidate
+        "champion": 5,  # Current production model
+        "challenger": 6,  # A/B testing candidate
     },
     tags=[
         Tag(key="data_classification", value="confidential"),
@@ -934,18 +921,19 @@ for priv in gold_schema.privileges[:5]:
 
 # COMMAND ----------
 
+
 def validate_asset(asset, asset_type: str, policy: GovernanceDefaults):
     """Validate an asset against governance policy."""
-    name = getattr(asset, 'name', str(asset))
+    name = getattr(asset, "name", str(asset))
 
     # Get tags as dict
     tags_dict = {}
-    if hasattr(asset, 'tags'):
+    if hasattr(asset, "tags"):
         tags_dict = {t.key: t.value for t in asset.tags}
 
     # Get securable type
     securable_type = None
-    if hasattr(asset, 'securable_type'):
+    if hasattr(asset, "securable_type"):
         securable_type = asset.securable_type
     else:
         # Map asset_type string to SecurableType
@@ -968,6 +956,7 @@ def validate_asset(asset, asset_type: str, policy: GovernanceDefaults):
         "valid": len(errors) == 0,
         "errors": errors,
     }
+
 
 # COMMAND ----------
 
