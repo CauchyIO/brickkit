@@ -23,9 +23,9 @@ resources:
               endpoint_name: ${var.vs_endpoint_name}
               environment: ${bundle.target}
               dry_run: "false"
-          new_cluster:
-            spark_version: 14.3.x-scala2.12
-            node_type_id: m5d.large
-            num_workers: 0
-            spark_conf:
-              spark.master: "local[*]"
+          environment_key: default
+
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"

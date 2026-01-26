@@ -61,3 +61,6 @@ Thumbs.db
 .claude/settings.local.json
 .claude/mlflow/
 mlruns/
+
+# Visualization experiments
+visualization/

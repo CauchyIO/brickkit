@@ -1,39 +1,30 @@
 # Databricks Asset Bundle for BrickKit Vector Search Demo
-# See https://docs.databricks.com/dev-tools/bundles/index.html
+# Run from repo root: databricks bundle deploy --target dev
 bundle:
   name: brickkit_vector_search_demo
 
 include:
-  - resources/*.yml
+  - examples/08_vector_search_demo/resources/*.yml
 
 sync:
   include:
-    - conventions/*.yml
-    - "*.py"
-    - ../../dist/*.whl
+    - src/**
+    - examples/08_vector_search_demo/**
 
-# Variable declarations - matches YAML convention naming pattern: {env}_{team}_{product}
 variables:
-  # From convention
   team:
     description: Team identifier
     default: quant
   product:
     description: Product identifier
     default: risk_analytics
-
-  # Environment-derived (set per target)
   catalog:
-    description: The catalog to use (follows {env}_{team}_{product} pattern)
+    description: The catalog to use
   schema:
     description: The schema to use
     default: indicators
-
-  # Vector Search configuration
   vs_endpoint_name:
     description: Vector Search endpoint name
-
-  # Governance tags (from convention)
   cost_center:
     description: Cost center for tagging
     default: CC-TRD-4521
