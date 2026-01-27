@@ -14,12 +14,49 @@ from databricks.sdk.service.catalog import VolumeInfo
 from brickkit.models import Volume, VolumeType
 
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 
 
 class VolumeExecutor(BaseExecutor[Volume]):
     """Executor for volume operations."""
+
+    def _get_tag_executor(self) -> TagExecutor:
+        """Get or create the TagExecutor instance."""
+        if not hasattr(self, "_tag_executor"):
+            self._tag_executor = TagExecutor(self.client)
+        return self._tag_executor
+
+    def _apply_tags(self, resource: Volume) -> None:
+        """Apply tags to a volume using the entity_tag_assignments API."""
+        if not resource.tags:
+            return
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would apply {len(resource.tags)} tags to volume {resource.fqdn}")
+            return
+
+        tag_executor = self._get_tag_executor()
+        tag_executor.apply_tags(
+            entity_name=resource.fqdn,
+            entity_type="volume",
+            tags=resource.tags,
+            update_existing=True,
+        )
+
+    def _sync_tags(self, resource: Volume) -> Dict[str, Any]:
+        """Sync tags on a volume to match the desired state."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would sync tags on volume {resource.fqdn}")
+            return {}
+
+        tag_executor = self._get_tag_executor()
+        return tag_executor.sync_tags(
+            entity_name=resource.fqdn,
+            entity_type="volume",
+            desired_tags=resource.tags,
+        )
 
     def get_resource_type(self) -> str:
         """Get the resource type."""
@@ -64,6 +101,9 @@ class VolumeExecutor(BaseExecutor[Volume]):
 
             self._rollback_stack.append(lambda: self.client.volumes.delete(resource_name))
 
+            # Apply tags via entity_tag_assignments API
+            self._apply_tags(resource)
+
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
@@ -86,7 +126,25 @@ class VolumeExecutor(BaseExecutor[Volume]):
             existing = self.client.volumes.read(resource_name)
             changes = self._get_volume_changes(existing, resource)
 
-            if not changes:
+            # Check if tags need syncing
+            tags_need_sync = False
+            if resource.tags:
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "volume")
+                current_tag_dict = {t.key: t.value for t in current_tags}
+                desired_tag_dict = {t.key: t.value for t in resource.tags}
+                if current_tag_dict != desired_tag_dict:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": current_tag_dict, "to": desired_tag_dict}
+            elif not resource.tags:
+                # Check if there are existing tags that need to be removed
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "volume")
+                if current_tags:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": {t.key: t.value for t in current_tags}, "to": {}}
+
+            if not changes and not tags_need_sync:
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -106,9 +164,15 @@ class VolumeExecutor(BaseExecutor[Volume]):
                     changes=changes,
                 )
 
-            params = resource.to_sdk_update_params()
-            logger.info(f"Updating volume {resource_name}: {changes}")
-            self.execute_with_retry(self.client.volumes.update, **params)
+            # Only update volume properties if there are non-tag changes
+            if any(k != "tags" for k in changes.keys()):
+                params = resource.to_sdk_update_params()
+                logger.info(f"Updating volume {resource_name}: {changes}")
+                self.execute_with_retry(self.client.volumes.update, **params)
+
+            # Sync tags via entity_tag_assignments API
+            if tags_need_sync:
+                self._sync_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(

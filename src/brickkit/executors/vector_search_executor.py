@@ -158,52 +158,32 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
         """
         Apply tags to a Vector Search endpoint.
 
-        Uses the update_endpoint_custom_tags API to set tags on the endpoint.
-
-        Args:
-            resource: The endpoint with tags to apply
+        NOTE: Vector Search Endpoints do NOT support custom tags.
+        Only serverless Budget Policy supports tags at the endpoint level.
+        Tags on VectorSearchEndpoint are stored in the model but not applied to Databricks.
+        Use VectorSearchIndex for tagging - indexes DO support custom tags.
         """
-        if not resource.tags:
-            logger.debug(f"No tags to apply to endpoint {resource.resolved_name}")
-            return
-
-        if self.dry_run:
-            tag_str = ", ".join(f"{t.key}={t.value}" for t in resource.tags)
-            logger.info(f"[DRY RUN] Would apply tags to {resource.resolved_name}: {tag_str}")
-            return
-
-        try:
-            custom_tags = [tag.to_vector_search_custom_tag() for tag in resource.tags]
-            self.client.vector_search_endpoints.update_endpoint_custom_tags(
-                endpoint_name=resource.resolved_name, custom_tags=custom_tags
+        if resource.tags:
+            logger.debug(
+                f"Skipping tag application for endpoint {resource.resolved_name} - "
+                "endpoints don't support custom tags (use index tags instead)"
             )
-            logger.info(f"Applied {len(resource.tags)} tags to endpoint {resource.resolved_name}")
-        except PermissionDenied as e:
-            logger.error(f"Permission denied applying tags to endpoint {resource.resolved_name}: {e}")
-            raise
-        except BadRequest as e:
-            logger.warning(f"Failed to apply tags to endpoint {resource.resolved_name}: {e}")
 
     def get_tags(self, endpoint_name: str) -> List[Tag]:
         """
         Get tags from a Vector Search endpoint.
 
+        NOTE: Vector Search Endpoints do NOT support custom tags.
+        This method always returns an empty list.
+
         Args:
             endpoint_name: Name of the endpoint
 
         Returns:
-            List of Tag objects
+            Empty list (endpoints don't support tags)
         """
-        try:
-            endpoint = self.client.vector_search_endpoints.get_endpoint(endpoint_name)
-            if hasattr(endpoint, "custom_tags") and endpoint.custom_tags:
-                return [Tag.from_vector_search_custom_tag(ct) for ct in endpoint.custom_tags]
-            return []
-        except (ResourceDoesNotExist, NotFound):
-            return []
-        except PermissionDenied as e:
-            logger.error(f"Permission denied getting tags for endpoint {endpoint_name}: {e}")
-            raise
+        # Endpoints don't support custom tags - only indexes do
+        return []
 
     def wait_for_endpoint(
         self,
@@ -274,25 +254,20 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
 
         try:
             if self.exists(resource):
-                # Endpoint exists - sync tags if provided
-                if resource.tags:
-                    self.apply_tags(resource)
+                # Endpoint exists - nothing to update (endpoints don't support tags)
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Already exists (tags synced)",
+                    message="Already exists",
                 )
 
             logger.info(f"Creating Vector Search endpoint: {resource_name}")
             params = resource.to_sdk_create_params()
             self.client.vector_search_endpoints.create_endpoint(**params)
 
-            # Apply tags after creation
-            # Note: Tags can be applied immediately, endpoint doesn't need to be ONLINE
-            if resource.tags:
-                self.apply_tags(resource)
+            # Note: Endpoints don't support custom tags - use index tags instead
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -311,20 +286,14 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
             return self._handle_error(OperationType.CREATE, resource_name, e)
 
     def update(self, resource: VectorSearchEndpoint) -> ExecutionResult:
-        """Update endpoint tags (endpoint config updates not supported)."""
+        """
+        Update endpoint.
+
+        NOTE: Vector Search Endpoints don't support updates or custom tags.
+        This method only checks existence - no actual updates are performed.
+        """
         start_time = time.time()
         resource_name = resource.resolved_name
-
-        if self.dry_run:
-            logger.info(f"[DRY RUN] Would update tags on endpoint {resource_name}")
-            self.apply_tags(resource)
-            return ExecutionResult(
-                success=True,
-                operation=OperationType.UPDATE,
-                resource_type=self.get_resource_type(),
-                resource_name=resource_name,
-                message="Would update tags (dry run)",
-            )
 
         try:
             if not self.exists(resource):
@@ -336,20 +305,14 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                     message="Endpoint does not exist",
                 )
 
-            # Apply/sync tags
-            if resource.tags:
-                self.apply_tags(resource)
-                message = f"Updated {len(resource.tags)} tags"
-            else:
-                message = "No tags to update"
-
+            # Endpoints don't support updates or custom tags
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
-                operation=OperationType.UPDATE,
+                operation=OperationType.NO_OP,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=message,
+                message="Endpoint exists (no updates supported)",
                 duration_seconds=duration,
             )
 

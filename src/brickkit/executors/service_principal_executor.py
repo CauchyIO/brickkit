@@ -98,6 +98,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
         existing = self._get_by_name(resource_name)
         if existing:
             resource._sdk_id = existing.id
+            resource.application_id = existing.application_id
             return ExecutionResult(
                 success=True,
                 operation=OperationType.SKIPPED,
@@ -105,6 +106,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
                 resource_name=resource_name,
                 message=f"Service principal {resource_name} already exists",
                 duration_seconds=self._elapsed(start_time),
+                changes={"application_id": existing.application_id},
             )
 
         # Create via SDK
@@ -116,13 +118,14 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
                 active=sdk_sp.active,
             )
             resource._sdk_id = result.id
+            resource.application_id = result.application_id
 
             return ExecutionResult(
                 success=True,
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=f"Created service principal {resource_name}",
+                message=f"Created service principal {resource_name} (app_id: {result.application_id})",
                 duration_seconds=self._elapsed(start_time),
                 changes={"application_id": result.application_id},
             )
@@ -411,6 +414,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
         existing = self._get_by_name(resource_name)
         if existing:
             resource._sdk_id = existing.id
+            resource.application_id = existing.application_id
             # Generate new secret for existing SPN
             credentials = self.generate_secret(resource)
             return (
@@ -419,7 +423,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
                     operation=OperationType.UPDATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message=f"Service principal {resource_name} exists, generated new secret",
+                    message=f"Service principal {resource_name} exists (app_id: {existing.application_id}), generated new secret",
                     duration_seconds=self._elapsed(start_time),
                     changes={"application_id": existing.application_id},
                 ),
@@ -435,6 +439,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
                 active=sdk_sp.active,
             )
             resource._sdk_id = result.id
+            resource.application_id = result.application_id
 
             # Generate OAuth secret
             if not result.id:
@@ -455,7 +460,7 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message=f"Created service principal {resource_name} with OAuth secret",
+                    message=f"Created service principal {resource_name} (app_id: {result.application_id}) with OAuth secret",
                     duration_seconds=self._elapsed(start_time),
                     changes={"application_id": result.application_id},
                 ),

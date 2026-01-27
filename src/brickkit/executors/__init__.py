@@ -9,7 +9,7 @@ from .connection_executor import ConnectionExecutor
 from .external_location_executor import ExternalLocationExecutor
 from .function_executor import FunctionExecutor
 from .genie_executor import GenieSpaceExecutor, GenieSpacePermission, ServicePrincipal
-from .grant_executor import GrantExecutor
+from .grant_executor import GrantExecutor, PrincipalNotFoundError, SecurableNotFoundError
 
 # Principal management executors
 from .group_executor import GroupExecutor
@@ -39,6 +39,8 @@ __all__ = [
     "ConnectionExecutor",
     # Permission executor
     "GrantExecutor",
+    "PrincipalNotFoundError",
+    "SecurableNotFoundError",
     # Metastore executor
     "MetastoreAssignmentExecutor",
     # Workspace binding executor

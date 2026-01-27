@@ -22,12 +22,49 @@ from brickkit.models.grants import Principal
 
 from .base import BaseExecutor, ExecutionResult, OperationType
 from .mixins import WorkspaceBindingMixin
+from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 
 
 class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     """Executor for catalog operations."""
+
+    def _get_tag_executor(self) -> TagExecutor:
+        """Get or create the TagExecutor instance."""
+        if not hasattr(self, "_tag_executor"):
+            self._tag_executor = TagExecutor(self.client)
+        return self._tag_executor
+
+    def _apply_tags(self, resource: Catalog) -> None:
+        """Apply tags to a catalog using the entity_tag_assignments API."""
+        if not resource.tags:
+            return
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would apply {len(resource.tags)} tags to catalog {resource.resolved_name}")
+            return
+
+        tag_executor = self._get_tag_executor()
+        tag_executor.apply_tags(
+            entity_name=resource.resolved_name,
+            entity_type="catalogs",
+            tags=resource.tags,
+            update_existing=True,
+        )
+
+    def _sync_tags(self, resource: Catalog) -> Dict[str, Any]:
+        """Sync tags on a catalog to match the desired state."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would sync tags on catalog {resource.resolved_name}")
+            return {}
+
+        tag_executor = self._get_tag_executor()
+        return tag_executor.sync_tags(
+            entity_name=resource.resolved_name,
+            entity_type="catalogs",
+            desired_tags=resource.tags,
+        )
 
     def get_resource_type(self) -> str:
         """Get the resource type."""
@@ -155,6 +192,9 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 if not self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
                     logger.warning(f"Workspace binding verification failed for {resource_name}")
 
+            # Apply tags via entity_tag_assignments API
+            self._apply_tags(resource)
+
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
@@ -228,7 +268,25 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                         if workspace_bindings_updated:
                             changes["workspace_bindings"] = {"from": list(current_ws_ids), "to": desired_ws_ids}
 
-            if not changes and not workspace_bindings_updated:
+            # Check if tags need syncing
+            tags_need_sync = False
+            if resource.tags:
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "catalogs")
+                current_tag_dict = {t.key: t.value for t in current_tags}
+                desired_tag_dict = {t.key: t.value for t in resource.tags}
+                if current_tag_dict != desired_tag_dict:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": current_tag_dict, "to": desired_tag_dict}
+            elif not resource.tags:
+                # Check if there are existing tags that need to be removed
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "catalogs")
+                if current_tags:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": {t.key: t.value for t in current_tags}, "to": {}}
+
+            if not changes and not workspace_bindings_updated and not tags_need_sync:
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -248,8 +306,8 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                     changes=changes,
                 )
 
-            # Only update catalog properties if there are non-binding changes
-            if any(k != "workspace_bindings" for k in changes.keys()):
+            # Only update catalog properties if there are non-binding/non-tag changes
+            if any(k not in ("workspace_bindings", "tags") for k in changes.keys()):
                 # Convert to SDK parameters
                 params = resource.to_sdk_update_params()
 
@@ -265,6 +323,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
 
                 logger.info(f"Updating catalog {resource_name}: {changes}")
                 self.execute_with_retry(self.client.catalogs.update, **params)
+
+            # Sync tags via entity_tag_assignments API
+            if tags_need_sync:
+                self._sync_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(

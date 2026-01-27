@@ -123,11 +123,19 @@ class VectorSearchEndpoint(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for endpoint creation."""
-        # Handle both enum and string values for endpoint_type
-        endpoint_type = self.endpoint_type.value if hasattr(self.endpoint_type, "value") else self.endpoint_type
+        # Import SDK's EndpointType enum - the SDK expects this, not a string
+        from databricks.sdk.service.vectorsearch import EndpointType as SdkEndpointType
+
+        # Map our enum to SDK enum
+        endpoint_type_map = {
+            VectorEndpointType.STANDARD: SdkEndpointType.STANDARD,
+            "STANDARD": SdkEndpointType.STANDARD,
+        }
+        sdk_endpoint_type = endpoint_type_map.get(self.endpoint_type, SdkEndpointType.STANDARD)
+
         return {
             "name": self.resolved_name,
-            "endpoint_type": endpoint_type,
+            "endpoint_type": sdk_endpoint_type,
         }
 
 
@@ -220,27 +228,39 @@ class VectorSearchIndex(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for index creation."""
-        # Handle both enum and string values
-        index_type = self.index_type.value if hasattr(self.index_type, "value") else self.index_type
-        pipeline_type = self.pipeline_type.value if hasattr(self.pipeline_type, "value") else self.pipeline_type
+        # Import SDK enums - the SDK expects these, not strings
+        from databricks.sdk.service.vectorsearch import PipelineType as SdkPipelineType
+        from databricks.sdk.service.vectorsearch import VectorIndexType as SdkVectorIndexType
+
+        # Map our enums to SDK enums
+        index_type_map = {
+            VectorIndexType.DELTA_SYNC: SdkVectorIndexType.DELTA_SYNC,
+            VectorIndexType.DIRECT_ACCESS: SdkVectorIndexType.DIRECT_ACCESS,
+            "DELTA_SYNC": SdkVectorIndexType.DELTA_SYNC,
+            "DIRECT_ACCESS": SdkVectorIndexType.DIRECT_ACCESS,
+        }
+        pipeline_type_map = {
+            "TRIGGERED": SdkPipelineType.TRIGGERED,
+            "CONTINUOUS": SdkPipelineType.CONTINUOUS,
+        }
+
+        sdk_index_type = index_type_map.get(self.index_type, SdkVectorIndexType.DELTA_SYNC)
+        sdk_pipeline_type = pipeline_type_map.get(self.pipeline_type, SdkPipelineType.TRIGGERED)
 
         params = {
             "name": self.resolved_name,
             "endpoint_name": self.resolved_endpoint_name,
-            "index_type": index_type,
+            "index_type": sdk_index_type,
             "primary_key": self.primary_key,
         }
 
-        # Check for DELTA_SYNC (works with both enum and string)
-        is_delta_sync = (
-            self.index_type == VectorIndexType.DELTA_SYNC
-            or index_type == "DELTA_SYNC"
-        )
+        # Check for DELTA_SYNC
+        is_delta_sync = sdk_index_type == SdkVectorIndexType.DELTA_SYNC
         if is_delta_sync:
             delta_spec = {
                 "source_table": self.source_table,
                 "embedding_source_column": self.embedding_column,
-                "pipeline_type": pipeline_type,
+                "pipeline_type": sdk_pipeline_type,
             }
             if self.embedding_model:
                 delta_spec["embedding_model_endpoint_name"] = self.embedding_model

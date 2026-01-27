@@ -201,26 +201,30 @@ class Catalog(BaseSecurable):
         return self.tags.copy()
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
-        """Convert to SDK create parameters."""
+        """Convert to SDK create parameters.
+
+        Note: Tags are NOT included here. Tags should be applied separately
+        via the TagExecutor using the entity_tag_assignments API.
+        """
         params = {"name": self.resolved_name}
 
         if self.comment:
             params["comment"] = self.comment
         if self.storage_root:
             params["storage_root"] = self.storage_root
-        if self.tags:
-            params["properties"] = {tag.key: tag.value for tag in self.tags}
 
         return params
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
-        """Convert to SDK update parameters."""
+        """Convert to SDK update parameters.
+
+        Note: Tags are NOT included here. Tags should be applied separately
+        via the TagExecutor using the entity_tag_assignments API.
+        """
         params = {"name": self.resolved_name, "comment": self.comment, "isolation_mode": self.isolation_mode.value}
 
         if self.owner:
             params["owner"] = self.owner.resolved_name
-        if self.tags:
-            params["properties"] = {tag.key: tag.value for tag in self.tags}
 
         return params
 

@@ -8,7 +8,10 @@ adding environment-aware naming, declarative membership, and external principal 
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from brickkit.models.grants import Principal
 
 from databricks.sdk.service.iam import (
     ComplexValue,
@@ -413,3 +416,42 @@ class ManagedServicePrincipal(BaseGovernanceModel):
         if value not in self.entitlements:
             self.entitlements.append(value)
         return self
+
+    def to_principal(self) -> "Principal":
+        """
+        Create a Principal for use in grants.
+
+        Returns a Principal configured with the application_id if available,
+        which is required for grants to service principals in Databricks.
+
+        Returns:
+            Principal instance suitable for grant operations
+
+        Raises:
+            ValueError: If application_id is not set (SPN not yet created)
+
+        Example:
+            ```python
+            spn = ManagedServicePrincipal(name="spn_admin")
+            result, credentials = executor.create_with_secret(spn)
+            # After creation, application_id is set
+            principal = spn.to_principal()
+            catalog.grant(principal, AccessPolicy.ADMIN())
+            ```
+        """
+        # Import here to avoid circular imports
+        from brickkit.models.grants import Principal
+
+        if not self.application_id:
+            raise ValueError(
+                f"Cannot create Principal for grants: application_id not set for {self.resolved_name}. "
+                "Create the service principal first, then call to_principal()."
+            )
+
+        return Principal(
+            name=self.name,
+            principal_type=PrincipalType.SERVICE_PRINCIPAL,
+            application_id=self.application_id,
+            add_environment_suffix=self.add_environment_suffix,
+            environment_mapping=self.environment_mapping,
+        )

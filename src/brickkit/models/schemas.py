@@ -327,10 +327,15 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         return params
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
-        """Convert to SDK update parameters."""
-        return {
-            "name": self.name,
-            "catalog_name": self.resolved_catalog_name,
-            "full_name": f"{self.resolved_catalog_name}.{self.name}",
+        """Convert to SDK update parameters.
+
+        Note: SchemasAPI.update() only accepts full_name to identify the schema,
+        plus the fields to update (comment, owner). It does NOT accept name or catalog_name.
+        """
+        params = {
+            "full_name": self.fqdn,
             "comment": self.comment,
         }
+        if self.owner:
+            params["owner"] = self.owner.resolved_name
+        return params

@@ -18,28 +18,33 @@ naming:
   separator: "_"
 
 # Ownership rules by securable type
+# NOTE: Unity Catalog requires account-level principals for ownership.
+# Service Principals work at both workspace and account level, making them
+# the most reliable choice for ownership in automated deployments.
 ownership:
   catalog:
     type: SERVICE_PRINCIPAL
     name: spn_trading_platform
     add_environment_suffix: true
   schema:
-    type: GROUP
-    name: grp_quant_team
+    type: SERVICE_PRINCIPAL
+    name: spn_trading_platform
     add_environment_suffix: true
   default:
-    type: GROUP
-    name: grp_quant_team
+    type: SERVICE_PRINCIPAL
+    name: spn_trading_platform
     add_environment_suffix: true
 
 # Governance rules
 rules:
-  # Catalogs must be owned by service principals (enforced)
+  # All securables must be owned by service principals (enforced)
+  # This ensures consistent ownership that works with Unity Catalog's
+  # account-level principal requirements.
   - rule: catalog_must_have_sp_owner
     mode: enforced
 
-  # No individual user owners (enforced)
-  - rule: owner_must_be_sp_or_group
+  # No individual user or group owners (enforced)
+  - rule: owner_must_be_sp
     mode: enforced
 
   # Required tags for cost attribution (advisory)

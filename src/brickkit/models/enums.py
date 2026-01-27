@@ -7,7 +7,16 @@ This module contains all enumeration types used throughout the governance system
 from enum import Enum
 from typing import Dict, List, Set
 
-# FlexibleFieldMixin not needed in enums module
+# SDK enums - re-exported for backward compatibility
+# Prefer importing directly from databricks.sdk.service.catalog in new code.
+from databricks.sdk.service.catalog import CatalogIsolationMode, WorkspaceBindingBindingType
+from databricks.sdk.service.catalog import ConnectionType as ConnectionType  # noqa: PLC0414
+from databricks.sdk.service.catalog import TableType as TableType  # noqa: PLC0414
+from databricks.sdk.service.catalog import VolumeType as VolumeType  # noqa: PLC0414
+
+# Backward compatibility aliases
+IsolationMode = CatalogIsolationMode
+BindingType = WorkspaceBindingBindingType
 
 
 class SecurableType(str, Enum):
@@ -211,37 +220,6 @@ class Environment(str, Enum):
     PRD = "PRD"  # Production
 
 
-class BindingType(str, Enum):
-    """Workspace binding access levels for catalogs and other securables."""
-
-    BINDING_TYPE_READ_WRITE = "BINDING_TYPE_READ_WRITE"
-    BINDING_TYPE_READ_ONLY = "BINDING_TYPE_READ_ONLY"
-
-
-class IsolationMode(str, Enum):
-    """Catalog isolation configuration for workspace access."""
-
-    OPEN = "OPEN"  # Accessible from all bound workspaces
-    ISOLATED = "ISOLATED"  # Restricted to specific workspaces
-
-
-class TableType(str, Enum):
-    """Types of tables in Unity Catalog."""
-
-    MANAGED = "MANAGED"
-    EXTERNAL = "EXTERNAL"
-    VIEW = "VIEW"
-    MATERIALIZED_VIEW = "MATERIALIZED_VIEW"
-    STREAMING_TABLE = "STREAMING_TABLE"
-
-
-class VolumeType(str, Enum):
-    """Types of volumes in Unity Catalog."""
-
-    MANAGED = "MANAGED"
-    EXTERNAL = "EXTERNAL"
-
-
 class FunctionType(str, Enum):
     """Types of functions in Unity Catalog."""
 
@@ -249,18 +227,6 @@ class FunctionType(str, Enum):
     PYTHON = "PYTHON"
     SCALAR = "SCALAR"
     TABLE = "TABLE"
-
-
-class ConnectionType(str, Enum):
-    """Types of external connections."""
-
-    MYSQL = "MYSQL"
-    POSTGRESQL = "POSTGRESQL"
-    SNOWFLAKE = "SNOWFLAKE"
-    REDSHIFT = "REDSHIFT"
-    SQLDW = "SQLDW"  # Azure Synapse
-    SQLSERVER = "SQLSERVER"
-    DATABRICKS = "DATABRICKS"  # Cross-workspace
 
 
 # =============================================================================

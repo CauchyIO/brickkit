@@ -25,6 +25,23 @@ from .base import BaseExecutor, ExecutionResult, OperationType
 logger = logging.getLogger(__name__)
 
 
+class PrincipalNotFoundError(Exception):
+    """Raised when a principal does not exist in Databricks."""
+
+    def __init__(self, principal_name: str):
+        self.principal_name = principal_name
+        super().__init__(f"Principal '{principal_name}' does not exist in Databricks")
+
+
+class SecurableNotFoundError(Exception):
+    """Raised when a securable does not exist in Databricks."""
+
+    def __init__(self, securable_type: str, securable_name: str):
+        self.securable_type = securable_type
+        self.securable_name = securable_name
+        super().__init__(f"{securable_type} '{securable_name}' does not exist in Databricks")
+
+
 def _get_enum_value(val) -> str:
     """Safely get value from enum or return string as-is."""
     return val.value if hasattr(val, "value") else val
@@ -38,7 +55,8 @@ class GrantExecutor(BaseExecutor[Privilege]):
         client: WorkspaceClient,
         dry_run: bool = False,
         force: bool = False,
-        validate_principals: bool = False,
+        validate_principals: bool = True,
+        strict_mode: bool = True,
         max_retries: int = 3,
         continue_on_error: bool = False,
     ):
@@ -50,12 +68,15 @@ class GrantExecutor(BaseExecutor[Privilege]):
             dry_run: If True, only log actions without executing
             force: If True, force operations even if they appear unchanged
             validate_principals: If True, validate principal existence before grants
+            strict_mode: If True (default), raise exceptions when principals or securables
+                        don't exist. If False, return failed ExecutionResults instead.
             max_retries: Maximum retry attempts for transient failures
             continue_on_error: Continue execution despite errors
         """
         super().__init__(client, dry_run, max_retries, continue_on_error)
         self.force = force  # Store force separately since parent doesn't have it
         self.validate_principals = validate_principals
+        self.strict_mode = strict_mode
         self._principal_cache: Dict[str, bool] = {}  # Cache for principal validation
 
     def get_resource_type(self) -> str:
@@ -149,6 +170,8 @@ class GrantExecutor(BaseExecutor[Privilege]):
             # Validate principal exists if validation is enabled
             if self.validate_principals:
                 if not self._validate_principal_exists(privilege.principal):
+                    if self.strict_mode:
+                        raise PrincipalNotFoundError(privilege.principal)
                     return ExecutionResult(
                         success=False,
                         operation=OperationType.GRANT,
@@ -208,17 +231,31 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 duration_seconds=duration,
             )
 
+        except (PrincipalNotFoundError, SecurableNotFoundError):
+            # Always propagate these custom exceptions
+            raise
         except Exception as e:
             # Check if the resource doesn't exist
-            error_msg = str(e)
-            if "does not exist" in error_msg or "not found" in error_msg.lower():
+            error_msg = str(e).lower()
+            is_not_found = "does not exist" in error_msg or "not found" in error_msg or "could not find" in error_msg
+            if is_not_found:
+                full_name = self._get_full_name(privilege)
+                # Determine if it's a principal or securable not found
+                if "principal" in error_msg:
+                    if self.strict_mode:
+                        raise PrincipalNotFoundError(privilege.principal) from e
+                else:
+                    if self.strict_mode:
+                        raise SecurableNotFoundError(
+                            _get_enum_value(privilege.securable_type), full_name
+                        ) from e
                 duration = time.time() - start_time
                 return ExecutionResult(
                     success=False,
                     operation=OperationType.GRANT,
                     resource_type="PRIVILEGE",
                     resource_name=description,
-                    message=f"Resource not found: {error_msg}",
+                    message=f"Resource not found: {str(e)}",
                     duration_seconds=duration,
                 )
             return self._handle_error(OperationType.GRANT, description, e)
@@ -338,11 +375,29 @@ class GrantExecutor(BaseExecutor[Privilege]):
 
         Returns:
             ExecutionResult for the batch operation
+
+        Raises:
+            PrincipalNotFoundError: If strict_mode=True and a principal doesn't exist
+            SecurableNotFoundError: If strict_mode=True and the securable doesn't exist
         """
         securable_type, l1, l2, l3 = securable_key
         full_name = self._build_full_name(l1, l2, l3)
 
         try:
+            # Validate principals if enabled
+            if self.validate_principals:
+                for priv in privileges:
+                    if not self._validate_principal_exists(priv.principal):
+                        if self.strict_mode:
+                            raise PrincipalNotFoundError(priv.principal)
+                        return ExecutionResult(
+                            success=False,
+                            operation=OperationType.GRANT,
+                            resource_type="PRIVILEGE_BATCH",
+                            resource_name=full_name,
+                            message=f"Principal '{priv.principal}' does not exist in Databricks",
+                        )
+
             # Get current grants
             current_grants = self._get_current_grants(securable_type, full_name)
 
@@ -384,7 +439,18 @@ class GrantExecutor(BaseExecutor[Privilege]):
                 changes={"changes": len(changes)},
             )
 
+        except (PrincipalNotFoundError, SecurableNotFoundError):
+            # Always propagate these custom exceptions
+            raise
         except Exception as e:
+            error_msg = str(e).lower()
+            is_not_found = "does not exist" in error_msg or "not found" in error_msg or "could not find" in error_msg
+            if is_not_found and self.strict_mode:
+                if "principal" in error_msg:
+                    # Try to extract principal name from error
+                    raise PrincipalNotFoundError(f"unknown (from error: {str(e)})") from e
+                else:
+                    raise SecurableNotFoundError(_get_enum_value(securable_type), full_name) from e
             return ExecutionResult(
                 success=False,
                 operation=OperationType.GRANT,
@@ -404,6 +470,9 @@ class GrantExecutor(BaseExecutor[Privilege]):
 
         Returns:
             Dictionary mapping principal to set of privileges
+
+        Raises:
+            SecurableNotFoundError: If strict_mode=True and the securable doesn't exist
         """
         current = defaultdict(set)
 
@@ -416,6 +485,8 @@ class GrantExecutor(BaseExecutor[Privilege]):
                     current[principal].add(priv)
 
         except ResourceDoesNotExist:
+            if self.strict_mode:
+                raise SecurableNotFoundError(_get_enum_value(securable_type), full_name)
             # Securable doesn't exist yet - no current grants
             logger.debug(f"Securable {full_name} does not exist yet, returning empty grants")
         except (NotFound, PermissionDenied, BadRequest) as e:
@@ -553,11 +624,12 @@ class GrantExecutor(BaseExecutor[Privilege]):
             logger.debug(f"Group lookup failed for '{principal_name}': {e}")
 
         # Try as a service principal
+        # List all service principals and check against both display_name and application_id
         try:
-            sps = self.client.service_principals.list(filter=f"displayName eq '{principal_name}'")
-            if any(sp.display_name == principal_name or sp.application_id == principal_name for sp in sps):
-                self._principal_cache[principal_name] = True
-                return True
+            for sp in self.client.service_principals.list():
+                if sp.display_name == principal_name or sp.application_id == principal_name:
+                    self._principal_cache[principal_name] = True
+                    return True
         except (NotFound, ResourceDoesNotExist):
             pass
         except PermissionDenied:

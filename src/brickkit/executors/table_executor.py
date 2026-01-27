@@ -14,12 +14,73 @@ from databricks.sdk.service.catalog import TableInfo
 from brickkit.models import Table
 
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 
 
 class TableExecutor(BaseExecutor[Table]):
     """Executor for table operations."""
+
+    def _get_tag_executor(self) -> TagExecutor:
+        """Get or create the TagExecutor instance."""
+        if not hasattr(self, "_tag_executor"):
+            self._tag_executor = TagExecutor(self.client)
+        return self._tag_executor
+
+    def _apply_tags(self, resource: Table) -> None:
+        """Apply tags to a table using the entity_tag_assignments API."""
+        if not resource.tags:
+            return
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would apply {len(resource.tags)} tags to table {resource.fqdn}")
+            return
+
+        tag_executor = self._get_tag_executor()
+        tag_executor.apply_tags(
+            entity_name=resource.fqdn,
+            entity_type="table",
+            tags=resource.tags,
+            update_existing=True,
+        )
+
+    def _apply_column_tags(self, resource: Table) -> None:
+        """Apply tags to table columns using the entity_tag_assignments API.
+
+        Note: Only columns with a 'tags' attribute (e.g., Column class from governance)
+        will have their tags applied. ColumnInfo (SDK-aligned) doesn't support tags.
+        """
+        tag_executor = self._get_tag_executor()
+        for column in resource.columns:
+            # Check if this column type has tags (Column has tags, ColumnInfo doesn't)
+            column_tags = getattr(column, "tags", None)
+            if column_tags:
+                # Column entity name format: catalog.schema.table.column
+                column_entity_name = f"{resource.fqdn}.{column.name}"
+                if self.dry_run:
+                    logger.info(f"[DRY RUN] Would apply {len(column_tags)} tags to column {column_entity_name}")
+                    continue
+
+                tag_executor.apply_tags(
+                    entity_name=column_entity_name,
+                    entity_type="column",
+                    tags=column_tags,
+                    update_existing=True,
+                )
+
+    def _sync_tags(self, resource: Table) -> Dict[str, Any]:
+        """Sync tags on a table to match the desired state."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would sync tags on table {resource.fqdn}")
+            return {}
+
+        tag_executor = self._get_tag_executor()
+        return tag_executor.sync_tags(
+            entity_name=resource.fqdn,
+            entity_type="table",
+            desired_tags=resource.tags,
+        )
 
     def get_resource_type(self) -> str:
         """Get the resource type."""
@@ -193,6 +254,10 @@ class TableExecutor(BaseExecutor[Table]):
 
             self._rollback_stack.append(lambda: self.client.tables.delete(resource_name))
 
+            # Apply tags via entity_tag_assignments API
+            self._apply_tags(resource)
+            self._apply_column_tags(resource)
+
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
@@ -215,7 +280,25 @@ class TableExecutor(BaseExecutor[Table]):
             existing = self.client.tables.get(resource_name)
             changes = self._get_table_changes(existing, resource)
 
-            if not changes:
+            # Check if tags need syncing
+            tags_need_sync = False
+            if resource.tags:
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "table")
+                current_tag_dict = {t.key: t.value for t in current_tags}
+                desired_tag_dict = {t.key: t.value for t in resource.tags}
+                if current_tag_dict != desired_tag_dict:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": current_tag_dict, "to": desired_tag_dict}
+            elif not resource.tags:
+                # Check if there are existing tags that need to be removed
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "table")
+                if current_tags:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": {t.key: t.value for t in current_tags}, "to": {}}
+
+            if not changes and not tags_need_sync:
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
@@ -235,9 +318,18 @@ class TableExecutor(BaseExecutor[Table]):
                     changes=changes,
                 )
 
-            params = resource.to_sdk_update_params()
-            logger.info(f"Updating table {resource_name}: {changes}")
-            self.execute_with_retry(self.client.tables.update, **params)
+            # Only update table properties if there are non-tag changes
+            if any(k != "tags" for k in changes.keys()):
+                params = resource.to_sdk_update_params()
+                logger.info(f"Updating table {resource_name}: {changes}")
+                self.execute_with_retry(self.client.tables.update, **params)
+
+            # Sync tags via entity_tag_assignments API
+            if tags_need_sync:
+                self._sync_tags(resource)
+
+            # Also sync column tags
+            self._apply_column_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(

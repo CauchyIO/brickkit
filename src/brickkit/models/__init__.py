@@ -29,6 +29,12 @@ Module organization:
 # Import typing for model_rebuild() forward reference resolution
 from typing import Any, Dict, List, Optional  # noqa: F401
 
+# Import ACL models
+from .acls import (
+    AclBinding,
+    AclEntry,
+)
+
 # Import base classes and utilities
 from .base import (
     DEFAULT_SECURABLE_OWNER,
@@ -115,6 +121,13 @@ from .ml_models import (
     ServiceCredential,
 )
 
+# Import principal management models
+from .principals import (
+    ManagedGroup,
+    ManagedServicePrincipal,
+    MemberReference,
+)
+
 # Import lightweight reference models
 from .references import (
     FunctionReference,
@@ -185,19 +198,6 @@ from .workspace_bindings import (
     WorkspaceBinding,
     WorkspaceBindingPattern,
     WorkspaceRegistry,
-)
-
-# Import principal management models
-from .principals import (
-    ManagedGroup,
-    ManagedServicePrincipal,
-    MemberReference,
-)
-
-# Import ACL models
-from .acls import (
-    AclBinding,
-    AclEntry,
 )
 
 # Re-export everything

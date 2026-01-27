@@ -45,6 +45,10 @@ class Principal(BaseGovernanceModel):
     - 'admins': Workspace admins
     - 'account users': All account users
     These special principals never receive environment suffixes.
+
+    Service Principal Note:
+    When granting permissions to service principals, Databricks requires the `application_id` (UUID),
+    not the display name. Set `application_id` for service principals to ensure grants work correctly.
     """
 
     # Define special built-in principals that should never get suffixes
@@ -57,6 +61,10 @@ class Principal(BaseGovernanceModel):
     name: str = Field(..., description="Base name as defined by the team")
     principal_type: Optional[PrincipalType] = Field(
         None, description="Type of principal (USER, GROUP, SERVICE_PRINCIPAL). Used for ownership validation."
+    )
+    application_id: Optional[str] = Field(
+        None,
+        description="Application/Client ID (UUID) for service principals. Required for grants to SPNs.",
     )
     add_environment_suffix: bool = Field(True, description="Whether to auto-add environment suffix")
     environment_mapping: Dict[Environment, str] = Field(
@@ -89,10 +97,18 @@ class Principal(BaseGovernanceModel):
     def resolved_name(self) -> str:
         """
         Environment-specific name resolution with priority order:
-        1. Custom mapping (highest priority)
-        2. No suffix if add_environment_suffix=False
-        3. Auto suffix (default): Append _{env} to base name
+        1. For service principals with application_id: return application_id (required for grants)
+        2. Custom mapping (highest priority for display name)
+        3. No suffix if add_environment_suffix=False
+        4. Auto suffix (default): Append _{env} to base name
+
+        Note: Service principals require application_id (UUID) for grants API.
+        The display name is used for ownership and human-readable contexts.
         """
+        # For service principals with application_id, always use it for grants
+        if self.principal_type == PrincipalType.SERVICE_PRINCIPAL and self.application_id:
+            return self.application_id
+
         # Use explicit override if set, otherwise current environment
         env = self.environment or get_current_environment()
 
@@ -112,6 +128,51 @@ class Principal(BaseGovernanceModel):
     def environment_name(self) -> str:
         """Alias for resolved_name for backward compatibility."""
         return self.resolved_name
+
+    @computed_field
+    @property
+    def display_name(self) -> str:
+        """
+        Human-readable display name (without application_id substitution).
+
+        Use this for ownership assignments and human-readable contexts.
+        For grants, use resolved_name which returns application_id for SPNs.
+        """
+        # Use explicit override if set, otherwise current environment
+        env = self.environment or get_current_environment()
+
+        # Priority 1: Custom mapping
+        if env in self.environment_mapping:
+            return self.environment_mapping[env]
+
+        # Priority 2: No suffix
+        if not self.add_environment_suffix:
+            return self.name
+
+        # Priority 3: Auto suffix
+        return f"{self.name}_{env.value.lower()}"
+
+    def with_application_id(self, application_id: str) -> "Principal":
+        """
+        Return a new Principal with the application_id set.
+
+        Use this after creating a service principal to get a Principal
+        that can be used for grants.
+
+        Args:
+            application_id: The application/client ID (UUID) from SPN creation
+
+        Returns:
+            New Principal instance with application_id set
+        """
+        return Principal(
+            name=self.name,
+            principal_type=self.principal_type,
+            application_id=application_id,
+            add_environment_suffix=self.add_environment_suffix,
+            environment_mapping=self.environment_mapping,
+            environment=self.environment,
+        )
 
     def exists_in_databricks(self, workspace_client: Any) -> bool:
         """
@@ -162,13 +223,31 @@ class Principal(BaseGovernanceModel):
     def service_principal(
         cls,
         name: str,
+        application_id: Optional[str] = None,
         add_environment_suffix: bool = True,
         environment_mapping: Optional[Dict[Environment, str]] = None,
     ) -> "Principal":
-        """Create a service principal."""
+        """
+        Create a service principal.
+
+        Args:
+            name: Base name of the service principal
+            application_id: The application/client ID (UUID) - required for grants
+            add_environment_suffix: Whether to add environment suffix to display name
+            environment_mapping: Custom per-environment display names
+
+        Returns:
+            Principal configured as a service principal
+
+        Note:
+            For grants to work correctly, you must provide the application_id.
+            You can create the Principal first, then use with_application_id()
+            after the SPN is created to add the application_id.
+        """
         return cls(
             name=name,
             principal_type=PrincipalType.SERVICE_PRINCIPAL,
+            application_id=application_id,
             add_environment_suffix=add_environment_suffix,
             environment_mapping=environment_mapping or {},
         )

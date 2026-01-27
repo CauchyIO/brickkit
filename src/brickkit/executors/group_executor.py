@@ -8,7 +8,7 @@ and entitlements, with support for external (Entra-synced) groups.
 import logging
 from typing import Optional, Set
 
-from databricks.sdk.errors import NotFound, ResourceDoesNotExist
+from databricks.sdk.errors import AlreadyExists, NotFound, ResourceConflict, ResourceDoesNotExist
 from databricks.sdk.service.iam import (
     Group as SdkGroup,
 )
@@ -111,6 +111,19 @@ class GroupExecutor(BaseExecutor[ManagedGroup]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created group {resource_name}",
+                duration_seconds=self._elapsed(start_time),
+            )
+        except (ResourceConflict, AlreadyExists):
+            # Group was created between our check and create - idempotent success
+            existing = self._get_by_name(resource_name)
+            if existing:
+                resource._sdk_id = existing.id
+            return ExecutionResult(
+                success=True,
+                operation=OperationType.SKIPPED,
+                resource_type=self.get_resource_type(),
+                resource_name=resource_name,
+                message=f"Group {resource_name} already exists",
                 duration_seconds=self._elapsed(start_time),
             )
         except Exception as e:
