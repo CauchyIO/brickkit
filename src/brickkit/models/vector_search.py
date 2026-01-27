@@ -193,7 +193,7 @@ class VectorSearchIndex(BaseSecurable):
     @computed_field
     @property
     def resolved_name(self) -> str:
-        """Full index name with environment suffix."""
+        """Index name with environment suffix."""
         env = get_current_environment()
         return f"{self.name}_{env.value.lower()}"
 
@@ -203,6 +203,16 @@ class VectorSearchIndex(BaseSecurable):
         """Endpoint name with environment suffix."""
         env = get_current_environment()
         return f"{self.endpoint_name}_{env.value.lower()}"
+
+    @computed_field
+    @property
+    def fqdn(self) -> str:
+        """Fully qualified index name (catalog.schema.index_name)."""
+        # Derive catalog.schema from source_table
+        parts = self.source_table.split(".")
+        catalog = parts[0]
+        schema = parts[1]
+        return f"{catalog}.{schema}.{self.resolved_name}"
 
     @property
     def securable_type(self) -> SecurableType:
@@ -248,7 +258,7 @@ class VectorSearchIndex(BaseSecurable):
         sdk_pipeline_type = pipeline_type_map.get(self.pipeline_type, SdkPipelineType.TRIGGERED)
 
         params = {
-            "name": self.resolved_name,
+            "name": self.fqdn,  # API requires fully qualified name
             "endpoint_name": self.resolved_endpoint_name,
             "index_type": sdk_index_type,
             "primary_key": self.primary_key,
@@ -257,13 +267,18 @@ class VectorSearchIndex(BaseSecurable):
         # Check for DELTA_SYNC
         is_delta_sync = sdk_index_type == SdkVectorIndexType.DELTA_SYNC
         if is_delta_sync:
-            delta_spec = {
-                "source_table": self.source_table,
-                "embedding_source_column": self.embedding_column,
-                "pipeline_type": sdk_pipeline_type,
+            # Build embedding source column spec
+            embedding_col = {
+                "name": self.embedding_column,
             }
             if self.embedding_model:
-                delta_spec["embedding_model_endpoint_name"] = self.embedding_model
+                embedding_col["embedding_model_endpoint_name"] = self.embedding_model
+
+            delta_spec = {
+                "source_table": self.source_table,
+                "embedding_source_columns": [embedding_col],
+                "pipeline_type": self.pipeline_type,  # API wants string, not enum
+            }
             if self.sync_columns:
                 delta_spec["columns_to_sync"] = self.sync_columns
             params["delta_sync_index_spec"] = delta_spec

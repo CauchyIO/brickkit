@@ -28,10 +28,11 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
-    "databricks-sdk>=0.20.0",
+    "databricks-sdk[notebook]>=0.20.0",
     "claudetracing>=0.2.0",
     "databricks-connect==17.3.*",
     "databricks-vectorsearch>=0.40",
+    "ipykernel>=7.1.0",
 ]
 
 [project.optional-dependencies]
@@ -83,5 +84,5 @@ addopts = ["-v", "--strict-markers", "-ra"]
 markers = [
     "unit: Unit tests (no Databricks connection)",
     "integration: Integration tests (real Databricks)",
-    "slow: Long-running tests",
+    "slow: Long-running tests (VS provisioning, etc.) - skipped by default with '-m \"not slow\"'",
 ]

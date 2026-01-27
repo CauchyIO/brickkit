@@ -40,8 +40,10 @@ from databricks.sdk.errors import (
     BadRequest,
     NotFound,
     PermissionDenied,
+    ResourceAlreadyExists,
     ResourceDoesNotExist,
 )
+from databricks.sdk.service.vectorsearch import DeltaSyncVectorIndexSpecRequest
 
 from brickkit.models.base import Tag
 from brickkit.models.vector_search import VectorSearchEndpoint, VectorSearchIndex
@@ -437,8 +439,8 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
         return "VECTOR_SEARCH_INDEX"
 
     def _get_full_index_name(self, resource: VectorSearchIndex) -> str:
-        """Get the full index name including endpoint."""
-        return f"{resource.resolved_endpoint_name}/{resource.resolved_name}"
+        """Get the fully qualified index name (catalog.schema.index)."""
+        return resource.fqdn
 
     def exists(self, resource: VectorSearchIndex) -> bool:
         """Check if index exists."""
@@ -487,12 +489,14 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
 
             # Use delta sync or direct access based on index type
             if "delta_sync_index_spec" in params:
+                # Convert dict to SDK object
+                delta_spec = DeltaSyncVectorIndexSpecRequest.from_dict(params["delta_sync_index_spec"])
                 self.client.vector_search_indexes.create_index(
                     name=params["name"],
                     endpoint_name=params["endpoint_name"],
                     primary_key=params["primary_key"],
                     index_type=params["index_type"],
-                    delta_sync_index_spec=params["delta_sync_index_spec"],
+                    delta_sync_index_spec=delta_spec,
                 )
             else:
                 self.client.vector_search_indexes.create_index(**params)
@@ -507,6 +511,14 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                 duration_seconds=duration,
             )
 
+        except ResourceAlreadyExists:
+            return ExecutionResult(
+                success=True,
+                operation=OperationType.NO_OP,
+                resource_type=self.get_resource_type(),
+                resource_name=resource_name,
+                message="Already exists",
+            )
         except PermissionDenied as e:
             logger.error(f"Permission denied creating index: {e}")
             raise

@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from brickkit.models import Catalog, Schema
 from brickkit.models.enums import Environment, IsolationMode
-from tests.fixtures import make_catalog, make_schema, make_tag
+from tests.fixtures import make_catalog, make_schema
 
 
 class TestCatalogNaming:
