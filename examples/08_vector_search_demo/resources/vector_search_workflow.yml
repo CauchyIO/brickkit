@@ -16,7 +16,7 @@ resources:
         - task_key: deploy_vector_search
           description: Deploy governed Vector Search resources with BrickKit
           notebook_task:
-            notebook_path: ../vector_search_demo.ipynb
+            notebook_path: ../vector_search_demo.py
             base_parameters:
               catalog: ${var.catalog}
               schema: ${var.schema}
