@@ -144,7 +144,7 @@ class TableDataSource(BaseGenieModel):
 
     identifier: str = Field(
         ...,
-        pattern=r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$",
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
         description="Full Unity Catalog path (catalog.schema.table)",
     )
     column_configs: List[ColumnConfig] = Field(default_factory=list, description="Column-specific configurations")
@@ -279,7 +279,7 @@ class SqlFunction(BaseGenieModel):
     id: Optional[str] = Field(default=None, description="Unique function reference identifier")
     identifier: str = Field(
         ...,
-        pattern=r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$",
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
         description="Full Unity Catalog path to the function",
     )
 
@@ -339,7 +339,7 @@ class JoinTableRef(BaseGenieModel):
 
     identifier: str = Field(
         ...,
-        pattern=r"^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$",
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
         description="Full Unity Catalog path (catalog.schema.table)",
     )
     alias: Optional[str] = Field(default=None, description="Alias for use in join SQL")
