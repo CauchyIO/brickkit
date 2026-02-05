@@ -111,6 +111,7 @@ class ColumnConfig(BaseGenieModel):
     """
 
     column_name: str = Field(..., description="Name of the column in the source table")
+    description: Optional[str] = Field(None, description="Human-readable description of the column")
     get_example_values: Optional[bool] = Field(None, description="Whether to fetch example values for AI context")
     build_value_dictionary: Optional[bool] = Field(
         None, description="Whether to build a value dictionary for filtering"
@@ -119,6 +120,8 @@ class ColumnConfig(BaseGenieModel):
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         result = {"column_name": self.column_name}
+        if self.description is not None:
+            result["description"] = [self.description]
         if self.get_example_values is not None:
             result["get_example_values"] = self.get_example_values
         if self.build_value_dictionary is not None:
