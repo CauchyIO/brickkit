@@ -62,7 +62,8 @@ class CatalogImporter(ResourceImporter[Catalog]):
             # Try to list catalogs - will fail if UC not enabled
             list(self.client.catalogs.list())
             return True
-        except Exception:
+        except (PermissionDenied, NotFound) as e:
+            logger.debug(f"Unity Catalog not available: {e}")
             return False
 
     def pull_all(self) -> ImportResult:

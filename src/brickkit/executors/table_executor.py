@@ -14,12 +14,73 @@ from databricks.sdk.service.catalog import TableInfo
 from brickkit.models import Table
 
 from .base import BaseExecutor, ExecutionResult, OperationType
+from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 
 
 class TableExecutor(BaseExecutor[Table]):
     """Executor for table operations."""
+
+    def _get_tag_executor(self) -> TagExecutor:
+        """Get or create the TagExecutor instance."""
+        if not hasattr(self, "_tag_executor"):
+            self._tag_executor = TagExecutor(self.client)
+        return self._tag_executor
+
+    def _apply_tags(self, resource: Table) -> None:
+        """Apply tags to a table using the entity_tag_assignments API."""
+        if not resource.tags:
+            return
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would apply {len(resource.tags)} tags to table {resource.fqdn}")
+            return
+
+        tag_executor = self._get_tag_executor()
+        tag_executor.apply_tags(
+            entity_name=resource.fqdn,
+            entity_type="table",
+            tags=resource.tags,
+            update_existing=True,
+        )
+
+    def _apply_column_tags(self, resource: Table) -> None:
+        """Apply tags to table columns using the entity_tag_assignments API.
+
+        Note: Only columns with a 'tags' attribute (e.g., Column class from governance)
+        will have their tags applied. ColumnInfo (SDK-aligned) doesn't support tags.
+        """
+        tag_executor = self._get_tag_executor()
+        for column in resource.columns:
+            # Check if this column type has tags (Column has tags, ColumnInfo doesn't)
+            column_tags = getattr(column, "tags", None)
+            if column_tags:
+                # Column entity name format: catalog.schema.table.column
+                column_entity_name = f"{resource.fqdn}.{column.name}"
+                if self.dry_run:
+                    logger.info(f"[DRY RUN] Would apply {len(column_tags)} tags to column {column_entity_name}")
+                    continue
+
+                tag_executor.apply_tags(
+                    entity_name=column_entity_name,
+                    entity_type="column",
+                    tags=column_tags,
+                    update_existing=True,
+                )
+
+    def _sync_tags(self, resource: Table) -> Dict[str, Any]:
+        """Sync tags on a table to match the desired state."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would sync tags on table {resource.fqdn}")
+            return {}
+
+        tag_executor = self._get_tag_executor()
+        return tag_executor.sync_tags(
+            entity_name=resource.fqdn,
+            entity_type="table",
+            desired_tags=resource.tags,
+        )
 
     def get_resource_type(self) -> str:
         """Get the resource type."""
@@ -49,7 +110,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             # Try SDK API first
@@ -64,17 +125,22 @@ class TableExecutor(BaseExecutor[Table]):
                     self.execute_with_retry(
                         self.client.tables.update,
                         full_name=f"{resource.resolved_catalog_name}.{resource.schema_name}.{resource.name}",
-                        comment=resource.comment
+                        comment=resource.comment,
                     )
 
                 created_via = "SDK API"
             except Exception as sdk_error:
                 # Check if it's a permission error or path overlap error
                 error_msg = str(sdk_error)
-                if "PERMISSION_DENIED" in error_msg or "EXTERNAL USE SCHEMA" in error_msg or "overlaps with other external tables" in error_msg:
+                if (
+                    "PERMISSION_DENIED" in error_msg
+                    or "EXTERNAL USE SCHEMA" in error_msg
+                    or "overlaps with other external tables" in error_msg
+                ):
                     # For overlap errors, extract the conflicting table and provide guidance
                     if "overlaps with other external tables" in error_msg:
                         import re
+
                         # Extract conflicting table name from error
                         conflict_match = re.search(r"Conflicting tables/volumes: ([^.]+\.[^.]+\.[^.]+)", error_msg)
                         if conflict_match:
@@ -82,12 +148,20 @@ class TableExecutor(BaseExecutor[Table]):
                             logger.error("Storage location conflict detected!")
                             logger.error(f"  Attempting to create: {resource_name}")
                             logger.error(f"  Conflicts with: {conflicting_table}")
-                            logger.error("  Resolution: Either drop the conflicting table or use a different storage location")
+                            logger.error(
+                                "  Resolution: Either drop the conflicting table or use a different storage location"
+                            )
 
                             # If it's the same table in a differently named catalog (e.g., mixed or double suffix), skip
-                            if ("_dev_dev" in conflicting_table or "_prd_prd" in conflicting_table or
-                                "_prd_dev" in conflicting_table or "_dev_prd" in conflicting_table):
-                                logger.warning("Detected mixed/double environment suffix in conflicting table, likely from previous test run")
+                            if (
+                                "_dev_dev" in conflicting_table
+                                or "_prd_prd" in conflicting_table
+                                or "_prd_dev" in conflicting_table
+                                or "_dev_prd" in conflicting_table
+                            ):
+                                logger.warning(
+                                    "Detected mixed/double environment suffix in conflicting table, likely from previous test run"
+                                )
                                 logger.info("Skipping table creation due to unresolvable conflict")
                                 duration = time.time() - start_time
                                 return ExecutionResult(
@@ -96,7 +170,7 @@ class TableExecutor(BaseExecutor[Table]):
                                     resource_type=self.get_resource_type(),
                                     resource_name=resource_name,
                                     message=f"Skipped due to conflict with {conflicting_table}",
-                                    duration_seconds=duration
+                                    duration_seconds=duration,
                                 )
 
                         # Check if the table exists at the expected location
@@ -109,7 +183,7 @@ class TableExecutor(BaseExecutor[Table]):
                                 resource_type=self.get_resource_type(),
                                 resource_name=resource_name,
                                 message="Table already exists (overlap detected)",
-                                duration_seconds=duration
+                                duration_seconds=duration,
                             )
 
                     logger.info(f"SDK API failed with error ({error_msg[:100]}...), falling back to SQL DDL")
@@ -134,26 +208,29 @@ class TableExecutor(BaseExecutor[Table]):
                     response = self.client.statement_execution.execute_statement(
                         warehouse_id=warehouse_id,
                         statement=ddl,
-                        catalog=resource.resolved_catalog_name if hasattr(resource, 'resolved_catalog_name') else None,
-                        schema=resource.schema_name
+                        catalog=resource.resolved_catalog_name if hasattr(resource, "resolved_catalog_name") else None,
+                        schema=resource.schema_name,
                     )
 
                     # Wait for statement to complete
                     import time as time_module
+
                     max_wait = 60  # seconds
                     wait_time = 0
                     while wait_time < max_wait:
-                        status = self.client.statement_execution.get_statement(
-                            statement_id=response.statement_id
-                        )
-                        if status.status.state in [StatementState.SUCCEEDED, StatementState.FAILED, StatementState.CLOSED]:
+                        status = self.client.statement_execution.get_statement(statement_id=response.statement_id)
+                        if status.status.state in [
+                            StatementState.SUCCEEDED,
+                            StatementState.FAILED,
+                            StatementState.CLOSED,
+                        ]:
                             break
                         time_module.sleep(1)
                         wait_time += 1
 
                     if status.status.state != StatementState.SUCCEEDED:
                         error_msg = f"SQL DDL execution failed: {status.status.state}"
-                        if hasattr(status.status, 'error') and status.status.error:
+                        if hasattr(status.status, "error") and status.status.error:
                             error_msg += f" - {status.status.error.message}"
                         logger.error(f"SQL DDL:\n{ddl}")
                         raise Exception(error_msg)
@@ -175,9 +252,11 @@ class TableExecutor(BaseExecutor[Table]):
                     logger.info(f"Applying column mask to {resource_name}.{column}")
                     # Note: Column masks are set via ALTER TABLE in SQL
 
-            self._rollback_stack.append(
-                lambda: self.client.tables.delete(resource_name)
-            )
+            self._rollback_stack.append(lambda: self.client.tables.delete(resource_name))
+
+            # Apply tags via entity_tag_assignments API
+            self._apply_tags(resource)
+            self._apply_column_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -186,7 +265,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created successfully via {created_via}",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -201,13 +280,31 @@ class TableExecutor(BaseExecutor[Table]):
             existing = self.client.tables.get(resource_name)
             changes = self._get_table_changes(existing, resource)
 
-            if not changes:
+            # Check if tags need syncing
+            tags_need_sync = False
+            if resource.tags:
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "table")
+                current_tag_dict = {t.key: t.value for t in current_tags}
+                desired_tag_dict = {t.key: t.value for t in resource.tags}
+                if current_tag_dict != desired_tag_dict:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": current_tag_dict, "to": desired_tag_dict}
+            elif not resource.tags:
+                # Check if there are existing tags that need to be removed
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "table")
+                if current_tags:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": {t.key: t.value for t in current_tags}, "to": {}}
+
+            if not changes and not tags_need_sync:
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -218,12 +315,21 @@ class TableExecutor(BaseExecutor[Table]):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
-            params = resource.to_sdk_update_params()
-            logger.info(f"Updating table {resource_name}: {changes}")
-            self.execute_with_retry(self.client.tables.update, **params)
+            # Only update table properties if there are non-tag changes
+            if any(k != "tags" for k in changes.keys()):
+                params = resource.to_sdk_update_params()
+                logger.info(f"Updating table {resource_name}: {changes}")
+                self.execute_with_retry(self.client.tables.update, **params)
+
+            # Sync tags via entity_tag_assignments API
+            if tags_need_sync:
+                self._sync_tags(resource)
+
+            # Also sync column tags
+            self._apply_column_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -233,7 +339,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -251,7 +357,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -261,7 +367,7 @@ class TableExecutor(BaseExecutor[Table]):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting table {resource_name}")
@@ -274,7 +380,7 @@ class TableExecutor(BaseExecutor[Table]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -292,9 +398,10 @@ class TableExecutor(BaseExecutor[Table]):
         # 2. It's not the default owner
         # 3. It's different from the existing owner
         from brickkit.models.base import DEFAULT_SECURABLE_OWNER
+
         if desired.owner and desired.owner.name != DEFAULT_SECURABLE_OWNER:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         return changes

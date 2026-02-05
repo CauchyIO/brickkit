@@ -7,6 +7,7 @@ can access which data. Common patterns:
 - ISOLATED: Each environment can only access its own data
 - PRODUCTION_ISOLATED: PRD isolated, DEV/ACC can share
 """
+
 import sys
 from pathlib import Path
 
@@ -66,7 +67,7 @@ custom_pattern = WorkspaceBindingPattern(
         Environment.DEV: {"dev": BindingType.BINDING_TYPE_READ_WRITE},
         Environment.ACC: {"acc": BindingType.BINDING_TYPE_READ_WRITE},
         Environment.PRD: {"prd": BindingType.BINDING_TYPE_READ_WRITE},
-    }
+    },
 )
 print(f"Pattern name: {custom_pattern.name}")
 print("Each environment completely isolated (same as ISOLATED pattern)")

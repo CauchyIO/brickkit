@@ -73,6 +73,7 @@ from .enums import SecurableType
 # BASE CONFIGURATION
 # =============================================================================
 
+
 # BaseGenieModel is now an alias for BaseGovernanceModel for backward compatibility
 # All Genie-specific models inherit from this
 class BaseGenieModel(BaseGovernanceModel):
@@ -96,6 +97,7 @@ class BaseGenieModel(BaseGovernanceModel):
 # COLUMN CONFIGURATION
 # =============================================================================
 
+
 class ColumnConfig(BaseGenieModel):
     """
     Configuration for a single column in a Genie Space table.
@@ -107,22 +109,19 @@ class ColumnConfig(BaseGenieModel):
         get_example_values: Whether to fetch example values for AI context
         build_value_dictionary: Whether to build a value dictionary for filtering
     """
-    column_name: str = Field(
-        ...,
-        description="Name of the column in the source table"
-    )
-    get_example_values: Optional[bool] = Field(
-        None,
-        description="Whether to fetch example values for AI context"
-    )
+
+    column_name: str = Field(..., description="Name of the column in the source table")
+    description: Optional[str] = Field(None, description="Human-readable description of the column")
+    get_example_values: Optional[bool] = Field(None, description="Whether to fetch example values for AI context")
     build_value_dictionary: Optional[bool] = Field(
-        None,
-        description="Whether to build a value dictionary for filtering"
+        None, description="Whether to build a value dictionary for filtering"
     )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary, excluding None values."""
         result = {"column_name": self.column_name}
+        if self.description is not None:
+            result["description"] = [self.description]
         if self.get_example_values is not None:
             result["get_example_values"] = self.get_example_values
         if self.build_value_dictionary is not None:
@@ -134,6 +133,7 @@ class ColumnConfig(BaseGenieModel):
 # TABLE DATA SOURCE
 # =============================================================================
 
+
 class TableDataSource(BaseGenieModel):
     """
     Configuration for a table data source in a Genie Space.
@@ -144,15 +144,13 @@ class TableDataSource(BaseGenieModel):
         identifier: Full Unity Catalog path (catalog.schema.table)
         column_configs: List of column configurations
     """
+
     identifier: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$',
-        description="Full Unity Catalog path (catalog.schema.table)"
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
+        description="Full Unity Catalog path (catalog.schema.table)",
     )
-    column_configs: List[ColumnConfig] = Field(
-        default_factory=list,
-        description="Column-specific configurations"
-    )
+    column_configs: List[ColumnConfig] = Field(default_factory=list, description="Column-specific configurations")
 
     @computed_field
     @property
@@ -184,6 +182,7 @@ class TableDataSource(BaseGenieModel):
 # DATA SOURCES
 # =============================================================================
 
+
 class DataSources(BaseGenieModel):
     """
     Container for all data sources in a Genie Space.
@@ -191,10 +190,8 @@ class DataSources(BaseGenieModel):
     Attributes:
         tables: List of table data sources
     """
-    tables: List[TableDataSource] = Field(
-        default_factory=list,
-        description="Table data sources for the Genie Space"
-    )
+
+    tables: List[TableDataSource] = Field(default_factory=list, description="Table data sources for the Genie Space")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization.
@@ -202,14 +199,13 @@ class DataSources(BaseGenieModel):
         Note: Tables are sorted by identifier as required by the Genie API.
         """
         sorted_tables = sorted(self.tables, key=lambda t: t.identifier)
-        return {
-            "tables": [t.to_dict() for t in sorted_tables]
-        }
+        return {"tables": [t.to_dict() for t in sorted_tables]}
 
 
 # =============================================================================
 # TEXT INSTRUCTION
 # =============================================================================
+
 
 class TextInstruction(BaseGenieModel):
     """
@@ -225,29 +221,25 @@ class TextInstruction(BaseGenieModel):
         id: Internal identifier (NOT serialized - API generates its own)
         content: Instruction text (can be a string or list of strings)
     """
-    id: Optional[str] = Field(
-        default=None,
-        description="Unique instruction identifier"
-    )
-    content: Union[str, List[str]] = Field(
-        ...,
-        description="Instruction text or list of text segments"
-    )
 
-    @model_validator(mode='before')
+    id: Optional[str] = Field(default=None, description="Unique instruction identifier")
+    content: Union[str, List[str]] = Field(..., description="Instruction text or list of text segments")
+
+    @model_validator(mode="before")
     @classmethod
     def generate_id_if_missing(cls, data: Any) -> Any:
         """Generate a deterministic ID if not provided.
 
         Uses a hash of the content to ensure consistent ordering.
         """
-        if isinstance(data, dict) and not data.get('id'):
+        if isinstance(data, dict) and not data.get("id"):
             import hashlib
-            content = data.get('content', '')
+
+            content = data.get("content", "")
             if isinstance(content, list):
-                content = ''.join(content)
+                content = "".join(content)
             # Use first 32 chars of content hash for deterministic ID
-            data['id'] = hashlib.md5(content[:100].encode()).hexdigest()
+            data["id"] = hashlib.md5(content[:100].encode()).hexdigest()
         return data
 
     @property
@@ -260,14 +252,13 @@ class TextInstruction(BaseGenieModel):
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         # Note: Do NOT include 'id' field - Genie API generates it
-        return {
-            "content": self.content if isinstance(self.content, list) else [self.content]
-        }
+        return {"content": self.content if isinstance(self.content, list) else [self.content]}
 
 
 # =============================================================================
 # SQL FUNCTION REFERENCE
 # =============================================================================
+
 
 class SqlFunction(BaseGenieModel):
     """
@@ -287,17 +278,15 @@ class SqlFunction(BaseGenieModel):
         id: Unique function reference identifier (auto-generated using MD5 of identifier)
         identifier: Full Unity Catalog path to the function (catalog.schema.function)
     """
-    id: Optional[str] = Field(
-        default=None,
-        description="Unique function reference identifier"
-    )
+
+    id: Optional[str] = Field(default=None, description="Unique function reference identifier")
     identifier: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$',
-        description="Full Unity Catalog path to the function"
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
+        description="Full Unity Catalog path to the function",
     )
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     @classmethod
     def generate_id_if_missing(cls, data: Any) -> Any:
         """Generate a deterministic UUID-format ID based on identifier.
@@ -305,11 +294,12 @@ class SqlFunction(BaseGenieModel):
         The Genie API requires sql_functions to be sorted by (id, identifier).
         We use MD5 hash of identifier to generate a deterministic 32-char hex ID.
         """
-        if isinstance(data, dict) and not data.get('id'):
+        if isinstance(data, dict) and not data.get("id"):
             import hashlib
-            identifier = data.get('identifier', '')
+
+            identifier = data.get("identifier", "")
             # MD5 hash produces 32 hex chars, same format as Databricks UUIDs
-            data['id'] = hashlib.md5(identifier.encode()).hexdigest()
+            data["id"] = hashlib.md5(identifier.encode()).hexdigest()
         return data
 
     @computed_field
@@ -333,15 +323,13 @@ class SqlFunction(BaseGenieModel):
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         # Include id field - API requires it for sorting when multiple functions
-        return {
-            "id": self.id,
-            "identifier": self.identifier
-        }
+        return {"id": self.id, "identifier": self.identifier}
 
 
 # =============================================================================
 # JOIN SPECIFICATIONS
 # =============================================================================
+
 
 class JoinTableRef(BaseGenieModel):
     """
@@ -351,15 +339,13 @@ class JoinTableRef(BaseGenieModel):
         identifier: Full Unity Catalog path (catalog.schema.table)
         alias: Optional alias for use in join SQL
     """
+
     identifier: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$',
-        description="Full Unity Catalog path (catalog.schema.table)"
+        pattern=r"^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$",
+        description="Full Unity Catalog path (catalog.schema.table)",
     )
-    alias: Optional[str] = Field(
-        default=None,
-        description="Alias for use in join SQL"
-    )
+    alias: Optional[str] = Field(default=None, description="Alias for use in join SQL")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -371,6 +357,7 @@ class JoinTableRef(BaseGenieModel):
 
 class RelationshipType:
     """Relationship types for join specifications."""
+
     MANY_TO_MANY = "MANY_TO_MANY"
     MANY_TO_ONE = "MANY_TO_ONE"
     ONE_TO_MANY = "ONE_TO_MANY"
@@ -391,38 +378,25 @@ class JoinSpec(BaseGenieModel):
         right_column: Column name on the right table
         relationship_type: Type of relationship (MANY_TO_MANY, MANY_TO_ONE, etc.)
     """
-    id: Optional[str] = Field(
-        default=None,
-        description="Unique join identifier"
-    )
-    left: JoinTableRef = Field(
-        ...,
-        description="Left table in the join"
-    )
-    right: JoinTableRef = Field(
-        ...,
-        description="Right table in the join"
-    )
-    left_column: str = Field(
-        ...,
-        description="Column name on the left table"
-    )
-    right_column: str = Field(
-        ...,
-        description="Column name on the right table"
-    )
+
+    id: Optional[str] = Field(default=None, description="Unique join identifier")
+    left: JoinTableRef = Field(..., description="Left table in the join")
+    right: JoinTableRef = Field(..., description="Right table in the join")
+    left_column: str = Field(..., description="Column name on the left table")
+    right_column: str = Field(..., description="Column name on the right table")
     relationship_type: str = Field(
         default=RelationshipType.MANY_TO_ONE,
-        description="Type of relationship (MANY_TO_MANY, MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE)"
+        description="Type of relationship (MANY_TO_MANY, MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE)",
     )
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def generate_id_if_missing(self) -> "JoinSpec":
         """Generate a deterministic ID based on table identifiers."""
         if not self.id:
             import hashlib
+
             join_key = f"{self.left.identifier}:{self.right.identifier}:{self.left_column}:{self.right_column}"
-            object.__setattr__(self, 'id', hashlib.md5(join_key.encode()).hexdigest())
+            object.__setattr__(self, "id", hashlib.md5(join_key.encode()).hexdigest())
         return self
 
     def _get_alias(self, table_ref: JoinTableRef) -> str:
@@ -462,6 +436,7 @@ class JoinSpec(BaseGenieModel):
 # INSTRUCTIONS
 # =============================================================================
 
+
 class Instructions(BaseGenieModel):
     """
     Container for all instructions in a Genie Space.
@@ -471,18 +446,12 @@ class Instructions(BaseGenieModel):
         sql_functions: SQL functions available to Genie
         join_specs: Join specifications for table relationships
     """
+
     text_instructions: List[TextInstruction] = Field(
-        default_factory=list,
-        description="Text instructions for Genie behavior"
+        default_factory=list, description="Text instructions for Genie behavior"
     )
-    sql_functions: List[SqlFunction] = Field(
-        default_factory=list,
-        description="SQL functions available to Genie"
-    )
-    join_specs: List[JoinSpec] = Field(
-        default_factory=list,
-        description="Join specifications for table relationships"
-    )
+    sql_functions: List[SqlFunction] = Field(default_factory=list, description="SQL functions available to Genie")
+    join_specs: List[JoinSpec] = Field(default_factory=list, description="Join specifications for table relationships")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -505,6 +474,7 @@ class Instructions(BaseGenieModel):
 # SERIALIZED SPACE (inner content)
 # =============================================================================
 
+
 class SerializedSpace(BaseGenieModel):
     """
     The serialized content of a Genie Space.
@@ -517,19 +487,10 @@ class SerializedSpace(BaseGenieModel):
         data_sources: Data sources configuration
         instructions: Instructions for Genie
     """
-    version: int = Field(
-        default=1,
-        ge=1,
-        description="Schema version number"
-    )
-    data_sources: DataSources = Field(
-        default_factory=DataSources,
-        description="Data sources for the space"
-    )
-    instructions: Instructions = Field(
-        default_factory=Instructions,
-        description="Instructions for Genie behavior"
-    )
+
+    version: int = Field(default=1, ge=1, description="Schema version number")
+    data_sources: DataSources = Field(default_factory=DataSources, description="Data sources for the space")
+    instructions: Instructions = Field(default_factory=Instructions, description="Instructions for Genie behavior")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -553,6 +514,7 @@ class SerializedSpace(BaseGenieModel):
 # =============================================================================
 # GENIE SPACE (main entry point - governed securable)
 # =============================================================================
+
 
 class GenieSpace(BaseSecurable):
     """
@@ -614,37 +576,16 @@ class GenieSpace(BaseSecurable):
         sdk_space = space.create(workspace_client)
         ```
     """
+
     # Identity - name is new, used for environment-aware naming
-    name: str = Field(
-        ...,
-        description="Internal name (used for environment suffixing)"
-    )
-    space_id: Optional[str] = Field(
-        default=None,
-        description="Unique space identifier (set after creation)"
-    )
-    title: str = Field(
-        ...,
-        min_length=1,
-        max_length=255,
-        description="Display title for the Genie Space"
-    )
-    description: Optional[str] = Field(
-        default=None,
-        max_length=4096,
-        description="Optional description"
-    )
-    warehouse_id: Optional[str] = Field(
-        default=None,
-        description="SQL warehouse ID for queries"
-    )
-    source_workspace: Optional[str] = Field(
-        default=None,
-        description="Source workspace URL (for migration tracking)"
-    )
+    name: str = Field(..., description="Internal name (used for environment suffixing)")
+    space_id: Optional[str] = Field(default=None, description="Unique space identifier (set after creation)")
+    title: str = Field(..., min_length=1, max_length=255, description="Display title for the Genie Space")
+    description: Optional[str] = Field(default=None, max_length=4096, description="Optional description")
+    warehouse_id: Optional[str] = Field(default=None, description="SQL warehouse ID for queries")
+    source_workspace: Optional[str] = Field(default=None, description="Source workspace URL (for migration tracking)")
     serialized_space: SerializedSpace = Field(
-        default_factory=SerializedSpace,
-        description="The space configuration content"
+        default_factory=SerializedSpace, description="The space configuration content"
     )
 
     # ----- Securable Type Implementation -----
@@ -706,6 +647,7 @@ class GenieSpace(BaseSecurable):
     def to_json_file(self, file_path: str) -> None:
         """Write configuration to a JSON file."""
         from pathlib import Path
+
         Path(file_path).write_text(self.to_json())
 
     @classmethod
@@ -718,6 +660,7 @@ class GenieSpace(BaseSecurable):
     def from_json_file(cls, file_path: str) -> "GenieSpace":
         """Load configuration from a JSON file."""
         from pathlib import Path
+
         content = Path(file_path).read_text()
         return cls.from_json(content)
 
@@ -725,10 +668,7 @@ class GenieSpace(BaseSecurable):
 
     @classmethod
     def from_sdk(
-        cls,
-        genie_space: Any,
-        source_workspace: Optional[str] = None,
-        name: Optional[str] = None
+        cls, genie_space: Any, source_workspace: Optional[str] = None, name: Optional[str] = None
     ) -> "GenieSpace":
         """
         Create a GenieSpace from a Databricks SDK GenieSpace object.
@@ -846,6 +786,7 @@ class GenieSpace(BaseSecurable):
 # =============================================================================
 # CONVENIENCE BUILDERS
 # =============================================================================
+
 
 def quick_table(
     catalog: str,

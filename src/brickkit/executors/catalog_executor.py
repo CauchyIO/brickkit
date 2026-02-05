@@ -17,10 +17,12 @@ from databricks.sdk.errors import (
 from databricks.sdk.service.catalog import CatalogInfo
 
 from brickkit.models import Catalog
-from brickkit.models.enums import IsolationMode
+from brickkit.models.enums import IsolationMode, PrincipalType
+from brickkit.models.grants import Principal
 
 from .base import BaseExecutor, ExecutionResult, OperationType
 from .mixins import WorkspaceBindingMixin
+from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +30,76 @@ logger = logging.getLogger(__name__)
 class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
     """Executor for catalog operations."""
 
+    def _get_tag_executor(self) -> TagExecutor:
+        """Get or create the TagExecutor instance."""
+        if not hasattr(self, "_tag_executor"):
+            self._tag_executor = TagExecutor(self.client)
+        return self._tag_executor
+
+    def _apply_tags(self, resource: Catalog) -> None:
+        """Apply tags to a catalog using the entity_tag_assignments API."""
+        if not resource.tags:
+            return
+
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would apply {len(resource.tags)} tags to catalog {resource.resolved_name}")
+            return
+
+        tag_executor = self._get_tag_executor()
+        tag_executor.apply_tags(
+            entity_name=resource.resolved_name,
+            entity_type="catalogs",
+            tags=resource.tags,
+            update_existing=True,
+        )
+
+    def _sync_tags(self, resource: Catalog) -> Dict[str, Any]:
+        """Sync tags on a catalog to match the desired state."""
+        if self.dry_run:
+            logger.info(f"[DRY RUN] Would sync tags on catalog {resource.resolved_name}")
+            return {}
+
+        tag_executor = self._get_tag_executor()
+        return tag_executor.sync_tags(
+            entity_name=resource.resolved_name,
+            entity_type="catalogs",
+            desired_tags=resource.tags,
+        )
+
     def get_resource_type(self) -> str:
         """Get the resource type."""
         return "CATALOG"
+
+    def _resolve_owner_for_sdk(self, owner: Principal) -> str:
+        """
+        Resolve owner to the correct identifier for SDK calls.
+
+        For service principals, Databricks expects the application_id (UUID).
+        For users and groups, it expects the display_name/email.
+
+        Args:
+            owner: The Principal to resolve
+
+        Returns:
+            The identifier to use in SDK calls
+        """
+        if owner.principal_type == PrincipalType.SERVICE_PRINCIPAL:
+            # Look up the application_id from Databricks
+            resolved_name = owner.resolved_name
+            try:
+                spns = list(self.client.service_principals.list(filter=f'displayName eq "{resolved_name}"'))
+                if spns and spns[0].application_id:
+                    logger.debug(f"Resolved SPN {resolved_name} to application_id {spns[0].application_id}")
+                    return spns[0].application_id
+                else:
+                    logger.warning(f"Could not find application_id for SPN {resolved_name}, using display_name")
+                    return resolved_name
+            except Exception as e:
+                logger.warning(f"Error looking up SPN {resolved_name}: {e}, using display_name")
+                return resolved_name
+        else:
+            # For users and groups, use resolved_name (display_name/email)
+            return owner.resolved_name
 
     def exists(self, resource: Catalog) -> bool:
         """
@@ -66,6 +135,11 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         resource_name = resource.resolved_name
 
         try:
+            # Check if catalog already exists first
+            if self.exists(resource):
+                logger.info(f"Catalog {resource_name} already exists, checking for updates")
+                return self.update(resource)
+
             if self.dry_run:
                 logger.info(f"[DRY RUN] Would create catalog {resource_name}")
                 return ExecutionResult(
@@ -73,7 +147,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             # Determine workspace IDs to bind (if any) BEFORE creating catalog
@@ -89,9 +163,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             self.execute_with_retry(self.client.catalogs.create, **params)
 
             # Add rollback operation
-            self._rollback_stack.append(
-                lambda: self.client.catalogs.delete(resource_name, force=True)
-            )
+            self._rollback_stack.append(lambda: self.client.catalogs.delete(resource_name, force=True))
 
             # CRITICAL ORDERING for ISOLATED catalogs:
             # 1. Create catalog (in default/OPEN mode)
@@ -100,19 +172,18 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             if workspace_ids_to_bind and resource.isolation_mode == IsolationMode.ISOLATED:
                 workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
                 self.apply_workspace_bindings(
-                    resource_name=resource_name,
-                    workspace_ids=workspace_ids_as_ints,
-                    securable_type="catalog"
+                    resource_name=resource_name, workspace_ids=workspace_ids_as_ints, securable_type="catalog"
                 )
 
             # Set isolation mode AFTER bindings are applied
             if resource.isolation_mode:
                 from databricks.sdk.service.catalog import CatalogIsolationMode
+
                 logger.debug(f"Setting isolation mode to {resource.isolation_mode.value}")
                 self.execute_with_retry(
                     self.client.catalogs.update,
                     name=resource_name,
-                    isolation_mode=CatalogIsolationMode(resource.isolation_mode.value)
+                    isolation_mode=CatalogIsolationMode(resource.isolation_mode.value),
                 )
 
             # Verify bindings were applied
@@ -121,6 +192,9 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 if not self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog"):
                     logger.warning(f"Workspace binding verification failed for {resource_name}")
 
+            # Apply tags via entity_tag_assignments API
+            self._apply_tags(resource)
+
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
@@ -128,7 +202,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Created successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except ResourceAlreadyExists:
@@ -139,22 +213,20 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 operation=OperationType.NO_OP,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message="Already exists"
+                message="Already exists",
             )
         except Exception as e:
             error_msg = str(e)
             if "already exists" in error_msg.lower():
                 # Catalog exists - update bindings if needed
                 if workspace_ids_to_bind and resource.isolation_mode == IsolationMode.ISOLATED:
-                    return self._apply_bindings_to_existing_catalog(
-                        resource, resource_name, workspace_ids_to_bind
-                    )
+                    return self._apply_bindings_to_existing_catalog(resource, resource_name, workspace_ids_to_bind)
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Already exists"
+                    message="Already exists",
                 )
             return self._handle_error(OperationType.CREATE, resource_name, e)
 
@@ -185,27 +257,42 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 current_ws_ids = self.get_current_workspace_bindings(resource_name, "catalog")
 
                 if set(current_ws_ids) != set(desired_ws_ids):
-                    logger.info(f"Workspace bindings need update for {resource_name}: {list(current_ws_ids)} -> {desired_ws_ids}")
+                    logger.info(
+                        f"Workspace bindings need update for {resource_name}: {list(current_ws_ids)} -> {desired_ws_ids}"
+                    )
 
                     if not self.dry_run:
                         workspace_bindings_updated = self.update_workspace_bindings(
-                            resource_name=resource_name,
-                            desired_workspace_ids=desired_ws_ids,
-                            securable_type="catalog"
+                            resource_name=resource_name, desired_workspace_ids=desired_ws_ids, securable_type="catalog"
                         )
                         if workspace_bindings_updated:
-                            changes['workspace_bindings'] = {
-                                'from': list(current_ws_ids),
-                                'to': desired_ws_ids
-                            }
+                            changes["workspace_bindings"] = {"from": list(current_ws_ids), "to": desired_ws_ids}
 
-            if not changes and not workspace_bindings_updated:
+            # Check if tags need syncing
+            tags_need_sync = False
+            if resource.tags:
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "catalogs")
+                current_tag_dict = {t.key: t.value for t in current_tags}
+                desired_tag_dict = {t.key: t.value for t in resource.tags}
+                if current_tag_dict != desired_tag_dict:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": current_tag_dict, "to": desired_tag_dict}
+            elif not resource.tags:
+                # Check if there are existing tags that need to be removed
+                tag_executor = self._get_tag_executor()
+                current_tags = tag_executor.list_tags(resource_name, "catalogs")
+                if current_tags:
+                    tags_need_sync = True
+                    changes["tags"] = {"from": {t.key: t.value for t in current_tags}, "to": {}}
+
+            if not changes and not workspace_bindings_updated and not tags_need_sync:
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -216,21 +303,30 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
-            # Only update catalog properties if there are non-binding changes
-            if any(k != 'workspace_bindings' for k in changes.keys()):
+            # Only update catalog properties if there are non-binding/non-tag changes
+            if any(k not in ("workspace_bindings", "tags") for k in changes.keys()):
                 # Convert to SDK parameters
                 params = resource.to_sdk_update_params()
 
                 # Convert isolation_mode string to SDK enum if present
                 if "isolation_mode" in params:
                     from databricks.sdk.service.catalog import CatalogIsolationMode
+
                     params["isolation_mode"] = CatalogIsolationMode(params["isolation_mode"])
+
+                # Resolve owner to application_id for service principals
+                if "owner" in params and resource.owner:
+                    params["owner"] = self._resolve_owner_for_sdk(resource.owner)
 
                 logger.info(f"Updating catalog {resource_name}: {changes}")
                 self.execute_with_retry(self.client.catalogs.update, **params)
+
+            # Sync tags via entity_tag_assignments API
+            if tags_need_sync:
+                self._sync_tags(resource)
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -240,7 +336,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except ResourceDoesNotExist:
@@ -271,7 +367,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -281,14 +377,14 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting catalog {resource_name}")
             self.execute_with_retry(
                 self.client.catalogs.delete,
                 resource_name,
-                force=True  # Force delete even if not empty
+                force=True,  # Force delete even if not empty
             )
 
             duration = time.time() - start_time
@@ -298,17 +394,14 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
             return self._handle_error(OperationType.DELETE, resource_name, e)
 
     def _apply_bindings_to_existing_catalog(
-        self,
-        catalog: Catalog,
-        resource_name: str,
-        workspace_ids_to_bind: List[str]
+        self, catalog: Catalog, resource_name: str, workspace_ids_to_bind: List[str]
     ) -> ExecutionResult:
         """Apply workspace bindings to an existing resource."""
         workspace_ids_as_ints = [int(ws_id) for ws_id in workspace_ids_to_bind]
@@ -319,14 +412,14 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
                 operation=OperationType.NO_OP,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message="Exists but could not apply bindings"
+                message="Exists but could not apply bindings",
             )
 
         if catalog.isolation_mode:
             from databricks.sdk.service.catalog import CatalogIsolationMode
+
             self.client.catalogs.update(
-                name=resource_name,
-                isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
+                name=resource_name, isolation_mode=CatalogIsolationMode(catalog.isolation_mode.value)
             )
 
         self.verify_workspace_bindings(resource_name, workspace_ids_as_ints, "catalog")
@@ -336,14 +429,10 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             operation=OperationType.UPDATE,
             resource_type=self.get_resource_type(),
             resource_name=resource_name,
-            message="Applied workspace bindings"
+            message="Applied workspace bindings",
         )
 
-    def _get_catalog_changes(
-        self,
-        existing: CatalogInfo,
-        desired: Catalog
-    ) -> Dict[str, Any]:
+    def _get_catalog_changes(self, existing: CatalogInfo, desired: Catalog) -> Dict[str, Any]:
         """
         Compare existing and desired catalog to find changes.
 
@@ -357,35 +446,26 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
         changes = {}
 
         # Check comment
-        if hasattr(existing, 'comment') and existing.comment != desired.comment:
-            changes['comment'] = {
-                'from': existing.comment,
-                'to': desired.comment
-            }
+        if hasattr(existing, "comment") and existing.comment != desired.comment:
+            changes["comment"] = {"from": existing.comment, "to": desired.comment}
 
         # Check owner
         if desired.owner:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {
-                    'from': existing.owner,
-                    'to': desired_owner
-                }
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         # Check isolation mode
         if desired.isolation_mode:
             desired_mode = desired.isolation_mode.value
-            if hasattr(existing, 'isolation_mode'):
+            if hasattr(existing, "isolation_mode"):
                 existing_mode = existing.isolation_mode.value if existing.isolation_mode else None
                 if existing_mode != desired_mode:
-                    changes['isolation_mode'] = {
-                        'from': existing_mode,
-                        'to': desired_mode
-                    }
+                    changes["isolation_mode"] = {"from": existing_mode, "to": desired_mode}
 
         # Check storage root (can only be set at creation)
         if desired.storage_root:
-            if hasattr(existing, 'storage_root'):
+            if hasattr(existing, "storage_root"):
                 existing_root = existing.storage_root
                 if existing_root != desired.storage_root:
                     logger.warning(
@@ -429,9 +509,7 @@ class CatalogExecutor(BaseExecutor[Catalog], WorkspaceBindingMixin):
             existing = self.client.catalogs.get(resource.resolved_name)
             return self._get_catalog_changes(existing, resource)
         except ResourceDoesNotExist:
-            return {'action': 'create'}
+            return {"action": "create"}
         except Exception as e:
             logger.warning(f"Error getting changes: {e}")
             return {}
-
-

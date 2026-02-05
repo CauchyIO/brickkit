@@ -46,14 +46,17 @@ from .enums import SecurableType
 # ENUMS
 # =============================================================================
 
+
 class VectorIndexType(str, Enum):
     """Type of vector index."""
+
     DELTA_SYNC = "DELTA_SYNC"
     DIRECT_ACCESS = "DIRECT_ACCESS"
 
 
 class VectorSimilarityMetric(str, Enum):
     """Similarity metric for vector search."""
+
     COSINE = "COSINE"
     DOT_PRODUCT = "DOT_PRODUCT"
     EUCLIDEAN = "EUCLIDEAN"
@@ -61,12 +64,14 @@ class VectorSimilarityMetric(str, Enum):
 
 class VectorEndpointType(str, Enum):
     """Type of vector search endpoint."""
+
     STANDARD = "STANDARD"
 
 
 # =============================================================================
 # VECTOR SEARCH ENDPOINT - GOVERNED SECURABLE
 # =============================================================================
+
 
 class VectorSearchEndpoint(BaseSecurable):
     """
@@ -93,10 +98,7 @@ class VectorSearchEndpoint(BaseSecurable):
     """
 
     name: str = Field(..., description="Endpoint name (base, without env suffix)")
-    endpoint_type: VectorEndpointType = Field(
-        VectorEndpointType.STANDARD,
-        description="Type of endpoint"
-    )
+    endpoint_type: VectorEndpointType = Field(VectorEndpointType.STANDARD, description="Type of endpoint")
     comment: Optional[str] = Field(None, description="Description")
 
     @computed_field
@@ -121,15 +123,26 @@ class VectorSearchEndpoint(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for endpoint creation."""
+        # Import SDK's EndpointType enum - the SDK expects this, not a string
+        from databricks.sdk.service.vectorsearch import EndpointType as SdkEndpointType
+
+        # Map our enum to SDK enum
+        endpoint_type_map = {
+            VectorEndpointType.STANDARD: SdkEndpointType.STANDARD,
+            "STANDARD": SdkEndpointType.STANDARD,
+        }
+        sdk_endpoint_type = endpoint_type_map.get(self.endpoint_type, SdkEndpointType.STANDARD)
+
         return {
             "name": self.resolved_name,
-            "endpoint_type": self.endpoint_type.value,
+            "endpoint_type": sdk_endpoint_type,
         }
 
 
 # =============================================================================
 # VECTOR SEARCH INDEX - GOVERNED SECURABLE
 # =============================================================================
+
 
 class VectorSearchIndex(BaseSecurable):
     """
@@ -180,7 +193,7 @@ class VectorSearchIndex(BaseSecurable):
     @computed_field
     @property
     def resolved_name(self) -> str:
-        """Full index name with environment suffix."""
+        """Index name with environment suffix."""
         env = get_current_environment()
         return f"{self.name}_{env.value.lower()}"
 
@@ -190,6 +203,16 @@ class VectorSearchIndex(BaseSecurable):
         """Endpoint name with environment suffix."""
         env = get_current_environment()
         return f"{self.endpoint_name}_{env.value.lower()}"
+
+    @computed_field
+    @property
+    def fqdn(self) -> str:
+        """Fully qualified index name (catalog.schema.index_name)."""
+        # Derive catalog.schema from source_table
+        parts = self.source_table.split(".")
+        catalog = parts[0]
+        schema = parts[1]
+        return f"{catalog}.{schema}.{self.resolved_name}"
 
     @property
     def securable_type(self) -> SecurableType:
@@ -204,32 +227,58 @@ class VectorSearchIndex(BaseSecurable):
     def get_level_3_name(self) -> Optional[str]:
         return None
 
-    @field_validator('source_table')
+    @field_validator("source_table")
     @classmethod
     def validate_source_table(cls, v: str) -> str:
         """Validate source table is fully qualified."""
-        parts = v.split('.')
+        parts = v.split(".")
         if len(parts) != 3:
             raise ValueError(f"source_table must be fully qualified (catalog.schema.table), got: {v}")
         return v
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for index creation."""
+        # Import SDK enums - the SDK expects these, not strings
+        from databricks.sdk.service.vectorsearch import PipelineType as SdkPipelineType
+        from databricks.sdk.service.vectorsearch import VectorIndexType as SdkVectorIndexType
+
+        # Map our enums to SDK enums
+        index_type_map = {
+            VectorIndexType.DELTA_SYNC: SdkVectorIndexType.DELTA_SYNC,
+            VectorIndexType.DIRECT_ACCESS: SdkVectorIndexType.DIRECT_ACCESS,
+            "DELTA_SYNC": SdkVectorIndexType.DELTA_SYNC,
+            "DIRECT_ACCESS": SdkVectorIndexType.DIRECT_ACCESS,
+        }
+        pipeline_type_map = {
+            "TRIGGERED": SdkPipelineType.TRIGGERED,
+            "CONTINUOUS": SdkPipelineType.CONTINUOUS,
+        }
+
+        sdk_index_type = index_type_map.get(self.index_type, SdkVectorIndexType.DELTA_SYNC)
+        sdk_pipeline_type = pipeline_type_map.get(self.pipeline_type, SdkPipelineType.TRIGGERED)
+
         params = {
-            "name": self.resolved_name,
+            "name": self.fqdn,  # API requires fully qualified name
             "endpoint_name": self.resolved_endpoint_name,
-            "index_type": self.index_type.value,
+            "index_type": sdk_index_type,
             "primary_key": self.primary_key,
         }
 
-        if self.index_type == VectorIndexType.DELTA_SYNC:
-            delta_spec = {
-                "source_table": self.source_table,
-                "embedding_source_column": self.embedding_column,
-                "pipeline_type": self.pipeline_type,
+        # Check for DELTA_SYNC
+        is_delta_sync = sdk_index_type == SdkVectorIndexType.DELTA_SYNC
+        if is_delta_sync:
+            # Build embedding source column spec
+            embedding_col = {
+                "name": self.embedding_column,
             }
             if self.embedding_model:
-                delta_spec["embedding_model_endpoint_name"] = self.embedding_model
+                embedding_col["embedding_model_endpoint_name"] = self.embedding_model
+
+            delta_spec = {
+                "source_table": self.source_table,
+                "embedding_source_columns": [embedding_col],
+                "pipeline_type": self.pipeline_type,  # API wants string, not enum
+            }
             if self.sync_columns:
                 delta_spec["columns_to_sync"] = self.sync_columns
             params["delta_sync_index_spec"] = delta_spec
@@ -241,6 +290,7 @@ class VectorSearchIndex(BaseSecurable):
 # BACKWARD COMPATIBILITY - Configuration Classes
 # =============================================================================
 
+
 class VectorSearchIndexConfig(BaseGovernanceModel):
     """
     Configuration for a single Vector Search Index.
@@ -248,6 +298,7 @@ class VectorSearchIndexConfig(BaseGovernanceModel):
     Backward compatible with existing usage patterns.
     For new code, prefer using VectorSearchIndex directly.
     """
+
     source_table: str
     primary_key: str = "indicator_id"
     embedding_column: str = "embedding_text"
@@ -268,6 +319,7 @@ class VectorSearchConfig(BaseGovernanceModel):
     Backward compatible with existing usage patterns.
     For new code, prefer using VectorSearchEndpoint and VectorSearchIndex directly.
     """
+
     catalog: str = "main_catalog"
     schema_name: str = "dev"
     endpoint_name: str = "dev_vector_search"

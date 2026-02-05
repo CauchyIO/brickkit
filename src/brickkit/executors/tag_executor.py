@@ -45,11 +45,7 @@ class TagExecutor:
         self.tag_api = client.entity_tag_assignments
 
     def apply_tags(
-        self,
-        entity_name: str,
-        entity_type: str,
-        tags: List[Tag],
-        update_existing: bool = True
+        self, entity_name: str, entity_type: str, tags: List[Tag], update_existing: bool = True
     ) -> List[EntityTagAssignment]:
         """
         Apply tags to a Unity Catalog entity.
@@ -80,7 +76,7 @@ class TagExecutor:
                             entity_name=entity_name,
                             tag_key=tag.key,
                             tag_assignment=assignment,
-                            update_mask="tag_value"
+                            update_mask="tag_value",
                         )
                         logger.debug(f"Updated tag {tag.key}={tag.value} on {entity_type} {entity_name}")
                     except (NotFound, ResourceDoesNotExist):
@@ -106,12 +102,7 @@ class TagExecutor:
         logger.info(f"Applied {len(applied)} tags to {entity_type} {entity_name}")
         return applied
 
-    def remove_tags(
-        self,
-        entity_name: str,
-        entity_type: str,
-        tag_keys: Optional[List[str]] = None
-    ) -> int:
+    def remove_tags(self, entity_name: str, entity_type: str, tag_keys: Optional[List[str]] = None) -> int:
         """
         Remove tags from a Unity Catalog entity.
 
@@ -132,11 +123,7 @@ class TagExecutor:
 
         for key in tag_keys:
             try:
-                self.tag_api.delete(
-                    entity_type=entity_type,
-                    entity_name=entity_name,
-                    tag_key=key
-                )
+                self.tag_api.delete(entity_type=entity_type, entity_name=entity_name, tag_key=key)
                 removed += 1
                 logger.debug(f"Removed tag {key} from {entity_type} {entity_name}")
             except (NotFound, ResourceDoesNotExist):
@@ -163,15 +150,9 @@ class TagExecutor:
             List of Tag objects
         """
         try:
-            assignments = list(self.tag_api.list(
-                entity_type=entity_type,
-                entity_name=entity_name
-            ))
+            assignments = list(self.tag_api.list(entity_type=entity_type, entity_name=entity_name))
 
-            tags = [
-                Tag.from_sdk_assignment(assignment)
-                for assignment in assignments
-            ]
+            tags = [Tag.from_sdk_assignment(assignment) for assignment in assignments]
 
             logger.debug(f"Found {len(tags)} tags on {entity_type} {entity_name}")
             return tags
@@ -184,12 +165,7 @@ class TagExecutor:
             logger.error(f"Permission denied listing tags for {entity_type} {entity_name}: {e}")
             raise
 
-    def sync_tags(
-        self,
-        entity_name: str,
-        entity_type: str,
-        desired_tags: List[Tag]
-    ) -> Dict[str, Any]:
+    def sync_tags(self, entity_name: str, entity_type: str, desired_tags: List[Tag]) -> Dict[str, Any]:
         """
         Synchronize tags to match desired state.
 
@@ -214,11 +190,7 @@ class TagExecutor:
         current_dict = {tag.key: tag.value for tag in current_tags}
         desired_dict = {tag.key: tag.value for tag in desired_tags}
 
-        results = {
-            "added": [],
-            "updated": [],
-            "removed": []
-        }
+        results = {"added": [], "updated": [], "removed": []}
 
         # Add or update tags
         for tag in desired_tags:
@@ -247,7 +219,7 @@ class TagExecutor:
                         entity_name=entity_name,
                         tag_key=tag.key,
                         tag_assignment=assignment,
-                        update_mask="tag_value"
+                        update_mask="tag_value",
                     )
                     results["updated"].append(tag)
                     logger.debug(f"Updated tag {tag.key} from {current_dict[tag.key]} to {tag.value}")
@@ -269,11 +241,7 @@ class TagExecutor:
         for key in current_dict:
             if key not in desired_dict:
                 try:
-                    self.tag_api.delete(
-                        entity_type=entity_type,
-                        entity_name=entity_name,
-                        tag_key=key
-                    )
+                    self.tag_api.delete(entity_type=entity_type, entity_name=entity_name, tag_key=key)
                     results["removed"].append(key)
                     logger.debug(f"Removed tag {key}")
                 except (NotFound, ResourceDoesNotExist):
@@ -285,15 +253,13 @@ class TagExecutor:
                 except BadRequest as e:
                     logger.warning(f"Failed to remove tag {key}: {e}")
 
-        logger.info(f"Tag sync for {entity_type} {entity_name}: +{len(results['added'])} ~{len(results['updated'])} -{len(results['removed'])}")
+        logger.info(
+            f"Tag sync for {entity_type} {entity_name}: +{len(results['added'])} ~{len(results['updated'])} -{len(results['removed'])}"
+        )
         return results
 
     def copy_tags(
-        self,
-        source_entity_name: str,
-        source_entity_type: str,
-        target_entity_name: str,
-        target_entity_type: str
+        self, source_entity_name: str, source_entity_type: str, target_entity_name: str, target_entity_type: str
     ) -> List[Tag]:
         """
         Copy all tags from one entity to another.

@@ -3,7 +3,7 @@ name = "brickkit"
 version = "0.1.0"
 description = "Building blocks for Databricks Unity Catalog governance"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Casper" }]
 keywords = [
@@ -28,8 +28,11 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.0",
-    "databricks-sdk>=0.20.0",
+    "databricks-sdk[notebook]>=0.20.0",
     "claudetracing>=0.2.0",
+    "databricks-connect==17.3.*",
+    "databricks-vectorsearch>=0.40",
+    "ipykernel>=7.1.0",
 ]
 
 [project.optional-dependencies]
@@ -75,3 +78,11 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--strict-markers", "-ra"]
+markers = [
+    "unit: Unit tests (no Databricks connection)",
+    "integration: Integration tests (real Databricks)",
+    "slow: Long-running tests (VS provisioning, etc.) - skipped by default with '-m \"not slow\"'",
+]

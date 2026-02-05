@@ -284,9 +284,7 @@ class YamlConvention:
         ctx = context or {}
 
         # Add owner info to context if available
-        owner_spec = self._schema.get_owner_for_type(
-            getattr(securable, "securable_type", SecurableType.CATALOG).value
-        )
+        owner_spec = self._schema.get_owner_for_type(getattr(securable, "securable_type", SecurableType.CATALOG).value)
         if owner_spec:
             ctx["owner_info"] = {"type": owner_spec.type, "name": owner_spec.name}
 

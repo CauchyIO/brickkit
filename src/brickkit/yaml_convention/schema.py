@@ -17,6 +17,7 @@ from brickkit.models.enums import Environment, get_valid_securable_types
 
 class RuleMode(str, Enum):
     """Execution mode for governance rules."""
+
     ENFORCED = "enforced"  # Rule violations raise errors
     ADVISORY = "advisory"  # Rule violations generate warnings
 
@@ -30,11 +31,11 @@ class OwnershipSpec(BaseModel):
         name: Principal base name
         add_environment_suffix: Whether to append env suffix to name
     """
+
     type: str = Field(..., description="Principal type: USER, GROUP, or SERVICE_PRINCIPAL")
     name: str = Field(..., description="Principal base name")
     add_environment_suffix: bool = Field(
-        default=True,
-        description="Whether to add environment suffix to principal name"
+        default=True, description="Whether to add environment suffix to principal name"
     )
 
     @field_validator("type")
@@ -60,18 +61,10 @@ class RequestForAccessSpec(BaseModel):
         instructions: Instructions shown to users requesting access
         inherit: Whether to inherit RFA from parent (default: True for schema/table)
     """
-    destination: Optional[str] = Field(
-        None,
-        description="Email address for access requests"
-    )
-    instructions: Optional[str] = Field(
-        None,
-        description="Instructions shown to users requesting access"
-    )
-    inherit: bool = Field(
-        default=True,
-        description="Whether to inherit RFA from parent securable"
-    )
+
+    destination: Optional[str] = Field(None, description="Email address for access requests")
+    instructions: Optional[str] = Field(None, description="Instructions shown to users requesting access")
+    inherit: bool = Field(default=True, description="Whether to inherit RFA from parent securable")
 
     @field_validator("destination")
     @classmethod
@@ -81,6 +74,7 @@ class RequestForAccessSpec(BaseModel):
             return v
         # Basic email validation
         import re
+
         email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         if not re.match(email_pattern, v):
             raise ValueError(f"Invalid email format: '{v}'")
@@ -108,10 +102,8 @@ class NamingSpec(BaseModel):
         product: Default product name for {product} placeholder
         separator: Separator between pattern parts (default: "_")
     """
-    pattern: str = Field(
-        default="{env}_{team}_{product}",
-        description="Name pattern with placeholders"
-    )
+
+    pattern: str = Field(default="{env}_{team}_{product}", description="Name pattern with placeholders")
     team: Optional[str] = Field(None, description="Team name for {team} placeholder")
     product: Optional[str] = Field(None, description="Product name for {product} placeholder")
     separator: str = Field(default="_", description="Separator between name parts")
@@ -121,6 +113,7 @@ class NamingSpec(BaseModel):
     def validate_pattern(cls, v: str) -> str:
         """Validate that pattern contains only valid placeholders."""
         import re
+
         # Find all {placeholder} patterns in the string
         found_placeholders = set(re.findall(r"\{[^}]+\}", v))
         invalid = found_placeholders - VALID_NAMING_PLACEHOLDERS
@@ -146,18 +139,13 @@ class RuleSpec(BaseModel):
         pattern: Regex pattern (for naming_pattern rule)
         applies_to: Set of securable types this rule applies to
     """
+
     rule: str = Field(..., description="Rule name from registry")
-    mode: RuleMode = Field(
-        default=RuleMode.ENFORCED,
-        description="Rule execution mode"
-    )
+    mode: RuleMode = Field(default=RuleMode.ENFORCED, description="Rule execution mode")
     # Parameters for specific rules
     tags: Optional[List[str]] = Field(None, description="Required tag names")
     pattern: Optional[str] = Field(None, description="Regex pattern for naming")
-    applies_to: Optional[Set[str]] = Field(
-        None,
-        description="Securable types this rule applies to"
-    )
+    applies_to: Optional[Set[str]] = Field(None, description="Securable types this rule applies to")
 
     @field_validator("applies_to")
     @classmethod
@@ -168,10 +156,7 @@ class RuleSpec(BaseModel):
         valid_types = get_valid_securable_types()
         invalid = v - valid_types
         if invalid:
-            raise ValueError(
-                f"Invalid securable type(s): {sorted(invalid)}. "
-                f"Valid types: {sorted(valid_types)}"
-            )
+            raise ValueError(f"Invalid securable type(s): {sorted(invalid)}. Valid types: {sorted(valid_types)}")
         return v
 
 
@@ -210,29 +195,21 @@ class YamlConventionSchema(BaseModel):
           prd:
             environment: production
     """
+
     version: str = Field(default="1.0", description="Schema version")
     convention: str = Field(..., description="Convention name/identifier")
 
     naming: Optional[NamingSpec] = Field(None, description="Naming configuration")
     ownership: Optional[Dict[str, OwnershipSpec]] = Field(
-        None,
-        description="Ownership by securable type (catalog, schema, default, etc.)"
+        None, description="Ownership by securable type (catalog, schema, default, etc.)"
     )
-    rules: List[RuleSpec] = Field(
-        default_factory=list,
-        description="Governance rules to apply"
-    )
-    tags: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Default tags to apply to all securables"
-    )
+    rules: List[RuleSpec] = Field(default_factory=list, description="Governance rules to apply")
+    tags: Dict[str, str] = Field(default_factory=dict, description="Default tags to apply to all securables")
     tag_overrides: Dict[str, Dict[str, str]] = Field(
-        default_factory=dict,
-        description="Environment-specific tag overrides"
+        default_factory=dict, description="Environment-specific tag overrides"
     )
     request_for_access: Optional[Dict[str, RequestForAccessSpec]] = Field(
-        None,
-        description="Request for Access configuration by securable type (catalog, schema, table, default)"
+        None, description="Request for Access configuration by securable type (catalog, schema, table, default)"
     )
 
     @field_validator("ownership")
@@ -246,10 +223,7 @@ class YamlConventionSchema(BaseModel):
         valid_types.add("default")  # 'default' is a valid fallback key
         invalid = set(v.keys()) - valid_types
         if invalid:
-            raise ValueError(
-                f"Invalid ownership key(s): {sorted(invalid)}. "
-                f"Valid keys: {sorted(valid_types)}"
-            )
+            raise ValueError(f"Invalid ownership key(s): {sorted(invalid)}. Valid keys: {sorted(valid_types)}")
         return v
 
     @field_validator("tag_overrides")
@@ -262,14 +236,15 @@ class YamlConventionSchema(BaseModel):
         invalid = set(v.keys()) - valid_envs
         if invalid:
             raise ValueError(
-                f"Invalid environment(s) in tag_overrides: {sorted(invalid)}. "
-                f"Valid environments: {sorted(valid_envs)}"
+                f"Invalid environment(s) in tag_overrides: {sorted(invalid)}. Valid environments: {sorted(valid_envs)}"
             )
         return v
 
     @field_validator("request_for_access")
     @classmethod
-    def validate_rfa_keys(cls, v: Optional[Dict[str, RequestForAccessSpec]]) -> Optional[Dict[str, RequestForAccessSpec]]:
+    def validate_rfa_keys(
+        cls, v: Optional[Dict[str, RequestForAccessSpec]]
+    ) -> Optional[Dict[str, RequestForAccessSpec]]:
         """Validate that request_for_access keys are valid securable types or 'default'."""
         if v is None:
             return v
@@ -278,8 +253,7 @@ class YamlConventionSchema(BaseModel):
         invalid = set(v.keys()) - valid_rfa_types
         if invalid:
             raise ValueError(
-                f"Invalid request_for_access key(s): {sorted(invalid)}. "
-                f"Valid keys: {sorted(valid_rfa_types)}"
+                f"Invalid request_for_access key(s): {sorted(invalid)}. Valid keys: {sorted(valid_rfa_types)}"
             )
         return v
 

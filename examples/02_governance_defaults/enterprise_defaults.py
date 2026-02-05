@@ -4,6 +4,7 @@ Enterprise Governance Defaults
 Standard organization-wide governance policies.
 Suitable for most enterprise deployments.
 """
+
 import sys
 from pathlib import Path
 
@@ -24,7 +25,6 @@ class EnterpriseDefaults(GovernanceDefaults):
         return [
             # Managed-by tag for tracking
             TagDefault(key="managed_by", value="brickkit"),
-
             # Environment tag with env-specific values
             TagDefault(
                 key="environment",
@@ -33,9 +33,8 @@ class EnterpriseDefaults(GovernanceDefaults):
                     "DEV": "development",
                     "ACC": "acceptance",
                     "PRD": "production",
-                }
+                },
             ),
-
             # Default cost center
             TagDefault(key="cost_center", value="shared-platform"),
         ]
@@ -47,15 +46,14 @@ class EnterpriseDefaults(GovernanceDefaults):
             RequiredTag(
                 key="data_owner",
                 applies_to={"CATALOG"},
-                error_message="Catalogs must have a data_owner tag for accountability"
+                error_message="Catalogs must have a data_owner tag for accountability",
             ),
-
             # Tables must declare PII status
             RequiredTag(
                 key="pii",
                 allowed_values={"true", "false"},
                 applies_to={"TABLE"},
-                error_message="Tables must declare pii=true or pii=false"
+                error_message="Tables must declare pii=true or pii=false",
             ),
         ]
 
@@ -66,7 +64,7 @@ class EnterpriseDefaults(GovernanceDefaults):
             NamingConvention(
                 pattern=r"^[a-z][a-z0-9_]*$",
                 applies_to={"CATALOG"},
-                error_message="Catalog names must be lowercase with underscores"
+                error_message="Catalog names must be lowercase with underscores",
             ),
         ]
 

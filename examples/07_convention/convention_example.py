@@ -44,26 +44,18 @@ def main():
                 key="environment",
                 value="dev",
                 # Environment-specific overrides
-                environment_values={"PRD": "prod", "ACC": "acc"}
+                environment_values={"PRD": "prod", "ACC": "acc"},
             ),
             # Tag only applies to specific securable types
-            TagDefault(
-                key="data_classification",
-                value="internal",
-                applies_to={"TABLE", "VOLUME"}
-            ),
+            TagDefault(key="data_classification", value="internal", applies_to={"TABLE", "VOLUME"}),
         ],
         required_tags=[
             # These tags must be present (validated on demand)
             RequiredTag(
-                key="cost_center",
-                applies_to={"CATALOG", "SCHEMA"},
-                error_message="Cost center required for chargeback"
+                key="cost_center", applies_to={"CATALOG", "SCHEMA"}, error_message="Cost center required for chargeback"
             ),
             RequiredTag(
-                key="data_owner",
-                applies_to={"TABLE"},
-                allowed_values={"finance_team", "audit_team", "shared"}
+                key="data_owner", applies_to={"TABLE"}, allowed_values={"finance_team", "audit_team", "shared"}
             ),
         ],
         naming_conventions=[
@@ -71,7 +63,7 @@ def main():
             NamingConvention(
                 pattern=r"^fin_[a-z][a-z0-9_]*$",
                 applies_to={"CATALOG"},
-                error_message="Finance catalogs must start with 'fin_'"
+                error_message="Finance catalogs must start with 'fin_'",
             ),
         ],
         default_owner="finance_platform_team",
@@ -89,16 +81,10 @@ def main():
     m = Metastore(name="main_metastore")
 
     # Create catalog with required tag
-    catalog = Catalog(
-        name="fin_analytics",
-        tags=[Tag(key="cost_center", value="finance-001")]
-    )
+    catalog = Catalog(name="fin_analytics", tags=[Tag(key="cost_center", value="finance-001")])
 
     # Create schema with required tag
-    schema = Schema(
-        name="reports",
-        tags=[Tag(key="cost_center", value="finance-001")]
-    )
+    schema = Schema(name="reports", tags=[Tag(key="cost_center", value="finance-001")])
 
     # Create table with required tag
     table = Table(
@@ -109,7 +95,7 @@ def main():
             ColumnInfo(name="revenue", type_name="DECIMAL(18,2)"),
             ColumnInfo(name="region", type_name="STRING"),
         ],
-        tags=[Tag(key="data_owner", value="finance_team")]
+        tags=[Tag(key="data_owner", value="finance_team")],
     )
 
     # Build hierarchy
@@ -143,10 +129,7 @@ def main():
 
     print("\n4. Adding new schema (auto-inherits convention)...")
 
-    new_schema = Schema(
-        name="audit_reports",
-        tags=[Tag(key="cost_center", value="finance-002")]
-    )
+    new_schema = Schema(name="audit_reports", tags=[Tag(key="cost_center", value="finance-002")])
     catalog.add_schema(new_schema)
 
     print(f"   New schema tags: {[f'{t.key}={t.value}' for t in new_schema.tags]}")
@@ -159,7 +142,7 @@ def main():
             ColumnInfo(name="timestamp", type_name="TIMESTAMP"),
             ColumnInfo(name="action", type_name="STRING"),
         ],
-        tags=[Tag(key="data_owner", value="audit_team")]
+        tags=[Tag(key="data_owner", value="audit_team")],
     )
     new_schema.add_table(audit_table)
 
@@ -196,15 +179,12 @@ def main():
     print("\n6. Convention can be applied at any level...")
 
     # Create a standalone schema and apply convention directly
-    standalone_schema = Schema(
-        name="standalone",
-        tags=[Tag(key="cost_center", value="finance-003")]
-    )
+    standalone_schema = Schema(name="standalone", tags=[Tag(key="cost_center", value="finance-003")])
     standalone_table = Table(
         name="data",
         table_type=TableType.MANAGED,
         columns=[ColumnInfo(name="value", type_name="STRING")],
-        tags=[Tag(key="data_owner", value="shared")]
+        tags=[Tag(key="data_owner", value="shared")],
     )
     standalone_schema.add_table(standalone_table)
 

@@ -61,25 +61,31 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             params = resource.to_sdk_create_params()
-            cloud_provider = "AWS" if resource.aws_iam_role else "Azure" if resource.azure_service_principal else "GCP" if resource.gcp_service_account_key else "Unknown"
+            cloud_provider = (
+                "AWS"
+                if resource.aws_iam_role
+                else "Azure"
+                if resource.azure_service_principal
+                else "GCP"
+                if resource.gcp_service_account_key
+                else "Unknown"
+            )
 
             logger.info(f"Creating storage credential {resource_name} ({cloud_provider})")
             self.execute_with_retry(self.client.storage_credentials.create, **params)
 
-            self._rollback_stack.append(
-                lambda: self.client.storage_credentials.delete(resource_name)
-            )
+            self._rollback_stack.append(lambda: self.client.storage_credentials.delete(resource_name))
 
             # Apply workspace bindings if specified
             if resource.workspace_ids:
                 self.apply_workspace_bindings(
                     resource_name=resource_name,
                     workspace_ids=[int(ws_id) for ws_id in resource.workspace_ids],
-                    securable_type="storage_credential"
+                    securable_type="storage_credential",
                 )
 
             duration = time.time() - start_time
@@ -89,7 +95,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created {cloud_provider} credential successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -115,7 +121,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -126,10 +132,10 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
-            if 'aws_iam_role' in changes or 'azure_service_principal' in changes:
+            if "aws_iam_role" in changes or "azure_service_principal" in changes:
                 logger.warning(f"Updating auth for {resource_name} - affects dependent external locations")
 
             params = resource.to_sdk_update_params()
@@ -144,7 +150,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                 resource_name=resource_name,
                 message=f"Updated: {changes}",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -166,7 +172,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -176,7 +182,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             logger.info(f"Deleting storage credential {resource_name}")
@@ -186,7 +192,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
             self.execute_with_retry(
                 self.client.storage_credentials.delete,
                 resource_name,
-                force=False  # Don't force delete if dependencies exist
+                force=False,  # Don't force delete if dependencies exist
             )
 
             duration = time.time() - start_time
@@ -196,7 +202,7 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -207,28 +213,27 @@ class StorageCredentialExecutor(BaseExecutor[StorageCredential], WorkspaceBindin
         changes = {}
 
         # Check comment
-        if hasattr(existing, 'comment') and existing.comment != desired.comment:
-            changes['comment'] = {'from': existing.comment, 'to': desired.comment}
+        if hasattr(existing, "comment") and existing.comment != desired.comment:
+            changes["comment"] = {"from": existing.comment, "to": desired.comment}
 
         # Check owner
         if desired.owner:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         # Check cloud-specific credentials (sensitive - log carefully)
         if desired.aws_iam_role:
-            if hasattr(existing, 'aws_iam_role'):
+            if hasattr(existing, "aws_iam_role"):
                 # Compare role ARN
                 existing_role = existing.aws_iam_role.role_arn if existing.aws_iam_role else None
                 desired_role = desired.aws_iam_role.role_arn
                 if existing_role != desired_role:
-                    changes['aws_iam_role'] = {
-                        'from': 'existing',
-                        'to': 'updated'  # Don't log actual ARNs
+                    changes["aws_iam_role"] = {
+                        "from": "existing",
+                        "to": "updated",  # Don't log actual ARNs
                     }
 
         # Similar checks for Azure and GCP...
 
         return changes
-

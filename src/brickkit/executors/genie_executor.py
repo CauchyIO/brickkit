@@ -49,15 +49,18 @@ logger = logging.getLogger(__name__)
 # SERVICE PRINCIPAL FOR GENIE SPACE MANAGEMENT
 # =============================================================================
 
+
 @dataclass
 class ServicePrincipal:
     """Service Principal that needs access to deployed Genie Spaces."""
+
     application_id: str
     name: str
 
 
 class GenieSpacePermission:
     """Permission levels for Genie Spaces."""
+
     CAN_VIEW = "CAN_VIEW"
     CAN_EDIT = "CAN_EDIT"
     CAN_MANAGE = "CAN_MANAGE"
@@ -66,6 +69,7 @@ class GenieSpacePermission:
 # =============================================================================
 # GENIE SPACE EXECUTOR
 # =============================================================================
+
 
 class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
     """
@@ -160,7 +164,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Would be created (dry run)",
-                changes=self._get_space_summary(resource)
+                changes=self._get_space_summary(resource),
             )
 
         try:
@@ -174,7 +178,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created with ID: {result.space_id}",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -200,7 +204,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Would be updated (dry run)",
-                changes=self._get_space_summary(resource)
+                changes=self._get_space_summary(resource),
             )
 
         try:
@@ -222,7 +226,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Updated space ID: {result.space_id}",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except (ResourceDoesNotExist, NotFound):
@@ -241,7 +245,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
             operation=OperationType.DELETE,
             resource_type=self.get_resource_type(),
             resource_name=resource.title,
-            message="Genie Space deletion not supported via SDK"
+            message="Genie Space deletion not supported via SDK",
         )
 
     def create_or_update(self, resource: GenieSpace) -> ExecutionResult:
@@ -261,7 +265,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Would be created/updated (dry run)",
-                changes=self._get_space_summary(resource)
+                changes=self._get_space_summary(resource),
             )
 
         try:
@@ -275,7 +279,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created/updated with ID: {result.space_id}",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -328,7 +332,7 @@ class GenieSpaceExecutor(BaseExecutor[GenieSpace]):
                     resource_type=self.get_resource_type(),
                     resource_name=space.title,
                     message=str(e),
-                    error=e
+                    error=e,
                 )
                 results[space.title] = error_result
                 self.results.append(error_result)

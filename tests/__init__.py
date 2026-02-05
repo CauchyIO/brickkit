@@ -1,0 +1,1 @@
+"""BrickKit test suite."""

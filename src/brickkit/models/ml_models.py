@@ -25,6 +25,7 @@ from .grants import Principal, Privilege
 
 class ModelVersionStatus(str, Enum):
     """Status of a model version."""
+
     PENDING_REGISTRATION = "PENDING_REGISTRATION"
     READY = "READY"
     FAILED_REGISTRATION = "FAILED_REGISTRATION"
@@ -33,6 +34,7 @@ class ModelVersionStatus(str, Enum):
 
 class ModelVersionStage(str, Enum):
     """Stage of a model version (deprecated in favor of aliases)."""
+
     NONE = "None"
     ARCHIVED = "Archived"
     STAGING = "Staging"
@@ -50,48 +52,28 @@ class RegisteredModel(BaseSecurable):
     """
 
     # Model identification
-    name: str = Field(
-        ...,
-        description="Model name (gets environment suffix at runtime)"
-    )
+    name: str = Field(..., description="Model name (gets environment suffix at runtime)")
 
-    comment: Optional[str] = Field(
-        None,
-        max_length=1024,
-        description="Description of the model"
-    )
+    comment: Optional[str] = Field(None, max_length=1024, description="Description of the model")
 
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal (defaults to parent schema owner)"
+        description="Owner principal (defaults to parent schema owner)",
     )
 
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Name of parent catalog (inherited from schema if not set)"
-    )
-    schema_name: Optional[str] = Field(
-        None,
-        description="Name of parent schema"
-    )
+    catalog_name: Optional[str] = Field(None, description="Name of parent catalog (inherited from schema if not set)")
+    schema_name: Optional[str] = Field(None, description="Name of parent schema")
 
     # Model metadata
-    description: Optional[str] = Field(
-        None,
-        description="Description of the model"
-    )
+    description: Optional[str] = Field(None, description="Description of the model")
 
     # Model aliases (replaces stages)
     aliases: Dict[str, int] = Field(
-        default_factory=dict,
-        description="Aliases mapping to version numbers (e.g., 'champion': 5)"
+        default_factory=dict, description="Aliases mapping to version numbers (e.g., 'champion': 5)"
     )
 
     # MLflow integration
-    storage_location: Optional[str] = Field(
-        None,
-        description="Storage location for model artifacts"
-    )
+    storage_location: Optional[str] = Field(None, description="Storage location for model artifacts")
 
     # Tracking
     created_at: Optional[datetime] = None
@@ -100,10 +82,7 @@ class RegisteredModel(BaseSecurable):
     updated_by: Optional[str] = None
 
     # Model versions (child objects)
-    versions: List[ModelVersion] = Field(
-        default_factory=list,
-        description="Model versions in this registered model"
-    )
+    versions: List[ModelVersion] = Field(default_factory=list, description="Model versions in this registered model")
 
     # Parent reference
     _parent_schema: Optional[Any] = None
@@ -327,65 +306,31 @@ class ModelVersion(BaseGovernanceModel):
     """
 
     # Version identification
-    version: Optional[int] = Field(
-        None,
-        description="Version number (auto-incremented if not set)"
-    )
-    model_name: Optional[str] = Field(
-        None,
-        description="Name of parent registered model"
-    )
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Name of parent catalog"
-    )
-    schema_name: Optional[str] = Field(
-        None,
-        description="Name of parent schema"
-    )
+    version: Optional[int] = Field(None, description="Version number (auto-incremented if not set)")
+    model_name: Optional[str] = Field(None, description="Name of parent registered model")
+    catalog_name: Optional[str] = Field(None, description="Name of parent catalog")
+    schema_name: Optional[str] = Field(None, description="Name of parent schema")
 
     # Version metadata
-    description: Optional[str] = Field(
-        None,
-        description="Description of this version"
-    )
-    comment: Optional[str] = Field(
-        None,
-        description="Comment for this version"
-    )
+    description: Optional[str] = Field(None, description="Description of this version")
+    comment: Optional[str] = Field(None, description="Comment for this version")
 
     # MLflow integration
-    run_id: Optional[str] = Field(
-        None,
-        description="MLflow run ID that created this version"
-    )
-    run_link: Optional[str] = Field(
-        None,
-        description="Link to MLflow run"
-    )
-    source: Optional[str] = Field(
-        None,
-        description="Source path of model artifacts"
-    )
+    run_id: Optional[str] = Field(None, description="MLflow run ID that created this version")
+    run_link: Optional[str] = Field(None, description="Link to MLflow run")
+    source: Optional[str] = Field(None, description="Source path of model artifacts")
 
     # Status tracking
     status: ModelVersionStatus = Field(
-        ModelVersionStatus.PENDING_REGISTRATION,
-        description="Current status of the version"
+        ModelVersionStatus.PENDING_REGISTRATION, description="Current status of the version"
     )
     status_message: Optional[str] = None
 
     # Model metadata
-    tags: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Key-value tags for the version"
-    )
+    tags: Dict[str, str] = Field(default_factory=dict, description="Key-value tags for the version")
 
     # Aliases for this version (e.g., "champion", "production")
-    aliases: List[str] = Field(
-        default_factory=list,
-        description="Aliases for this version"
-    )
+    aliases: List[str] = Field(default_factory=list, description="Aliases for this version")
 
     # Tracking
     created_at: Optional[datetime] = None
@@ -422,7 +367,7 @@ class ModelVersion(BaseGovernanceModel):
                 principal=principal.resolved_name,
                 privilege=privilege_type,
                 securable_type=SecurableType.MODEL,
-                securable_name=self.fqdn
+                securable_name=self.fqdn,
             )
             privileges.append(priv)
 
@@ -449,6 +394,7 @@ class ModelVersion(BaseGovernanceModel):
 
 class ServiceCredentialPurpose(str, Enum):
     """Purpose of service credential."""
+
     AI_GATEWAY = "AI_GATEWAY"
     MODEL_SERVING = "MODEL_SERVING"
     VECTOR_SEARCH = "VECTOR_SEARCH"
@@ -464,71 +410,40 @@ class ServiceCredential(BaseSecurable):
     """
 
     # Credential identification
-    name: str = Field(
-        ...,
-        description="Credential name (gets environment suffix at runtime)"
-    )
+    name: str = Field(..., description="Credential name (gets environment suffix at runtime)")
 
-    comment: Optional[str] = Field(
-        None,
-        max_length=1024,
-        description="Description of the credential"
-    )
+    comment: Optional[str] = Field(None, max_length=1024, description="Description of the credential")
 
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal"
+        description="Owner principal",
     )
 
     # Credential metadata
-    service_type: Optional[str] = Field(
-        None,
-        description="Type of service (OPENAI, ANTHROPIC, AZURE_OPENAI, etc.)"
-    )
+    service_type: Optional[str] = Field(None, description="Type of service (OPENAI, ANTHROPIC, AZURE_OPENAI, etc.)")
 
-    endpoint_url: Optional[str] = Field(
-        None,
-        description="Service endpoint URL"
-    )
+    endpoint_url: Optional[str] = Field(None, description="Service endpoint URL")
 
-    purpose: Optional[str] = Field(
-        None,
-        description="Purpose or use case for this credential"
-    )
+    purpose: Optional[str] = Field(None, description="Purpose or use case for this credential")
 
     # Provider-specific options (only one should be set)
-    openai_api_key: Optional[str] = Field(
-        None,
-        description="OpenAI API key (stored securely)"
-    )
+    openai_api_key: Optional[str] = Field(None, description="OpenAI API key (stored securely)")
 
-    anthropic_api_key: Optional[str] = Field(
-        None,
-        description="Anthropic API key (stored securely)"
-    )
+    anthropic_api_key: Optional[str] = Field(None, description="Anthropic API key (stored securely)")
 
-    azure_openai_config: Optional[Dict[str, str]] = Field(
-        None,
-        description="Azure OpenAI configuration"
-    )
+    azure_openai_config: Optional[Dict[str, str]] = Field(None, description="Azure OpenAI configuration")
 
-    custom_config: Optional[Dict[str, Any]] = Field(
-        None,
-        description="Custom service configuration"
-    )
+    custom_config: Optional[Dict[str, Any]] = Field(None, description="Custom service configuration")
 
     # Access control
-    allowed_endpoints: List[str] = Field(
-        default_factory=list,
-        description="List of allowed model serving endpoints"
-    )
+    allowed_endpoints: List[str] = Field(default_factory=list, description="List of allowed model serving endpoints")
 
     # Tracking
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     created_by: Optional[str] = None
 
-    @field_validator('openai_api_key', 'anthropic_api_key')
+    @field_validator("openai_api_key", "anthropic_api_key")
     def validate_api_key(cls, v: Optional[str]) -> Optional[str]:
         """Validate API key format."""
         if v and not v.startswith(("sk-", "anthropic-")):
@@ -571,7 +486,7 @@ class ServiceCredential(BaseSecurable):
         }
 
         # Add purpose if it's a valid enum value
-        if self.purpose and self.purpose.upper() in ['AI_GATEWAY', 'MODEL_SERVING', 'VECTOR_SEARCH', 'CUSTOM']:
+        if self.purpose and self.purpose.upper() in ["AI_GATEWAY", "MODEL_SERVING", "VECTOR_SEARCH", "CUSTOM"]:
             params["purpose"] = self.purpose.upper()
         elif self.purpose:
             # Custom purpose, use CUSTOM enum with comment
@@ -603,10 +518,7 @@ class ModelServingEndpoint(BaseGovernanceModel):
 
     name: str = Field(..., description="Endpoint name")
 
-    comment: Optional[str] = Field(
-        None,
-        description="Description of the endpoint"
-    )
+    comment: Optional[str] = Field(None, description="Description of the endpoint")
 
     @computed_field
     @property
@@ -617,21 +529,14 @@ class ModelServingEndpoint(BaseGovernanceModel):
 
     # Served models list - direct attribute for easier access
     served_models: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="List of models served by this endpoint"
+        default_factory=list, description="List of models served by this endpoint"
     )
 
     # External service credential (for external models like OpenAI)
-    service_credential: Optional[ServiceCredential] = Field(
-        None,
-        description="Credential for external AI services"
-    )
+    service_credential: Optional[ServiceCredential] = Field(None, description="Credential for external AI services")
 
     # Served models configuration
-    config: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Endpoint configuration including served models"
-    )
+    config: Dict[str, Any] = Field(default_factory=dict, description="Endpoint configuration including served models")
 
     # Example config structure:
     # {
@@ -651,16 +556,10 @@ class ModelServingEndpoint(BaseGovernanceModel):
     # }
 
     # Optimization
-    route_optimized: bool = Field(
-        False,
-        description="Whether to optimize routing"
-    )
+    route_optimized: bool = Field(False, description="Whether to optimize routing")
 
     # State
-    state: str = Field(
-        "NOT_READY",
-        description="Current state (NOT_READY, READY, CREATING, UPDATING, FAILED)"
-    )
+    state: str = Field("NOT_READY", description="Current state (NOT_READY, READY, CREATING, UPDATING, FAILED)")
 
     # Tracking
     creation_timestamp: Optional[datetime] = None
@@ -672,7 +571,7 @@ class ModelServingEndpoint(BaseGovernanceModel):
         model: RegisteredModel,
         version: Union[int, str] = "latest",
         workload_size: str = "Small",
-        scale_to_zero: bool = True
+        scale_to_zero: bool = True,
     ) -> None:
         """
         Add a model to serve on this endpoint.
@@ -687,7 +586,7 @@ class ModelServingEndpoint(BaseGovernanceModel):
             "model_name": model.fqdn,
             "model_version": str(version),  # Convert to string for consistency
             "workload_size": workload_size,
-            "scale_to_zero_enabled": scale_to_zero
+            "scale_to_zero_enabled": scale_to_zero,
         }
 
         # Add to both served_models list and config
@@ -700,10 +599,4 @@ class ModelServingEndpoint(BaseGovernanceModel):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for endpoint creation."""
-        return {
-            "name": self.resolved_name,
-            "config": self.config,
-            "route_optimized": self.route_optimized
-        }
-
-
+        return {"name": self.resolved_name, "config": self.config, "route_optimized": self.route_optimized}

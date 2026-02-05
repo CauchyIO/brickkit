@@ -9,6 +9,7 @@ Demonstrates:
 - SQL generation with tags
 - GovernanceDefaults integration
 """
+
 import sys
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag
 # Define governance defaults
 # =============================================================================
 
+
 class DataGovernanceDefaults(GovernanceDefaults):
     """Organization-wide data governance policies."""
 
@@ -30,8 +32,7 @@ class DataGovernanceDefaults(GovernanceDefaults):
     def default_tags(self):
         return [
             TagDefault(key="managed_by", value="brickkit"),
-            TagDefault(key="environment", value="dev",
-                      environment_values={"PRD": "prod", "ACC": "acc"}),
+            TagDefault(key="environment", value="dev", environment_values={"PRD": "prod", "ACC": "acc"}),
         ]
 
     @property
@@ -42,14 +43,10 @@ class DataGovernanceDefaults(GovernanceDefaults):
                 key="pii",
                 allowed_values={"true", "false"},
                 applies_to={"TABLE"},
-                error_message="Tables must declare pii=true or pii=false"
+                error_message="Tables must declare pii=true or pii=false",
             ),
             # Tables must have a data owner
-            RequiredTag(
-                key="data_owner",
-                applies_to={"TABLE"},
-                error_message="Tables must have a data_owner tag"
-            ),
+            RequiredTag(key="data_owner", applies_to={"TABLE"}, error_message="Tables must have a data_owner tag"),
         ]
 
 

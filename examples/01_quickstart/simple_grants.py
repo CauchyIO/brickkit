@@ -4,6 +4,7 @@ Simple Grants Example
 Shows how to grant access using Principal and AccessPolicy.
 Demonstrates the three standard policies: READER, WRITER, ADMIN.
 """
+
 import sys
 from pathlib import Path
 

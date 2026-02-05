@@ -6,6 +6,7 @@ AccessManager provides team-level orchestration for grants:
 - Bulk operations for common patterns
 - Team-specific access organization
 """
+
 import sys
 from pathlib import Path
 

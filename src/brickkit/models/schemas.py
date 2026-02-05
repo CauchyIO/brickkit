@@ -29,14 +29,16 @@ if TYPE_CHECKING:
     from .catalogs import Catalog
     from .references import FunctionReference, ModelReference, TableReference, VolumeReference
 
+logger = logging.getLogger(__name__)
+
 # Try importing FlexibleFieldMixin
 try:
     from ..mixins.flexible_fields import FlexibleFieldMixin
-except (ImportError, ValueError):
+except (ImportError, ValueError) as e:
+    logger.debug(f"FlexibleFieldMixin not available, using no-op fallback: {e}")
+
     class FlexibleFieldMixin:
         pass
-
-logger = logging.getLogger(__name__)
 
 
 class Schema(FlexibleFieldMixin, BaseSecurable):
@@ -47,19 +49,19 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
     within a catalog. They inherit storage locations and owner from their parent
     catalog if not explicitly set.
     """
+
     name: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Schema name (no environment suffix - parent catalog has it)"
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+        description="Schema name (no environment suffix - parent catalog has it)",
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the schema")
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal"
+        description="Owner principal",
     )
     external_location: Optional[ExternalLocation] = Field(
-        None,
-        description="Optional external storage (inherited from catalog if not set)"
+        None, description="Optional external storage (inherited from catalog if not set)"
     )
 
     # Child containers
@@ -69,18 +71,17 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
     models: List[Any] = Field(default_factory=list, description="Child ML models")
 
     # Reference collections for lightweight governance (objects created by DABs/MLflow)
-    table_refs: List['TableReference'] = Field(default_factory=list, description="References to discovered tables")
-    model_refs: List['ModelReference'] = Field(default_factory=list, description="References to discovered models")
-    volume_refs: List['VolumeReference'] = Field(default_factory=list, description="References to discovered volumes")
-    function_refs: List['FunctionReference'] = Field(default_factory=list, description="References to discovered functions")
+    table_refs: List["TableReference"] = Field(default_factory=list, description="References to discovered tables")
+    model_refs: List["ModelReference"] = Field(default_factory=list, description="References to discovered models")
+    volume_refs: List["VolumeReference"] = Field(default_factory=list, description="References to discovered volumes")
+    function_refs: List["FunctionReference"] = Field(
+        default_factory=list, description="References to discovered functions"
+    )
 
     # Private parent reference (not serialized)
     _parent_catalog: Optional[Catalog] = PrivateAttr(default=None)
 
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Parent catalog name (set by add_schema)"
-    )
+    catalog_name: Optional[str] = Field(None, description="Parent catalog name (set by add_schema)")
 
     @computed_field
     @property
@@ -199,7 +200,9 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         )
 
     def __str__(self) -> str:
-        return f"Schema '{self.fqdn}' ({len(self.tables)} tables, {len(self.volumes)} volumes, {len(self.models)} models)"
+        return (
+            f"Schema '{self.fqdn}' ({len(self.tables)} tables, {len(self.volumes)} volumes, {len(self.models)} models)"
+        )
 
     def _propagate_grants(self, principal: Principal, policy: AccessPolicy) -> List[Any]:
         """Propagate grants to child objects."""
@@ -251,7 +254,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
             if priv.principal == principal.resolved_name:
                 privileges.append(priv.privilege)
 
-        if hasattr(self, '_parent_catalog') and self._parent_catalog:
+        if hasattr(self, "_parent_catalog") and self._parent_catalog:
             privileges.extend(self._parent_catalog.get_effective_privileges(principal))
 
         if PrivilegeType.ALL_PRIVILEGES in privileges:
@@ -284,7 +287,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         return self.name
 
     # Reference management methods
-    def add_table_reference(self, table_ref: 'TableReference') -> None:
+    def add_table_reference(self, table_ref: "TableReference") -> None:
         """Add a reference to a table discovered or created by DABs."""
         if not self.catalog_name:
             raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
@@ -292,7 +295,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         table_ref.schema_name = self.name
         self.table_refs.append(table_ref)
 
-    def add_model_reference(self, model_ref: 'ModelReference') -> None:
+    def add_model_reference(self, model_ref: "ModelReference") -> None:
         """Add a reference to a model discovered or registered by MLflow."""
         if not self.catalog_name:
             raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
@@ -300,7 +303,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         model_ref.schema_name = self.name
         self.model_refs.append(model_ref)
 
-    def add_volume_reference(self, volume_ref: 'VolumeReference') -> None:
+    def add_volume_reference(self, volume_ref: "VolumeReference") -> None:
         """Add a reference to a volume discovered or created by DABs."""
         if not self.catalog_name:
             raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
@@ -308,7 +311,7 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
         volume_ref.schema_name = self.name
         self.volume_refs.append(volume_ref)
 
-    def add_function_reference(self, function_ref: 'FunctionReference') -> None:
+    def add_function_reference(self, function_ref: "FunctionReference") -> None:
         """Add a reference to a function discovered or created by DABs."""
         if not self.catalog_name:
             raise ValueError(f"Schema '{self.name}' must have a catalog_name before adding references")
@@ -318,20 +321,21 @@ class Schema(FlexibleFieldMixin, BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK create parameters."""
-        params = {
-            "name": self.name,
-            "catalog_name": self.resolved_catalog_name,
-            "comment": self.comment
-        }
+        params = {"name": self.name, "catalog_name": self.resolved_catalog_name, "comment": self.comment}
         if self.storage_root:
             params["storage_root"] = self.storage_root
         return params
 
     def to_sdk_update_params(self) -> Dict[str, Any]:
-        """Convert to SDK update parameters."""
-        return {
-            "name": self.name,
-            "catalog_name": self.resolved_catalog_name,
-            "full_name": f"{self.resolved_catalog_name}.{self.name}",
-            "comment": self.comment
+        """Convert to SDK update parameters.
+
+        Note: SchemasAPI.update() only accepts full_name to identify the schema,
+        plus the fields to update (comment, owner). It does NOT accept name or catalog_name.
+        """
+        params = {
+            "full_name": self.fqdn,
+            "comment": self.comment,
         }
+        if self.owner:
+            params["owner"] = self.owner.resolved_name
+        return params

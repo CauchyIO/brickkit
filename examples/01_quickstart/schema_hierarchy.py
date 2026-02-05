@@ -4,6 +4,7 @@ Schema Hierarchy Example
 Shows how to build a catalog with schemas and table references.
 Demonstrates the three-level hierarchy: Catalog → Schema → References.
 """
+
 import sys
 from pathlib import Path
 
@@ -30,15 +31,9 @@ orders_schema = Schema(
 
 # Add lightweight table references (pointers, not full definitions)
 # Tables are created by DABs/DLT, brickkit just manages permissions
-orders_schema.add_table_reference(
-    TableReference(name="orders_raw", catalog_name="sales", schema_name="orders")
-)
-orders_schema.add_table_reference(
-    TableReference(name="orders_enriched", catalog_name="sales", schema_name="orders")
-)
-orders_schema.add_volume_reference(
-    VolumeReference(name="order_files", catalog_name="sales", schema_name="orders")
-)
+orders_schema.add_table_reference(TableReference(name="orders_raw", catalog_name="sales", schema_name="orders"))
+orders_schema.add_table_reference(TableReference(name="orders_enriched", catalog_name="sales", schema_name="orders"))
+orders_schema.add_volume_reference(VolumeReference(name="order_files", catalog_name="sales", schema_name="orders"))
 
 sales_catalog.add_schema(orders_schema)
 

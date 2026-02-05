@@ -266,10 +266,7 @@ class PipelineImporter(ResourceImporter[Pipeline]):
                     pipeline = self._from_info(pipeline_info)
                     pipelines.append(pipeline)
                 except Exception as e:
-                    errors.append(
-                        f"Failed to import pipeline '{pipeline_name}' "
-                        f"(ID: {pipeline_info.pipeline_id}): {e}"
-                    )
+                    errors.append(f"Failed to import pipeline '{pipeline_name}' (ID: {pipeline_info.pipeline_id}): {e}")
                     if not self.options.skip_on_error:
                         raise
 

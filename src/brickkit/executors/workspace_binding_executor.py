@@ -25,12 +25,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
     accessible from all workspaces by default.
     """
 
-    def __init__(
-        self,
-        client: WorkspaceClient,
-        dry_run: bool = False,
-        force: bool = False
-    ):
+    def __init__(self, client: WorkspaceClient, dry_run: bool = False, force: bool = False):
         """
         Initialize the workspace binding executor.
 
@@ -42,11 +37,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
         super().__init__(client, dry_run, force)
         self.resource_type = "WORKSPACE_BINDING"
 
-    def update_bindings(
-        self,
-        catalog: Catalog,
-        workspace_ids: Optional[List[int]] = None
-    ) -> ExecutionResult:
+    def update_bindings(self, catalog: Catalog, workspace_ids: Optional[List[int]] = None) -> ExecutionResult:
         """
         Update workspace bindings for a catalog.
 
@@ -58,6 +49,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
             ExecutionResult with operation status
         """
         import time
+
         start_time = time.time()
 
         # Use provided workspace_ids or fall back to catalog's
@@ -71,7 +63,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
                 message=f"Catalog is {catalog.isolation_mode.value} mode, workspace bindings not applicable",
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
         if not target_workspace_ids:
@@ -81,7 +73,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
                 message="No workspace IDs provided for ISOLATED catalog",
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
         try:
@@ -101,7 +93,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                     resource_type=self.resource_type,
                     resource_name=catalog.resolved_name,
                     message="Workspace bindings already up to date",
-                    duration_seconds=time.time() - start_time
+                    duration_seconds=time.time() - start_time,
                 )
 
             if self.dry_run:
@@ -118,14 +110,12 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                     resource_name=catalog.resolved_name,
                     message="[DRY RUN] Would update workspace bindings",
                     changes=changes,
-                    duration_seconds=time.time() - start_time
+                    duration_seconds=time.time() - start_time,
                 )
 
             # Apply the update
             self.client.workspace_bindings.update(
-                name=catalog.resolved_name,
-                assign_workspaces=list(to_add),
-                unassign_workspaces=list(to_remove)
+                name=catalog.resolved_name, assign_workspaces=list(to_add), unassign_workspaces=list(to_remove)
             )
 
             return ExecutionResult(
@@ -134,11 +124,8 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
                 message=f"Updated workspace bindings: +{len(to_add)} -{len(to_remove)} workspaces",
-                changes={
-                    "added": list(to_add),
-                    "removed": list(to_remove)
-                },
-                duration_seconds=time.time() - start_time
+                changes={"added": list(to_add), "removed": list(to_remove)},
+                duration_seconds=time.time() - start_time,
             )
 
         except PermissionDenied as e:
@@ -152,15 +139,14 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_name=catalog.resolved_name,
                 message=f"Catalog not found: {e}",
                 error=e,
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
     def _get_current_bindings(self, catalog_name: str) -> List[int]:
         """Get current workspace bindings for a catalog."""
         try:
             bindings = self.client.workspace_bindings.get_bindings(
-                securable_type="catalog",
-                securable_name=catalog_name
+                securable_type="catalog", securable_name=catalog_name
             )
             return [b.workspace_id for b in bindings.workspaces if b.workspace_id]
         except (ResourceDoesNotExist, NotFound):
@@ -181,6 +167,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
         """
         # Create a temporary catalog object for the operation
         from brickkit.models import Catalog, IsolationMode
+
         temp_catalog = Catalog(name=catalog_name, isolation_mode=IsolationMode.ISOLATED)
         return self.remove_all_bindings(temp_catalog)
 
@@ -195,6 +182,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
             ExecutionResult with operation status
         """
         import time
+
         start_time = time.time()
 
         if catalog.isolation_mode != IsolationMode.ISOLATED:
@@ -204,7 +192,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
                 message=f"Catalog is {catalog.isolation_mode.value} mode, cannot remove bindings",
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
         try:
@@ -217,7 +205,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                     resource_type=self.resource_type,
                     resource_name=catalog.resolved_name,
                     message="No workspace bindings to remove",
-                    duration_seconds=time.time() - start_time
+                    duration_seconds=time.time() - start_time,
                 )
 
             if self.dry_run:
@@ -228,14 +216,12 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                     resource_name=catalog.resolved_name,
                     message=f"[DRY RUN] Would remove {len(current_bindings)} workspace bindings",
                     changes={"workspaces_to_remove": current_bindings},
-                    duration_seconds=time.time() - start_time
+                    duration_seconds=time.time() - start_time,
                 )
 
             # Remove all bindings
             self.client.workspace_bindings.update(
-                name=catalog.resolved_name,
-                assign_workspaces=[],
-                unassign_workspaces=current_bindings
+                name=catalog.resolved_name, assign_workspaces=[], unassign_workspaces=current_bindings
             )
 
             return ExecutionResult(
@@ -245,7 +231,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_name=catalog.resolved_name,
                 message=f"Removed {len(current_bindings)} workspace bindings",
                 changes={"removed": current_bindings},
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
         except PermissionDenied as e:
@@ -259,7 +245,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 resource_name=catalog.resolved_name,
                 message=f"Catalog not found: {e}",
                 error=e,
-                duration_seconds=time.time() - start_time
+                duration_seconds=time.time() - start_time,
             )
 
     def plan(self, catalog: Catalog) -> ExecutionPlan:  # type: ignore[override]
@@ -280,9 +266,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
 
         if not catalog.workspace_ids:
             # Warning: ISOLATED catalog without bindings
-            logger.warning(
-                f"ISOLATED catalog '{catalog.name}' has no workspace bindings defined"
-            )
+            logger.warning(f"ISOLATED catalog '{catalog.name}' has no workspace bindings defined")
             return plan
 
         # Get current state
@@ -304,7 +288,7 @@ class WorkspaceBindingExecutor(BaseExecutor[Catalog]):
                 operation=OperationType.UPDATE,
                 resource_type=self.resource_type,
                 resource_name=catalog.resolved_name,
-                changes=changes
+                changes=changes,
             )
 
         return plan

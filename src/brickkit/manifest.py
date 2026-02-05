@@ -61,8 +61,7 @@ class ManifestTagDefault(BaseModel):
     def validate_key(cls, v: str) -> str:
         if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", v):
             raise ValueError(
-                f"Tag key '{v}' must start with a letter and contain only "
-                "alphanumeric characters and underscores"
+                f"Tag key '{v}' must start with a letter and contain only alphanumeric characters and underscores"
             )
         return v
 
@@ -72,9 +71,7 @@ class ManifestTagDefault(BaseModel):
         valid_envs = {"dev", "acc", "prd"}
         for env in v.keys():
             if env not in valid_envs:
-                raise ValueError(
-                    f"Invalid environment '{env}'. Must be one of: {valid_envs}"
-                )
+                raise ValueError(f"Invalid environment '{env}'. Must be one of: {valid_envs}")
         return v
 
     def to_tag_default(self) -> TagDefault:
@@ -100,8 +97,7 @@ class ManifestRequiredTag(BaseModel):
     def validate_key(cls, v: str) -> str:
         if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", v):
             raise ValueError(
-                f"Tag key '{v}' must start with a letter and contain only "
-                "alphanumeric characters and underscores"
+                f"Tag key '{v}' must start with a letter and contain only alphanumeric characters and underscores"
             )
         return v
 
@@ -192,9 +188,7 @@ class ManifestBasedDefaults(GovernanceDefaults):
         self._manifest = manifest
         self._default_tags = [t.to_tag_default() for t in manifest.default_tags]
         self._required_tags = [t.to_required_tag() for t in manifest.required_tags]
-        self._naming_conventions = [
-            n.to_naming_convention() for n in manifest.naming_conventions
-        ]
+        self._naming_conventions = [n.to_naming_convention() for n in manifest.naming_conventions]
 
     @property
     def manifest(self) -> ProjectManifest:

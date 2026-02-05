@@ -16,16 +16,17 @@ resources:
         - task_key: deploy_vector_search
           description: Deploy governed Vector Search resources with BrickKit
           notebook_task:
-            notebook_path: ../vector_search_demo.ipynb
+            notebook_path: ../vector_search_demo.py
             base_parameters:
               catalog: ${var.catalog}
               schema: ${var.schema}
               endpoint_name: ${var.vs_endpoint_name}
               environment: ${bundle.target}
               dry_run: "false"
-          new_cluster:
-            spark_version: 14.3.x-scala2.12
-            node_type_id: m5d.large
-            num_workers: 0
-            spark_conf:
-              spark.master: "local[*]"
+          # Use serverless compute (required for this workspace)
+          environment_key: default
+
+      environments:
+        - environment_key: default
+          spec:
+            client: "2"

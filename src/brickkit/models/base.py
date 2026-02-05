@@ -23,11 +23,12 @@ from .enums import Environment, PrivilegeType, SecurableType, validate_privilege
 logger = logging.getLogger(__name__)
 
 # Default owner for all securables - set at project level
-DEFAULT_SECURABLE_OWNER = os.getenv('DEFAULT_SECURABLE_OWNER', 'platform_automation_spn')
+DEFAULT_SECURABLE_OWNER = os.getenv("DEFAULT_SECURABLE_OWNER", "platform_automation_spn")
 
 # =============================================================================
 # ENVIRONMENT MANAGEMENT
 # =============================================================================
+
 
 def get_current_environment() -> Environment:
     """
@@ -35,7 +36,7 @@ def get_current_environment() -> Environment:
 
     Returns Environment.DEV if not set or invalid.
     """
-    env_str = os.getenv('DATABRICKS_ENV', 'dev').lower()
+    env_str = os.getenv("DATABRICKS_ENV", "dev").lower()
     try:
         return Environment(env_str.upper())
     except ValueError:
@@ -59,12 +60,14 @@ def set_current_environment(env: Environment) -> None:
 
         set_current_environment(Environment.PRD)
     """
-    os.environ['DATABRICKS_ENV'] = env.value
+    os.environ["DATABRICKS_ENV"] = env.value
     logger.info(f"Set current environment to {env.value}")
+
 
 # =============================================================================
 # BASE CONFIGURATION
 # =============================================================================
+
 
 class BaseGovernanceModel(BaseModel):
     """
@@ -83,15 +86,15 @@ class BaseGovernanceModel(BaseModel):
         str_strip_whitespace=True,  # Strip whitespace from strings
         json_schema_extra={
             "title": "Unity Catalog Governance Model",
-            "description": "Base model for Unity Catalog governance objects"
-        }
+            "description": "Base model for Unity Catalog governance objects",
+        },
     )
-
 
 
 # =============================================================================
 # REQUEST FOR ACCESS
 # =============================================================================
+
 
 class RequestForAccess(BaseGovernanceModel):
     """
@@ -104,16 +107,15 @@ class RequestForAccess(BaseGovernanceModel):
         destination: Email address where access requests are sent
         instructions: Instructions shown to users requesting access
     """
+
     destination: str = Field(..., description="Email address for access requests")
-    instructions: Optional[str] = Field(
-        None,
-        description="Instructions shown to users requesting access"
-    )
+    instructions: Optional[str] = Field(None, description="Instructions shown to users requesting access")
 
 
 # =============================================================================
 # BASE SECURABLE CLASS
 # =============================================================================
+
 
 class BaseSecurable(BaseGovernanceModel):
     """
@@ -140,8 +142,7 @@ class BaseSecurable(BaseGovernanceModel):
 
     # Request for Access configuration
     request_for_access: Optional[RequestForAccess] = Field(
-        None,
-        description="Request for Access configuration for this securable"
+        None, description="Request for Access configuration for this securable"
     )
 
     @property
@@ -183,7 +184,9 @@ class BaseSecurable(BaseGovernanceModel):
         Raises:
             ValueError: If privilege dependencies are not satisfied
         """
-        logger.info(f"Granting {policy.name} policy to {principal.name} on {self.securable_type} '{getattr(self, 'name', 'unknown')}'")
+        logger.info(
+            f"Granting {policy.name} policy to {principal.name} on {self.securable_type} '{getattr(self, 'name', 'unknown')}'"
+        )
 
         # Get privileges for this securable type from the policy
         privileges = policy.get_privileges(self.securable_type)
@@ -192,38 +195,29 @@ class BaseSecurable(BaseGovernanceModel):
         # Validate ALL_PRIVILEGES is only used at CATALOG level
         if PrivilegeType.ALL_PRIVILEGES in privileges and self.securable_type != SecurableType.CATALOG:
             raise ValueError(
-                f"ALL_PRIVILEGES can only be granted at the CATALOG level, "
-                f"not at {self.securable_type.value} level"
+                f"ALL_PRIVILEGES can only be granted at the CATALOG level, not at {self.securable_type.value} level"
             )
 
         # Get existing privileges for this principal
-        existing_privs_for_principal = {
-            p.privilege for p in self.privileges
-            if p.principal == principal.resolved_name
-        }
+        existing_privs_for_principal = {p.privilege for p in self.privileges if p.principal == principal.resolved_name}
 
         # Validate privilege dependencies (skip during propagation)
         if not _skip_validation:
-            validation_errors = validate_privilege_dependencies(
-                set(privileges),
-                existing_privs_for_principal
-            )
+            validation_errors = validate_privilege_dependencies(set(privileges), existing_privs_for_principal)
             if validation_errors:
                 import warnings
+
                 warnings.warn(
-                    f"Privilege dependency validation failed for {getattr(self, 'name', 'unknown')}:\n" +
-                    "\n".join(f"  - {error}" for error in validation_errors),
+                    f"Privilege dependency validation failed for {getattr(self, 'name', 'unknown')}:\n"
+                    + "\n".join(f"  - {error}" for error in validation_errors),
                     UserWarning,
-                    stacklevel=2
+                    stacklevel=2,
                 )
 
         result = []
 
         # Create set of existing grants for O(1) lookups
-        existing_grants = {
-            (p.principal, p.privilege, p.level_1, p.level_2, p.level_3)
-            for p in self.privileges
-        }
+        existing_grants = {(p.principal, p.privilege, p.level_1, p.level_2, p.level_3) for p in self.privileges}
 
         # Grant privileges at this level
         for priv_type in privileges:
@@ -234,7 +228,9 @@ class BaseSecurable(BaseGovernanceModel):
                 privilege = self._create_privilege(principal, priv_type)
                 self.privileges.append(privilege)
                 result.append(privilege)
-                logger.debug(f"Created privilege: {priv_type} for {principal.resolved_name} on {getattr(self, 'name', 'unknown')}")
+                logger.debug(
+                    f"Created privilege: {priv_type} for {principal.resolved_name} on {getattr(self, 'name', 'unknown')}"
+                )
 
         # Handle propagation to children (implemented by subclasses)
         result.extend(self._propagate_grants(principal, policy))
@@ -256,8 +252,8 @@ class BaseSecurable(BaseGovernanceModel):
             principal.resolved_name,
             priv_type,
             self.get_level_1_name(),
-            self.get_level_2_name() if hasattr(self, 'get_level_2_name') else None,
-            self.get_level_3_name() if hasattr(self, 'get_level_3_name') else None
+            self.get_level_2_name() if hasattr(self, "get_level_2_name") else None,
+            self.get_level_3_name() if hasattr(self, "get_level_3_name") else None,
         )
 
     def _create_privilege(self, principal: Any, priv_type: PrivilegeType) -> Any:
@@ -273,13 +269,14 @@ class BaseSecurable(BaseGovernanceModel):
         """
         # Import here to avoid circular dependency
         from .grants import Privilege
+
         return Privilege(
             level_1=self.get_level_1_name(),
-            level_2=self.get_level_2_name() if hasattr(self, 'get_level_2_name') else None,
-            level_3=self.get_level_3_name() if hasattr(self, 'get_level_3_name') else None,
+            level_2=self.get_level_2_name() if hasattr(self, "get_level_2_name") else None,
+            level_3=self.get_level_3_name() if hasattr(self, "get_level_3_name") else None,
             securable_type=self.securable_type,
             principal=principal.resolved_name,
-            privilege=priv_type
+            privilege=priv_type,
         )
 
     def _propagate_grants(self, principal: Any, policy: Any) -> List[Any]:
@@ -376,11 +373,7 @@ class BaseSecurable(BaseGovernanceModel):
         tag_dict = {t.key: t.value for t in self.tags}
         return defaults.validate_tags(self.securable_type, tag_dict)
 
-    def grant_many(
-        self,
-        principals: List[Any],
-        policy: Any
-    ) -> Dict[str, List[Any]]:
+    def grant_many(self, principals: List[Any], policy: Any) -> Dict[str, List[Any]]:
         """
         Grant privileges to multiple principals at once.
 
@@ -408,10 +401,7 @@ class BaseSecurable(BaseGovernanceModel):
             results[principal.resolved_name] = granted_privileges
         return results
 
-    def grant_all(
-        self,
-        grants: List[Tuple[Any, Any]]
-    ) -> Dict[str, List[Any]]:
+    def grant_all(self, grants: List[Tuple[Any, Any]]) -> Dict[str, List[Any]]:
         """
         Apply multiple grant combinations at once.
 
@@ -442,6 +432,7 @@ class BaseSecurable(BaseGovernanceModel):
 # =============================================================================
 # HELPER CLASSES
 # =============================================================================
+
 
 class Tag(BaseGovernanceModel):
     """
@@ -481,6 +472,7 @@ class Tag(BaseGovernanceModel):
             databricks.sdk.service.catalog.TagKeyValue
         """
         from databricks.sdk.service.catalog import TagKeyValue
+
         return TagKeyValue(key=self.key, value=self.value)
 
     def to_entity_assignment(self, entity_name: str, entity_type: str) -> Any:
@@ -495,15 +487,13 @@ class Tag(BaseGovernanceModel):
             databricks.sdk.service.catalog.EntityTagAssignment
         """
         from databricks.sdk.service.catalog import EntityTagAssignment
+
         return EntityTagAssignment(
-            entity_name=entity_name,
-            entity_type=entity_type,
-            tag_key=self.key,
-            tag_value=self.value
+            entity_name=entity_name, entity_type=entity_type, tag_key=self.key, tag_value=self.value
         )
 
     @classmethod
-    def from_sdk_assignment(cls, assignment: Any) -> 'Tag':
+    def from_sdk_assignment(cls, assignment: Any) -> "Tag":
         """
         Create Tag from SDK EntityTagAssignment.
 
@@ -513,10 +503,7 @@ class Tag(BaseGovernanceModel):
         Returns:
             Tag instance
         """
-        return cls(
-            key=assignment.tag_key,
-            value=assignment.tag_value or ""
-        )
+        return cls(key=assignment.tag_key, value=assignment.tag_value or "")
 
     def to_vector_search_custom_tag(self) -> Any:
         """
@@ -526,10 +513,11 @@ class Tag(BaseGovernanceModel):
             databricks.sdk.service.vectorsearch.CustomTag
         """
         from databricks.sdk.service.vectorsearch import CustomTag
+
         return CustomTag(key=self.key, value=self.value)
 
     @classmethod
-    def from_vector_search_custom_tag(cls, custom_tag: Any) -> 'Tag':
+    def from_vector_search_custom_tag(cls, custom_tag: Any) -> "Tag":
         """
         Create Tag from VectorSearch CustomTag.
 
@@ -539,9 +527,4 @@ class Tag(BaseGovernanceModel):
         Returns:
             Tag instance
         """
-        return cls(
-            key=custom_tag.key or "",
-            value=custom_tag.value or ""
-        )
-
-
+        return cls(key=custom_tag.key or "", value=custom_tag.value or "")

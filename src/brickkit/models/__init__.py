@@ -29,6 +29,12 @@ Module organization:
 # Import typing for model_rebuild() forward reference resolution
 from typing import Any, Dict, List, Optional  # noqa: F401
 
+# Import ACL models
+from .acls import (
+    AclBinding,
+    AclEntry,
+)
+
 # Import base classes and utilities
 from .base import (
     DEFAULT_SECURABLE_OWNER,
@@ -52,15 +58,19 @@ from .connections import (
 from .enums import (
     ALL_PRIVILEGES_EXPANSION,
     PRIVILEGE_DEPENDENCIES,
+    AclObjectType,
     BindingType,
     ConnectionType,
     Environment,
     FunctionType,
     IsolationMode,
+    PrincipalSource,
+    PrincipalType,
     PrivilegeType,
     SecurableType,
     TableType,
     VolumeType,
+    WorkspaceEntitlement,
     validate_privilege_dependencies,
 )
 
@@ -109,6 +119,13 @@ from .ml_models import (
     ModelVersionStatus,
     RegisteredModel,
     ServiceCredential,
+)
+
+# Import principal management models
+from .principals import (
+    ManagedGroup,
+    ManagedServicePrincipal,
+    MemberReference,
 )
 
 # Import lightweight reference models
@@ -186,123 +203,114 @@ from .workspace_bindings import (
 # Re-export everything
 __all__ = [
     # Enums
-    'SecurableType',
-    'PrivilegeType',
-    'Environment',
-    'BindingType',
-    'IsolationMode',
-    'TableType',
-    'VolumeType',
-    'FunctionType',
-    'ConnectionType',
-
+    "SecurableType",
+    "PrivilegeType",
+    "Environment",
+    "BindingType",
+    "IsolationMode",
+    "TableType",
+    "VolumeType",
+    "FunctionType",
+    "ConnectionType",
+    "PrincipalType",
+    "PrincipalSource",
+    "WorkspaceEntitlement",
+    "AclObjectType",
     # Base classes
-    'BaseGovernanceModel',
-    'BaseSecurable',
-    'Tag',
-
+    "BaseGovernanceModel",
+    "BaseSecurable",
+    "Tag",
     # Access control
-    'Principal',
-    'Privilege',
-    'AccessPolicy',
-
+    "Principal",
+    "Privilege",
+    "AccessPolicy",
     # Workspace bindings
-    'Workspace',
-    'WorkspaceBinding',
-    'WorkspaceBindingPattern',
-    'WorkspaceRegistry',
-
+    "Workspace",
+    "WorkspaceBinding",
+    "WorkspaceBindingPattern",
+    "WorkspaceRegistry",
     # Teams
-    'Team',
-    'AccessManager',
-
+    "Team",
+    "AccessManager",
     # Storage credentials
-    'StorageCredential',
-    'AwsIamRole',
-    'AzureServicePrincipal',
-    'AzureManagedIdentity',
-    'GcpServiceAccountKey',
-
+    "StorageCredential",
+    "AwsIamRole",
+    "AzureServicePrincipal",
+    "AzureManagedIdentity",
+    "GcpServiceAccountKey",
     # External locations
-    'ExternalLocation',
-
+    "ExternalLocation",
     # Connections
-    'Connection',
-
+    "Connection",
     # Tables
-    'Table',
-    'ColumnInfo',
-
+    "Table",
+    "ColumnInfo",
     # Volumes
-    'Volume',
-
+    "Volume",
     # Functions
-    'Function',
-
+    "Function",
     # Schemas
-    'Schema',
-
+    "Schema",
     # Catalogs
-    'Catalog',
-
+    "Catalog",
     # Metastores
-    'Metastore',
-
+    "Metastore",
     # Reference models
-    'TableReference',
-    'ModelReference',
-    'VolumeReference',
-    'FunctionReference',
-
+    "TableReference",
+    "ModelReference",
+    "VolumeReference",
+    "FunctionReference",
     # ML Models
-    'RegisteredModel',
-    'ModelVersion',
-    'ServiceCredential',
-    'ModelServingEndpoint',
-    'ModelVersionStatus',
-
+    "RegisteredModel",
+    "ModelVersion",
+    "ServiceCredential",
+    "ModelServingEndpoint",
+    "ModelVersionStatus",
     # Vector Search
-    'VectorSearchEndpoint',
-    'VectorSearchIndex',
-    'VectorIndexType',
-    'VectorSimilarityMetric',
-    'VectorEndpointType',
-
+    "VectorSearchEndpoint",
+    "VectorSearchIndex",
+    "VectorIndexType",
+    "VectorSimilarityMetric",
+    "VectorEndpointType",
     # Genie Space
-    'GenieSpace',
-    'GenieSpaceConfig',
-    'SerializedSpace',
-    'DataSources',
-    'TableDataSource',
-    'ColumnConfig',
-    'Instructions',
-    'TextInstruction',
-    'SqlFunction',
-    'JoinSpec',
-    'quick_table',
-    'quick_function',
-
+    "GenieSpace",
+    "GenieSpaceConfig",
+    "SerializedSpace",
+    "DataSources",
+    "TableDataSource",
+    "ColumnConfig",
+    "Instructions",
+    "TextInstruction",
+    "SqlFunction",
+    "JoinSpec",
+    "quick_table",
+    "quick_function",
     # Sharing
-    'Provider',
-    'Recipient',
-    'Share',
-    'SharedObject',
-    'AuthenticationType',
-    'SharingStatus',
-
+    "Provider",
+    "Recipient",
+    "Share",
+    "SharedObject",
+    "AuthenticationType",
+    "SharingStatus",
     # Utilities
-    'get_current_environment',
-    'DEFAULT_SECURABLE_OWNER',
-    'validate_privilege_dependencies',
-    'ALL_PRIVILEGES_EXPANSION',
-    'PRIVILEGE_DEPENDENCIES',
-
+    "get_current_environment",
+    "DEFAULT_SECURABLE_OWNER",
+    "validate_privilege_dependencies",
+    "ALL_PRIVILEGES_EXPANSION",
+    "PRIVILEGE_DEPENDENCIES",
     # Table models with tag support (backward compatibility)
-    'Column',
-    'GoverningTable',
-    'SCD2_COLUMNS',
-    'BaseColumn',
-    'BaseTable',
+    "Column",
+    "GoverningTable",
+    "SCD2_COLUMNS",
+    "BaseColumn",
+    "BaseTable",
+    # Principal management
+    "ManagedGroup",
+    "ManagedServicePrincipal",
+    "MemberReference",
+    # ACL models
+    "AclBinding",
+    "AclEntry",
 ]
 
 # Rebuild models to resolve forward references

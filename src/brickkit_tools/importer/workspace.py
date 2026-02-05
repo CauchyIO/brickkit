@@ -131,14 +131,9 @@ class WorkspaceSnapshot:
 
     def resource_counts(self) -> Dict[str, int]:
         """Get count of each resource type."""
-        return {
-            field_name: len(getattr(self, field_name))
-            for field_name in self._resource_fields()
-        }
+        return {field_name: len(getattr(self, field_name)) for field_name in self._resource_fields()}
 
-    def apply_convention(
-        self, convention: "Convention", environment: "Environment"
-    ) -> None:
+    def apply_convention(self, convention: "Convention", environment: "Environment") -> None:
         """
         Apply a convention to all resources that support it.
 

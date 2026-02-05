@@ -18,6 +18,7 @@ Gold (Business-Ready):
 - SLA guaranteed
 - Access: Business users, applications
 """
+
 import sys
 from pathlib import Path
 
@@ -105,43 +106,55 @@ sales = create_medallion_catalog("sales")
 # Add table references to show the flow
 bronze = sales.schemas[0]  # bronze
 silver = sales.schemas[1]  # silver
-gold = sales.schemas[2]    # gold
+gold = sales.schemas[2]  # gold
 
 # Bronze: raw events from source
-bronze.add_table_reference(TableReference(
-    name="orders_raw",
-    catalog_name="sales",
-    schema_name="bronze",
-))
-bronze.add_table_reference(TableReference(
-    name="customers_raw",
-    catalog_name="sales",
-    schema_name="bronze",
-))
+bronze.add_table_reference(
+    TableReference(
+        name="orders_raw",
+        catalog_name="sales",
+        schema_name="bronze",
+    )
+)
+bronze.add_table_reference(
+    TableReference(
+        name="customers_raw",
+        catalog_name="sales",
+        schema_name="bronze",
+    )
+)
 
 # Silver: cleansed entities
-silver.add_table_reference(TableReference(
-    name="orders_cleansed",
-    catalog_name="sales",
-    schema_name="silver",
-))
-silver.add_table_reference(TableReference(
-    name="customers_cleansed",
-    catalog_name="sales",
-    schema_name="silver",
-))
+silver.add_table_reference(
+    TableReference(
+        name="orders_cleansed",
+        catalog_name="sales",
+        schema_name="silver",
+    )
+)
+silver.add_table_reference(
+    TableReference(
+        name="customers_cleansed",
+        catalog_name="sales",
+        schema_name="silver",
+    )
+)
 
 # Gold: business metrics
-gold.add_table_reference(TableReference(
-    name="daily_sales",
-    catalog_name="sales",
-    schema_name="gold",
-))
-gold.add_table_reference(TableReference(
-    name="customer_lifetime_value",
-    catalog_name="sales",
-    schema_name="gold",
-))
+gold.add_table_reference(
+    TableReference(
+        name="daily_sales",
+        catalog_name="sales",
+        schema_name="gold",
+    )
+)
+gold.add_table_reference(
+    TableReference(
+        name="customer_lifetime_value",
+        catalog_name="sales",
+        schema_name="gold",
+    )
+)
 
 # Display the structure
 print(f"=== {sales.resolved_name} (Medallion Architecture) ===\n")

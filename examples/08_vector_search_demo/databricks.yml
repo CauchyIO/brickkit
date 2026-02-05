@@ -10,6 +10,7 @@ sync:
   include:
     - conventions/*.yml
     - "*.py"
+    - ../../dist/*.whl
 
 # Variable declarations - matches YAML convention naming pattern: {env}_{team}_{product}
 variables:

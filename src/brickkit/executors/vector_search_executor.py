@@ -40,8 +40,10 @@ from databricks.sdk.errors import (
     BadRequest,
     NotFound,
     PermissionDenied,
+    ResourceAlreadyExists,
     ResourceDoesNotExist,
 )
+from databricks.sdk.service.vectorsearch import DeltaSyncVectorIndexSpecRequest
 
 from brickkit.models.base import Tag
 from brickkit.models.vector_search import VectorSearchEndpoint, VectorSearchIndex
@@ -58,8 +60,10 @@ VectorSearchResource = Union[VectorSearchEndpoint, VectorSearchIndex]
 # ENDPOINT STATUS
 # =============================================================================
 
+
 class EndpointStatus:
     """Status values for Vector Search endpoints."""
+
     ONLINE = "ONLINE"
     PROVISIONING = "PROVISIONING"
     PENDING = "PENDING"
@@ -70,6 +74,7 @@ class EndpointStatus:
 # =============================================================================
 # VECTOR SEARCH ENDPOINT EXECUTOR
 # =============================================================================
+
 
 class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
     """
@@ -140,12 +145,12 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
         try:
             endpoint = self.client.vector_search_endpoints.get_endpoint(endpoint_name)
             # Handle different SDK response formats
-            if hasattr(endpoint, 'endpoint_status'):
+            if hasattr(endpoint, "endpoint_status"):
                 status_obj = endpoint.endpoint_status
-                if hasattr(status_obj, 'state'):
+                if hasattr(status_obj, "state"):
                     return status_obj.state
                 elif isinstance(status_obj, dict):
-                    return status_obj.get('state', EndpointStatus.UNKNOWN)
+                    return status_obj.get("state", EndpointStatus.UNKNOWN)
             return EndpointStatus.UNKNOWN
         except Exception as e:
             logger.error(f"Failed to get endpoint status: {e}")
@@ -155,53 +160,32 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
         """
         Apply tags to a Vector Search endpoint.
 
-        Uses the update_endpoint_custom_tags API to set tags on the endpoint.
-
-        Args:
-            resource: The endpoint with tags to apply
+        NOTE: Vector Search Endpoints do NOT support custom tags.
+        Only serverless Budget Policy supports tags at the endpoint level.
+        Tags on VectorSearchEndpoint are stored in the model but not applied to Databricks.
+        Use VectorSearchIndex for tagging - indexes DO support custom tags.
         """
-        if not resource.tags:
-            logger.debug(f"No tags to apply to endpoint {resource.resolved_name}")
-            return
-
-        if self.dry_run:
-            tag_str = ", ".join(f"{t.key}={t.value}" for t in resource.tags)
-            logger.info(f"[DRY RUN] Would apply tags to {resource.resolved_name}: {tag_str}")
-            return
-
-        try:
-            custom_tags = [tag.to_vector_search_custom_tag() for tag in resource.tags]
-            self.client.vector_search_endpoints.update_endpoint_custom_tags(
-                endpoint_name=resource.resolved_name,
-                custom_tags=custom_tags
+        if resource.tags:
+            logger.debug(
+                f"Skipping tag application for endpoint {resource.resolved_name} - "
+                "endpoints don't support custom tags (use index tags instead)"
             )
-            logger.info(f"Applied {len(resource.tags)} tags to endpoint {resource.resolved_name}")
-        except PermissionDenied as e:
-            logger.error(f"Permission denied applying tags to endpoint {resource.resolved_name}: {e}")
-            raise
-        except BadRequest as e:
-            logger.warning(f"Failed to apply tags to endpoint {resource.resolved_name}: {e}")
 
     def get_tags(self, endpoint_name: str) -> List[Tag]:
         """
         Get tags from a Vector Search endpoint.
 
+        NOTE: Vector Search Endpoints do NOT support custom tags.
+        This method always returns an empty list.
+
         Args:
             endpoint_name: Name of the endpoint
 
         Returns:
-            List of Tag objects
+            Empty list (endpoints don't support tags)
         """
-        try:
-            endpoint = self.client.vector_search_endpoints.get_endpoint(endpoint_name)
-            if hasattr(endpoint, 'custom_tags') and endpoint.custom_tags:
-                return [Tag.from_vector_search_custom_tag(ct) for ct in endpoint.custom_tags]
-            return []
-        except (ResourceDoesNotExist, NotFound):
-            return []
-        except PermissionDenied as e:
-            logger.error(f"Permission denied getting tags for endpoint {endpoint_name}: {e}")
-            raise
+        # Endpoints don't support custom tags - only indexes do
+        return []
 
     def wait_for_endpoint(
         self,
@@ -267,30 +251,25 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                 operation=OperationType.CREATE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message="Would be created (dry run)"
+                message="Would be created (dry run)",
             )
 
         try:
             if self.exists(resource):
-                # Endpoint exists - sync tags if provided
-                if resource.tags:
-                    self.apply_tags(resource)
+                # Endpoint exists - nothing to update (endpoints don't support tags)
                 return ExecutionResult(
                     success=True,
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Already exists (tags synced)"
+                    message="Already exists",
                 )
 
             logger.info(f"Creating Vector Search endpoint: {resource_name}")
             params = resource.to_sdk_create_params()
             self.client.vector_search_endpoints.create_endpoint(**params)
 
-            # Apply tags after creation
-            # Note: Tags can be applied immediately, endpoint doesn't need to be ONLINE
-            if resource.tags:
-                self.apply_tags(resource)
+            # Note: Endpoints don't support custom tags - use index tags instead
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -299,7 +278,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Created successfully (may take time to provision)",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -309,20 +288,14 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
             return self._handle_error(OperationType.CREATE, resource_name, e)
 
     def update(self, resource: VectorSearchEndpoint) -> ExecutionResult:
-        """Update endpoint tags (endpoint config updates not supported)."""
+        """
+        Update endpoint.
+
+        NOTE: Vector Search Endpoints don't support updates or custom tags.
+        This method only checks existence - no actual updates are performed.
+        """
         start_time = time.time()
         resource_name = resource.resolved_name
-
-        if self.dry_run:
-            logger.info(f"[DRY RUN] Would update tags on endpoint {resource_name}")
-            self.apply_tags(resource)
-            return ExecutionResult(
-                success=True,
-                operation=OperationType.UPDATE,
-                resource_type=self.get_resource_type(),
-                resource_name=resource_name,
-                message="Would update tags (dry run)"
-            )
 
         try:
             if not self.exists(resource):
@@ -331,24 +304,18 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                     operation=OperationType.UPDATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Endpoint does not exist"
+                    message="Endpoint does not exist",
                 )
 
-            # Apply/sync tags
-            if resource.tags:
-                self.apply_tags(resource)
-                message = f"Updated {len(resource.tags)} tags"
-            else:
-                message = "No tags to update"
-
+            # Endpoints don't support updates or custom tags
             duration = time.time() - start_time
             return ExecutionResult(
                 success=True,
-                operation=OperationType.UPDATE,
+                operation=OperationType.NO_OP,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message=message,
-                duration_seconds=duration
+                message="Endpoint exists (no updates supported)",
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -369,7 +336,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                 operation=OperationType.DELETE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message="Would be deleted (dry run)"
+                message="Would be deleted (dry run)",
             )
 
         try:
@@ -379,7 +346,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             logger.info(f"Deleting Vector Search endpoint: {resource_name}")
@@ -392,7 +359,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -442,7 +409,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
                     resource_type=self.get_resource_type(),
                     resource_name=endpoint.resolved_name,
                     message=str(e),
-                    error=e
+                    error=e,
                 )
                 results[endpoint.resolved_name] = error_result
                 self.results.append(error_result)
@@ -456,6 +423,7 @@ class VectorSearchEndpointExecutor(BaseExecutor[VectorSearchEndpoint]):
 # =============================================================================
 # VECTOR SEARCH INDEX EXECUTOR
 # =============================================================================
+
 
 class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
     """
@@ -471,15 +439,13 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
         return "VECTOR_SEARCH_INDEX"
 
     def _get_full_index_name(self, resource: VectorSearchIndex) -> str:
-        """Get the full index name including endpoint."""
-        return f"{resource.resolved_endpoint_name}/{resource.resolved_name}"
+        """Get the fully qualified index name (catalog.schema.index)."""
+        return resource.fqdn
 
     def exists(self, resource: VectorSearchIndex) -> bool:
         """Check if index exists."""
         try:
-            self.client.vector_search_indexes.get_index(
-                index_name=self._get_full_index_name(resource)
-            )
+            self.client.vector_search_indexes.get_index(index_name=self._get_full_index_name(resource))
             return True
         except (ResourceDoesNotExist, NotFound):
             return False
@@ -505,7 +471,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Would be created (dry run)",
-                changes=self._get_index_summary(resource)
+                changes=self._get_index_summary(resource),
             )
 
         try:
@@ -515,7 +481,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Already exists"
+                    message="Already exists",
                 )
 
             logger.info(f"Creating Vector Search index: {resource_name}")
@@ -523,12 +489,14 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
 
             # Use delta sync or direct access based on index type
             if "delta_sync_index_spec" in params:
+                # Convert dict to SDK object
+                delta_spec = DeltaSyncVectorIndexSpecRequest.from_dict(params["delta_sync_index_spec"])
                 self.client.vector_search_indexes.create_index(
                     name=params["name"],
                     endpoint_name=params["endpoint_name"],
                     primary_key=params["primary_key"],
                     index_type=params["index_type"],
-                    delta_sync_index_spec=params["delta_sync_index_spec"]
+                    delta_sync_index_spec=delta_spec,
                 )
             else:
                 self.client.vector_search_indexes.create_index(**params)
@@ -540,9 +508,17 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Created successfully (syncing in progress)",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
+        except ResourceAlreadyExists:
+            return ExecutionResult(
+                success=True,
+                operation=OperationType.NO_OP,
+                resource_type=self.get_resource_type(),
+                resource_name=resource_name,
+                message="Already exists",
+            )
         except PermissionDenied as e:
             logger.error(f"Permission denied creating index: {e}")
             raise
@@ -556,7 +532,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
             operation=OperationType.NO_OP,
             resource_type=self.get_resource_type(),
             resource_name=resource.resolved_name,
-            message="Index updates not supported - delete and recreate"
+            message="Index updates not supported - delete and recreate",
         )
 
     def delete(self, resource: VectorSearchIndex) -> ExecutionResult:
@@ -571,7 +547,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                 operation=OperationType.DELETE,
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
-                message="Would be deleted (dry run)"
+                message="Would be deleted (dry run)",
             )
 
         try:
@@ -581,7 +557,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             full_name = self._get_full_index_name(resource)
@@ -595,7 +571,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except PermissionDenied as e:
@@ -642,7 +618,7 @@ class VectorSearchIndexExecutor(BaseExecutor[VectorSearchIndex]):
                     resource_type=self.get_resource_type(),
                     resource_name=index.resolved_name,
                     message=str(e),
-                    error=e
+                    error=e,
                 )
                 results[index.resolved_name] = error_result
                 self.results.append(error_result)

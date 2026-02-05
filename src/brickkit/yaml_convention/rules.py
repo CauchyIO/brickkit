@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RuleValidationResult:
     """Result of a rule validation check."""
+
     passed: bool
     message: Optional[str] = None
     rule_name: str = ""
@@ -42,6 +43,7 @@ class RuleDefinition:
             RuleValidationResult.
         default_applies_to: Default securable types if not specified
     """
+
     name: str
     description: str
     validator_factory: Callable[..., Callable[[Any, Dict[str, Any]], RuleValidationResult]]
@@ -122,9 +124,8 @@ class RulesRegistry:
 # BUILT-IN RULE VALIDATORS
 # =============================================================================
 
-def _catalog_must_have_sp_owner_factory(
-    **kwargs: Any
-) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
+
+def _catalog_must_have_sp_owner_factory(**kwargs: Any) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
     """Factory for catalog_must_have_sp_owner rule."""
 
     def validator(securable: Any, context: Dict[str, Any]) -> RuleValidationResult:
@@ -139,9 +140,7 @@ def _catalog_must_have_sp_owner_factory(
         owner = getattr(securable, "owner", None)
         if owner is None:
             return RuleValidationResult(
-                passed=False,
-                message="Catalog must have an owner",
-                rule_name="catalog_must_have_sp_owner"
+                passed=False, message="Catalog must have an owner", rule_name="catalog_must_have_sp_owner"
             )
 
         # Check if owner is a Principal with service_principal type
@@ -151,7 +150,7 @@ def _catalog_must_have_sp_owner_factory(
             return RuleValidationResult(
                 passed=False,
                 message=f"Catalog owner must be a SERVICE_PRINCIPAL, got {owner.principal_type}",
-                rule_name="catalog_must_have_sp_owner"
+                rule_name="catalog_must_have_sp_owner",
             )
 
         # If owner is a string, check context for owner info
@@ -161,17 +160,13 @@ def _catalog_must_have_sp_owner_factory(
             return RuleValidationResult(passed=True, rule_name="catalog_must_have_sp_owner")
 
         return RuleValidationResult(
-            passed=False,
-            message="Catalog owner must be a SERVICE_PRINCIPAL",
-            rule_name="catalog_must_have_sp_owner"
+            passed=False, message="Catalog owner must be a SERVICE_PRINCIPAL", rule_name="catalog_must_have_sp_owner"
         )
 
     return validator
 
 
-def _owner_must_be_sp_or_group_factory(
-    **kwargs: Any
-) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
+def _owner_must_be_sp_or_group_factory(**kwargs: Any) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
     """Factory for owner_must_be_sp_or_group rule."""
 
     def validator(securable: Any, context: Dict[str, Any]) -> RuleValidationResult:
@@ -187,7 +182,7 @@ def _owner_must_be_sp_or_group_factory(
             return RuleValidationResult(
                 passed=False,
                 message=f"Owner must be SERVICE_PRINCIPAL or GROUP, got {owner.principal_type}",
-                rule_name="owner_must_be_sp_or_group"
+                rule_name="owner_must_be_sp_or_group",
             )
 
         # If owner is a string, check context for owner info
@@ -200,7 +195,7 @@ def _owner_must_be_sp_or_group_factory(
             return RuleValidationResult(
                 passed=False,
                 message="Owner cannot be an individual USER, must be SERVICE_PRINCIPAL or GROUP",
-                rule_name="owner_must_be_sp_or_group"
+                rule_name="owner_must_be_sp_or_group",
             )
 
         # Unknown type, pass (no info to validate against)
@@ -210,8 +205,7 @@ def _owner_must_be_sp_or_group_factory(
 
 
 def _require_tags_factory(
-    tags: Optional[List[str]] = None,
-    **kwargs: Any
+    tags: Optional[List[str]] = None, **kwargs: Any
 ) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
     """Factory for require_tags rule."""
     required_tags = tags or []
@@ -226,9 +220,7 @@ def _require_tags_factory(
         missing = [t for t in required_tags if t not in tag_keys]
         if missing:
             return RuleValidationResult(
-                passed=False,
-                message=f"Missing required tags: {', '.join(missing)}",
-                rule_name="require_tags"
+                passed=False, message=f"Missing required tags: {', '.join(missing)}", rule_name="require_tags"
             )
 
         return RuleValidationResult(passed=True, rule_name="require_tags")
@@ -237,8 +229,7 @@ def _require_tags_factory(
 
 
 def _naming_pattern_factory(
-    pattern: Optional[str] = None,
-    **kwargs: Any
+    pattern: Optional[str] = None, **kwargs: Any
 ) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
     """Factory for naming_pattern rule."""
     regex_pattern = pattern
@@ -255,17 +246,13 @@ def _naming_pattern_factory(
             return RuleValidationResult(passed=True, rule_name="naming_pattern")
 
         return RuleValidationResult(
-            passed=False,
-            message=f"Name '{name}' does not match pattern '{regex_pattern}'",
-            rule_name="naming_pattern"
+            passed=False, message=f"Name '{name}' does not match pattern '{regex_pattern}'", rule_name="naming_pattern"
         )
 
     return validator
 
 
-def _require_rfa_factory(
-    **kwargs: Any
-) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
+def _require_rfa_factory(**kwargs: Any) -> Callable[[Any, Dict[str, Any]], RuleValidationResult]:
     """
     Factory for require_rfa rule.
 
@@ -283,7 +270,7 @@ def _require_rfa_factory(
             return RuleValidationResult(
                 passed=False,
                 message=f"{type_str} '{securable_name}' must have Request for Access (RFA) configured",
-                rule_name="require_rfa"
+                rule_name="require_rfa",
             )
 
         # Check that destination is set
@@ -292,7 +279,7 @@ def _require_rfa_factory(
             return RuleValidationResult(
                 passed=False,
                 message=f"Request for Access on '{securable_name}' must have a destination email",
-                rule_name="require_rfa"
+                rule_name="require_rfa",
             )
 
         return RuleValidationResult(passed=True, rule_name="require_rfa")
@@ -304,6 +291,7 @@ def _require_rfa_factory(
 # DEFAULT REGISTRY WITH BUILT-IN RULES
 # =============================================================================
 
+
 def create_default_registry() -> RulesRegistry:
     """
     Create a registry with all built-in rules registered.
@@ -313,36 +301,46 @@ def create_default_registry() -> RulesRegistry:
     """
     registry = RulesRegistry()
 
-    registry.register(RuleDefinition(
-        name="catalog_must_have_sp_owner",
-        description="Catalogs must be owned by a service principal",
-        validator_factory=_catalog_must_have_sp_owner_factory,
-        default_applies_to={"CATALOG"}
-    ))
+    registry.register(
+        RuleDefinition(
+            name="catalog_must_have_sp_owner",
+            description="Catalogs must be owned by a service principal",
+            validator_factory=_catalog_must_have_sp_owner_factory,
+            default_applies_to={"CATALOG"},
+        )
+    )
 
-    registry.register(RuleDefinition(
-        name="owner_must_be_sp_or_group",
-        description="Owners must be service principals or groups (no individual users)",
-        validator_factory=_owner_must_be_sp_or_group_factory,
-    ))
+    registry.register(
+        RuleDefinition(
+            name="owner_must_be_sp_or_group",
+            description="Owners must be service principals or groups (no individual users)",
+            validator_factory=_owner_must_be_sp_or_group_factory,
+        )
+    )
 
-    registry.register(RuleDefinition(
-        name="require_tags",
-        description="Require specific tags to be present",
-        validator_factory=_require_tags_factory,
-    ))
+    registry.register(
+        RuleDefinition(
+            name="require_tags",
+            description="Require specific tags to be present",
+            validator_factory=_require_tags_factory,
+        )
+    )
 
-    registry.register(RuleDefinition(
-        name="naming_pattern",
-        description="Names must match a regex pattern",
-        validator_factory=_naming_pattern_factory,
-    ))
+    registry.register(
+        RuleDefinition(
+            name="naming_pattern",
+            description="Names must match a regex pattern",
+            validator_factory=_naming_pattern_factory,
+        )
+    )
 
-    registry.register(RuleDefinition(
-        name="require_rfa",
-        description="Securables must have Request for Access (RFA) configured",
-        validator_factory=_require_rfa_factory,
-    ))
+    registry.register(
+        RuleDefinition(
+            name="require_rfa",
+            description="Securables must have Request for Access (RFA) configured",
+            validator_factory=_require_rfa_factory,
+        )
+    )
 
     return registry
 

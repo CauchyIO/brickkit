@@ -1,0 +1,61 @@
+# Databricks Asset Bundle for BrickKit Vector Search Demo
+# Run from repo root: databricks bundle deploy --target dev
+bundle:
+  name: brickkit_vector_search_demo
+
+include:
+  - examples/08_vector_search_demo/resources/*.yml
+
+sync:
+  include:
+    - src/**
+    - examples/08_vector_search_demo/**
+
+variables:
+  team:
+    description: Team identifier
+    default: quant
+  product:
+    description: Product identifier
+    default: risk_analytics
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+    default: indicators
+  vs_endpoint_name:
+    description: Vector Search endpoint name
+  cost_center:
+    description: Cost center for tagging
+    default: CC-TRD-4521
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-930eaa5c-35a0.cloud.databricks.com
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: quant_risk
+      vs_endpoint_name: worldbank_vector_search
+
+  acc:
+    mode: development
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: acc_quant_risk_analytics
+      vs_endpoint_name: acc_quant_risk_analytics
+
+  prd:
+    mode: production
+    workspace:
+      host: ${DATABRICKS_HOST}
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: prd_quant_risk_analytics
+      vs_endpoint_name: prd_quant_risk_analytics
+    run_as:
+      service_principal_name: spn_trading_platform_prd

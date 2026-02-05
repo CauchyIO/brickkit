@@ -45,11 +45,7 @@ class WorkspaceBindingMixin:
     # Subclasses must have a client attribute
     client: WorkspaceClient
 
-    def get_current_workspace_bindings(
-        self,
-        resource_name: str,
-        securable_type: Optional[str] = None
-    ) -> Set[int]:
+    def get_current_workspace_bindings(self, resource_name: str, securable_type: Optional[str] = None) -> Set[int]:
         """
         Get current workspace bindings for a resource.
 
@@ -69,10 +65,10 @@ class WorkspaceBindingMixin:
             # For other securable types, this may not work correctly
             bindings = self.client.workspace_bindings.get(name=resource_name)
 
-            if bindings and hasattr(bindings, 'workspaces') and bindings.workspaces:
+            if bindings and hasattr(bindings, "workspaces") and bindings.workspaces:
                 workspace_ids: Set[int] = set()
                 for ws in bindings.workspaces:
-                    if hasattr(ws, 'workspace_id'):
+                    if hasattr(ws, "workspace_id"):
                         workspace_ids.add(ws.workspace_id)
                     elif isinstance(ws, int):
                         workspace_ids.add(ws)
@@ -90,7 +86,7 @@ class WorkspaceBindingMixin:
         resource_name: str,
         workspace_ids: List[int],
         securable_type: Optional[str] = None,
-        wait_for_propagation: bool = True
+        wait_for_propagation: bool = True,
     ) -> bool:
         """
         Apply workspace bindings to a resource.
@@ -119,10 +115,7 @@ class WorkspaceBindingMixin:
 
             # The SDK workspace_bindings.update() only supports catalog bindings
             # and expects List[int] for assign_workspaces
-            self.client.workspace_bindings.update(
-                name=resource_name,
-                assign_workspaces=workspace_ids_as_ints
-            )
+            self.client.workspace_bindings.update(name=resource_name, assign_workspaces=workspace_ids_as_ints)
 
             logger.info(f"Successfully applied workspace bindings to {resource_name}")
 
@@ -142,10 +135,7 @@ class WorkspaceBindingMixin:
             return False
 
     def update_workspace_bindings(
-        self,
-        resource_name: str,
-        desired_workspace_ids: List[int],
-        securable_type: Optional[str] = None
+        self, resource_name: str, desired_workspace_ids: List[int], securable_type: Optional[str] = None
     ) -> bool:
         """
         Update workspace bindings to match desired state.
@@ -183,7 +173,7 @@ class WorkspaceBindingMixin:
             self.client.workspace_bindings.update(
                 name=resource_name,
                 assign_workspaces=to_add if to_add else None,
-                unassign_workspaces=to_remove if to_remove else None
+                unassign_workspaces=to_remove if to_remove else None,
             )
 
             logger.info(f"Successfully updated workspace bindings for {resource_name}")
@@ -200,10 +190,7 @@ class WorkspaceBindingMixin:
             return False
 
     def verify_workspace_bindings(
-        self,
-        resource_name: str,
-        expected_workspace_ids: List[int],
-        securable_type: Optional[str] = None
+        self, resource_name: str, expected_workspace_ids: List[int], securable_type: Optional[str] = None
     ) -> bool:
         """
         Verify that workspace bindings match expected state.
@@ -224,10 +211,7 @@ class WorkspaceBindingMixin:
                 logger.debug(f"Workspace bindings verified for {resource_name}: {current}")
                 return True
             else:
-                logger.warning(
-                    f"Workspace binding mismatch for {resource_name}: "
-                    f"expected {expected}, got {current}"
-                )
+                logger.warning(f"Workspace binding mismatch for {resource_name}: expected {expected}, got {current}")
                 return False
 
         except PermissionDenied:

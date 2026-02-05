@@ -10,6 +10,7 @@ Tiers:
 - CONFIDENTIAL: Restricted to specific groups
 - RESTRICTED: PII/PCI, need-to-know only
 """
+
 import sys
 from pathlib import Path
 
@@ -115,11 +116,13 @@ print("Public reports → PUBLIC tier")
 
 # Adding schema to restricted tier
 pii_catalog = catalogs["restricted"]
-pii_catalog.add_schema(Schema(
-    name="customer_pii",
-    comment="Raw customer PII - access restricted",
-    tags=[Tag(key="contains_pii", value="true")],
-))
+pii_catalog.add_schema(
+    Schema(
+        name="customer_pii",
+        comment="Raw customer PII - access restricted",
+        tags=[Tag(key="contains_pii", value="true")],
+    )
+)
 
 print(f"\nAdded 'customer_pii' schema to {pii_catalog.resolved_name}")
 

@@ -38,62 +38,35 @@ class Function(BaseSecurable):
     When used for row filters or column masks, they execute transparently with
     definer's rights, meaning users only need SELECT on the table.
     """
+
     name: str = Field(
         ...,
-        pattern=r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$',
-        description="Function name (no environment suffix - parent catalog has it)"
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+        description="Function name (no environment suffix - parent catalog has it)",
     )
-    function_type: FunctionType = Field(
-        FunctionType.SQL,
-        description="SQL, PYTHON, SCALAR, or TABLE"
-    )
+    function_type: FunctionType = Field(FunctionType.SQL, description="SQL, PYTHON, SCALAR, or TABLE")
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal (defaults to parent schema owner)"
+        description="Owner principal (defaults to parent schema owner)",
     )
     input_params: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="Parameter definitions with name, type, and optional default"
+        default_factory=list, description="Parameter definitions with name, type, and optional default"
     )
-    return_type: Optional[str] = Field(
-        None,
-        description="Return type specification (e.g., 'STRING', 'INT', 'TABLE')"
-    )
-    definition: Optional[str] = Field(
-        None,
-        description="Function body/implementation (generic)"
-    )
-    sql_definition: Optional[str] = Field(
-        None,
-        description="SQL function definition"
-    )
-    routine_definition: Optional[str] = Field(
-        None,
-        description="Python function definition"
-    )
-    routine_dependencies: Optional[List[str]] = Field(
-        None,
-        description="Python function dependencies"
-    )
+    return_type: Optional[str] = Field(None, description="Return type specification (e.g., 'STRING', 'INT', 'TABLE')")
+    definition: Optional[str] = Field(None, description="Function body/implementation (generic)")
+    sql_definition: Optional[str] = Field(None, description="SQL function definition")
+    routine_definition: Optional[str] = Field(None, description="Python function definition")
+    routine_dependencies: Optional[List[str]] = Field(None, description="Python function dependencies")
     referenced_tables: List[Any] = Field(
-        default_factory=list,
-        description="Tables this function reads from - for dependency tracking only"
+        default_factory=list, description="Tables this function reads from - for dependency tracking only"
     )
-    is_deterministic: bool = Field(
-        True,
-        description="Whether function always returns same result for same input"
-    )
+    is_deterministic: bool = Field(True, description="Whether function always returns same result for same input")
     is_row_filter: bool = Field(
-        False,
-        description="Whether this function is used as a row filter for row-level security"
+        False, description="Whether this function is used as a row filter for row-level security"
     )
-    is_column_mask: bool = Field(
-        False,
-        description="Whether this function is used as a column mask for data masking"
-    )
+    is_column_mask: bool = Field(False, description="Whether this function is used as a column mask for data masking")
     referencing_tables: List[Any] = Field(
-        default_factory=list,
-        description="Tables that use this function as a row filter or column mask"
+        default_factory=list, description="Tables that use this function as a row filter or column mask"
     )
     comment: Optional[str] = Field(None, max_length=1024, description="Description of the function")
 
@@ -104,14 +77,8 @@ class Function(BaseSecurable):
     _parent_schema: Optional[Schema] = PrivateAttr(default=None)
     _parent_catalog: Optional[Catalog] = PrivateAttr(default=None)
 
-    catalog_name: Optional[str] = Field(
-        None,
-        description="Parent catalog name (set by add_function)"
-    )
-    schema_name: Optional[str] = Field(
-        None,
-        description="Parent schema name (set by add_function)"
-    )
+    catalog_name: Optional[str] = Field(None, description="Parent catalog name (set by add_function)")
+    schema_name: Optional[str] = Field(None, description="Parent schema name (set by add_function)")
 
     @computed_field
     @property
@@ -127,7 +94,7 @@ class Function(BaseSecurable):
         env = get_current_environment()
         return f"{self.catalog_name}_{env.value.lower()}"
 
-    @field_validator('function_type', mode='before')
+    @field_validator("function_type", mode="before")
     @classmethod
     def convert_function_type(cls, v: Any) -> FunctionType:
         """Convert string to FunctionType enum if needed."""
@@ -143,7 +110,7 @@ class Function(BaseSecurable):
             raise ValueError(f"Function '{self.name}' is not associated with a catalog and schema")
         return f"{self.resolved_catalog_name}.{self.schema_name}.{self.name}"
 
-    def add_referenced_table(self, table: 'Table') -> None:
+    def add_referenced_table(self, table: "Table") -> None:
         """
         Add table reference for dependency tracking.
 
@@ -182,7 +149,7 @@ class Function(BaseSecurable):
                 privileges.append(priv.privilege)
 
         # Naively try to get parent privileges (will just continue if no parent)
-        if hasattr(self, '_parent_schema') and self._parent_schema:
+        if hasattr(self, "_parent_schema") and self._parent_schema:
             # Just add all parent privileges, let the natural structure handle filtering
             privileges.extend(self._parent_schema.get_effective_privileges(principal))
 
@@ -217,10 +184,7 @@ class Function(BaseSecurable):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK create parameters."""
-        params = {
-            "name": self.name,
-            "function_type": self.function_type.value
-        }
+        params = {"name": self.name, "function_type": self.function_type.value}
 
         # Add catalog and schema if available
         try:
@@ -268,7 +232,4 @@ class Function(BaseSecurable):
 
         Note: Functions are typically replaced rather than updated in Unity Catalog.
         """
-        return {
-            "full_name": self.fqdn,
-            "comment": self.comment
-        }
+        return {"full_name": self.fqdn, "comment": self.comment}

@@ -35,13 +35,14 @@ class Metastore(BaseGovernanceModel):
     The Metastore is a reference-only object - it must already exist in Databricks.
     This model serves as the root container for organizing all governance objects.
     """
+
     name: str = Field(..., description="User-specified metastore name")
     metastore_id: Optional[str] = Field(None, description="Unique metastore identifier")
     region: Optional[str] = Field(None, description="Cloud region (e.g., us-west-2)")
     storage_root: Optional[str] = Field(None, description="Default storage location")
     owner: Optional[Principal] = Field(
         default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
-        description="Owner principal"
+        description="Owner principal",
     )
 
     # Child containers

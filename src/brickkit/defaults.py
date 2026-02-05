@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from brickkit.models.base import BaseSecurable
     from brickkit.models.enums import Environment, SecurableType
 
-T = TypeVar('T', bound='BaseSecurable')
+T = TypeVar("T", bound="BaseSecurable")
 
 
 class TagDefault(BaseModel):
@@ -53,6 +53,7 @@ class TagDefault(BaseModel):
         environment_values: Optional mapping of Environment to specific values
         applies_to: Set of SecurableTypes this default applies to (empty = all)
     """
+
     key: str
     value: str
     environment_values: Dict[str, str] = Field(default_factory=dict)
@@ -67,13 +68,10 @@ class TagDefault(BaseModel):
         valid_types = get_valid_securable_types()
         invalid = v - valid_types
         if invalid:
-            raise ValueError(
-                f"Invalid securable type(s): {sorted(invalid)}. "
-                f"Valid types: {sorted(valid_types)}"
-            )
+            raise ValueError(f"Invalid securable type(s): {sorted(invalid)}. Valid types: {sorted(valid_types)}")
         return v
 
-    def get_value(self, env: 'Environment') -> str:
+    def get_value(self, env: "Environment") -> str:
         """Get tag value for specific environment."""
         return self.environment_values.get(env.value, self.value)
 
@@ -88,6 +86,7 @@ class RequiredTag(BaseModel):
         applies_to: Set of SecurableTypes this requirement applies to (empty = all)
         error_message: Custom error message for validation failures
     """
+
     key: str
     allowed_values: Optional[Set[str]] = None
     applies_to: Set[str] = Field(default_factory=set)
@@ -102,10 +101,7 @@ class RequiredTag(BaseModel):
         valid_types = get_valid_securable_types()
         invalid = v - valid_types
         if invalid:
-            raise ValueError(
-                f"Invalid securable type(s): {sorted(invalid)}. "
-                f"Valid types: {sorted(valid_types)}"
-            )
+            raise ValueError(f"Invalid securable type(s): {sorted(invalid)}. Valid types: {sorted(valid_types)}")
         return v
 
 
@@ -118,6 +114,7 @@ class NamingConvention(BaseModel):
         applies_to: Set of SecurableTypes this convention applies to (empty = all)
         error_message: Error message shown when validation fails
     """
+
     pattern: str
     applies_to: Set[str] = Field(default_factory=set)
     error_message: str = "Name does not match required pattern"
@@ -131,10 +128,7 @@ class NamingConvention(BaseModel):
         valid_types = get_valid_securable_types()
         invalid = v - valid_types
         if invalid:
-            raise ValueError(
-                f"Invalid securable type(s): {sorted(invalid)}. "
-                f"Valid types: {sorted(valid_types)}"
-            )
+            raise ValueError(f"Invalid securable type(s): {sorted(invalid)}. Valid types: {sorted(valid_types)}")
         return v
 
 
@@ -187,11 +181,7 @@ class GovernanceDefaults(ABC):
         """Default owner principal name for securables without explicit owner."""
         return None
 
-    def get_default_tags_for(
-        self,
-        securable_type: 'SecurableType',
-        environment: 'Environment'
-    ) -> Dict[str, str]:
+    def get_default_tags_for(self, securable_type: "SecurableType", environment: "Environment") -> Dict[str, str]:
         """
         Get default tags for a specific securable type and environment.
 
@@ -209,11 +199,7 @@ class GovernanceDefaults(ABC):
                 result[tag_default.key] = tag_default.get_value(environment)
         return result
 
-    def validate_tags(
-        self,
-        securable_type: 'SecurableType',
-        tags: Dict[str, str]
-    ) -> List[str]:
+    def validate_tags(self, securable_type: "SecurableType", tags: Dict[str, str]) -> List[str]:
         """
         Validate tags against required tag rules.
 
@@ -235,12 +221,11 @@ class GovernanceDefaults(ABC):
                 errors.append(msg)
             elif required.allowed_values and tags[required.key] not in required.allowed_values:
                 errors.append(
-                    f"Tag '{required.key}' has invalid value '{tags[required.key]}'. "
-                    f"Allowed: {required.allowed_values}"
+                    f"Tag '{required.key}' has invalid value '{tags[required.key]}'. Allowed: {required.allowed_values}"
                 )
         return errors
 
-    def apply_to(self, securable: T, environment: 'Environment') -> T:
+    def apply_to(self, securable: T, environment: "Environment") -> T:
         """
         Apply defaults to a securable.
 
@@ -261,7 +246,7 @@ class GovernanceDefaults(ABC):
         default_tags = self.get_default_tags_for(securable.securable_type, environment)
 
         # Get existing tag keys
-        existing_tag_keys = {t.key for t in getattr(securable, 'tags', [])}
+        existing_tag_keys = {t.key for t in getattr(securable, "tags", [])}
 
         # Add missing default tags
         for key, value in default_tags.items():
@@ -273,6 +258,7 @@ class GovernanceDefaults(ABC):
 
 class EmptyDefaults(GovernanceDefaults):
     """No defaults applied. Use when governance is not needed."""
+
     pass
 
 
@@ -287,10 +273,7 @@ class StandardDefaults(GovernanceDefaults):
     @property
     def default_tags(self) -> List[TagDefault]:
         return [
-            TagDefault(
-                key="managed_by",
-                value="brickkit"
-            ),
+            TagDefault(key="managed_by", value="brickkit"),
         ]
 
     @property
@@ -299,7 +282,7 @@ class StandardDefaults(GovernanceDefaults):
             RequiredTag(
                 key="cost_center",
                 applies_to={"CATALOG"},
-                error_message="Catalogs must have a cost_center tag for chargeback"
+                error_message="Catalogs must have a cost_center tag for chargeback",
             ),
         ]
 

@@ -54,7 +54,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                     operation=OperationType.CREATE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be created (dry run)"
+                    message="Would be created (dry run)",
                 )
 
             params = resource.to_sdk_create_params()
@@ -83,9 +83,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                     f"Users will not need EXECUTE permission to use this {function_purpose}."
                 )
 
-            self._rollback_stack.append(
-                lambda: self.client.functions.delete(resource_name)
-            )
+            self._rollback_stack.append(lambda: self.client.functions.delete(resource_name))
 
             duration = time.time() - start_time
             return ExecutionResult(
@@ -94,7 +92,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message=f"Created {function_purpose} successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -120,7 +118,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="No changes needed"
+                    message="No changes needed",
                 )
 
             if self.dry_run:
@@ -131,17 +129,17 @@ class FunctionExecutor(BaseExecutor[Function]):
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
                     message=f"Would update: {changes} (dry run)",
-                    changes=changes
+                    changes=changes,
                 )
 
             # Note: Most function properties are immutable
             # Only metadata like owner and comment can typically be updated
-            if 'definition' in changes:
+            if "definition" in changes:
                 logger.warning(
                     f"Function definition cannot be updated. "
                     f"Drop and recreate {resource_name} to change the definition."
                 )
-                changes.pop('definition')
+                changes.pop("definition")
 
             if changes:
                 params = resource.to_sdk_update_params()
@@ -156,7 +154,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                 resource_name=resource_name,
                 message=f"Updated: {changes}" if changes else "No updatable changes",
                 duration_seconds=duration,
-                changes=changes
+                changes=changes,
             )
 
         except Exception as e:
@@ -174,7 +172,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                     operation=OperationType.NO_OP,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Does not exist"
+                    message="Does not exist",
                 )
 
             if self.dry_run:
@@ -184,7 +182,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                     operation=OperationType.DELETE,
                     resource_type=self.get_resource_type(),
                     resource_name=resource_name,
-                    message="Would be deleted (dry run)"
+                    message="Would be deleted (dry run)",
                 )
 
             # Check if function is used as row filter or column mask
@@ -204,7 +202,7 @@ class FunctionExecutor(BaseExecutor[Function]):
                 resource_type=self.get_resource_type(),
                 resource_name=resource_name,
                 message="Deleted successfully",
-                duration_seconds=duration
+                duration_seconds=duration,
             )
 
         except Exception as e:
@@ -215,21 +213,17 @@ class FunctionExecutor(BaseExecutor[Function]):
         changes = {}
 
         # Only metadata can typically be updated
-        if hasattr(existing, 'comment') and existing.comment != desired.comment:
-            changes['comment'] = {'from': existing.comment, 'to': desired.comment}
+        if hasattr(existing, "comment") and existing.comment != desired.comment:
+            changes["comment"] = {"from": existing.comment, "to": desired.comment}
 
         if desired.owner:
             desired_owner = desired.owner.resolved_name
-            if hasattr(existing, 'owner') and existing.owner != desired_owner:
-                changes['owner'] = {'from': existing.owner, 'to': desired_owner}
+            if hasattr(existing, "owner") and existing.owner != desired_owner:
+                changes["owner"] = {"from": existing.owner, "to": desired_owner}
 
         # Function definition changes require drop/recreate
-        if hasattr(existing, 'routine_definition') and hasattr(desired, 'definition'):
+        if hasattr(existing, "routine_definition") and hasattr(desired, "definition"):
             if existing.routine_definition != desired.definition:
-                changes['definition'] = {
-                    'from': 'existing',
-                    'to': 'new',
-                    'note': 'Requires drop and recreate'
-                }
+                changes["definition"] = {"from": "existing", "to": "new", "note": "Requires drop and recreate"}
 
         return changes

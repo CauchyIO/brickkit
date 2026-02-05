@@ -34,17 +34,18 @@ class WorkspaceRegistry:
     a global registry of all workspace instances. Workspaces are shared
     across teams to enable proper cross-team collaboration.
     """
-    _instance: ClassVar[Optional['WorkspaceRegistry']] = None
-    _workspaces: Dict[str, 'Workspace']
 
-    def __new__(cls) -> 'WorkspaceRegistry':
+    _instance: ClassVar[Optional["WorkspaceRegistry"]] = None
+    _workspaces: Dict[str, "Workspace"]
+
+    def __new__(cls) -> "WorkspaceRegistry":
         """Singleton pattern implementation."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._workspaces = {}
         return cls._instance
 
-    def get_or_create(self, workspace_id: str, name: str, hostname: str, environment: Environment) -> 'Workspace':
+    def get_or_create(self, workspace_id: str, name: str, hostname: str, environment: Environment) -> "Workspace":
         """
         Get existing workspace or create new one.
 
@@ -58,16 +59,11 @@ class WorkspaceRegistry:
             Workspace instance (existing or newly created)
         """
         if workspace_id not in self._workspaces:
-            workspace = Workspace(
-                workspace_id=workspace_id,
-                name=name,
-                hostname=hostname,
-                environment=environment
-            )
+            workspace = Workspace(workspace_id=workspace_id, name=name, hostname=hostname, environment=environment)
             self._workspaces[workspace_id] = workspace
         return self._workspaces[workspace_id]
 
-    def get_all(self) -> List['Workspace']:
+    def get_all(self) -> List["Workspace"]:
         """Get all registered workspaces."""
         return list(self._workspaces.values())
 
@@ -87,35 +83,22 @@ class Workspace(BaseGovernanceModel):
     Workspaces track which teams reference them and maintain bindings to
     Unity Catalog resources.
     """
-    workspace_id: str = Field(
-        ...,
-        description="Unique numeric workspace identifier"
-    )
-    name: str = Field(
-        ...,
-        description="Human-friendly workspace name"
-    )
-    hostname: str = Field(
-        ...,
-        description="Workspace URL (e.g., myworkspace.cloud.databricks.com)"
-    )
-    environment: Environment = Field(
-        ...,
-        description="Environment this workspace belongs to"
-    )
-    workspace_bindings: List['WorkspaceBinding'] = Field(
-        default_factory=list,
-        description="Resources accessible from this workspace"
+
+    workspace_id: str = Field(..., description="Unique numeric workspace identifier")
+    name: str = Field(..., description="Human-friendly workspace name")
+    hostname: str = Field(..., description="Workspace URL (e.g., myworkspace.cloud.databricks.com)")
+    environment: Environment = Field(..., description="Environment this workspace belongs to")
+    workspace_bindings: List["WorkspaceBinding"] = Field(
+        default_factory=list, description="Resources accessible from this workspace"
     )
 
     # Private tracking
     _referencing_teams: Set[str] = PrivateAttr(default_factory=set)
 
-    def add_binding(self, binding: 'WorkspaceBinding') -> None:
+    def add_binding(self, binding: "WorkspaceBinding") -> None:
         """Add a workspace binding."""
         for existing in self.workspace_bindings:
-            if (existing.securable_type == binding.securable_type and
-                existing.securable_name == binding.securable_name):
+            if existing.securable_type == binding.securable_type and existing.securable_name == binding.securable_name:
                 raise ValueError(
                     f"Binding for {binding.securable_type} '{binding.securable_name}' "
                     f"already exists in workspace {self.name}"
@@ -139,18 +122,10 @@ class WorkspaceBinding(BaseGovernanceModel):
     Unity Catalog resources (catalogs, storage credentials, etc.) and
     specify the access level (read-write or read-only).
     """
-    securable_type: str = Field(
-        ...,
-        description="Type of securable (catalog, storage_credential, etc.)"
-    )
-    securable_name: str = Field(
-        ...,
-        description="Name of the securable resource"
-    )
-    binding_type: BindingType = Field(
-        ...,
-        description="Access level (READ_WRITE or READ_ONLY)"
-    )
+
+    securable_type: str = Field(..., description="Type of securable (catalog, storage_credential, etc.)")
+    securable_name: str = Field(..., description="Name of the securable resource")
+    binding_type: BindingType = Field(..., description="Access level (READ_WRITE or READ_ONLY)")
 
 
 class WorkspaceBindingPattern(BaseGovernanceModel):
@@ -161,17 +136,14 @@ class WorkspaceBindingPattern(BaseGovernanceModel):
     workspaces in different environments can access resources from
     other environments. This enables consistent access patterns across teams.
     """
-    name: str = Field(
-        ...,
-        description="Pattern name for identification"
-    )
+
+    name: str = Field(..., description="Pattern name for identification")
     access_matrix: Dict[Environment, Dict[str, BindingType]] = Field(
-        default_factory=dict,
-        description="Access matrix: source_env -> {target_env: binding_type}"
+        default_factory=dict, description="Access matrix: source_env -> {target_env: binding_type}"
     )
 
     @classmethod
-    def STANDARD_HIERARCHY(cls) -> 'WorkspaceBindingPattern':
+    def STANDARD_HIERARCHY(cls) -> "WorkspaceBindingPattern":
         """
         Standard hierarchical access pattern.
 
@@ -185,20 +157,18 @@ class WorkspaceBindingPattern(BaseGovernanceModel):
                 Environment.DEV: {
                     "dev": BindingType.BINDING_TYPE_READ_WRITE,
                     "acc": BindingType.BINDING_TYPE_READ_ONLY,
-                    "prd": BindingType.BINDING_TYPE_READ_ONLY
+                    "prd": BindingType.BINDING_TYPE_READ_ONLY,
                 },
                 Environment.ACC: {
                     "acc": BindingType.BINDING_TYPE_READ_WRITE,
-                    "prd": BindingType.BINDING_TYPE_READ_ONLY
+                    "prd": BindingType.BINDING_TYPE_READ_ONLY,
                 },
-                Environment.PRD: {
-                    "prd": BindingType.BINDING_TYPE_READ_WRITE
-                }
-            }
+                Environment.PRD: {"prd": BindingType.BINDING_TYPE_READ_WRITE},
+            },
         )
 
     @classmethod
-    def ISOLATED(cls) -> 'WorkspaceBindingPattern':
+    def ISOLATED(cls) -> "WorkspaceBindingPattern":
         """
         Completely isolated environments.
 
@@ -208,20 +178,14 @@ class WorkspaceBindingPattern(BaseGovernanceModel):
         return cls(
             name="ISOLATED",
             access_matrix={
-                Environment.DEV: {
-                    "dev": BindingType.BINDING_TYPE_READ_WRITE
-                },
-                Environment.ACC: {
-                    "acc": BindingType.BINDING_TYPE_READ_WRITE
-                },
-                Environment.PRD: {
-                    "prd": BindingType.BINDING_TYPE_READ_WRITE
-                }
-            }
+                Environment.DEV: {"dev": BindingType.BINDING_TYPE_READ_WRITE},
+                Environment.ACC: {"acc": BindingType.BINDING_TYPE_READ_WRITE},
+                Environment.PRD: {"prd": BindingType.BINDING_TYPE_READ_WRITE},
+            },
         )
 
     @classmethod
-    def PRODUCTION_ISOLATED(cls) -> 'WorkspaceBindingPattern':
+    def PRODUCTION_ISOLATED(cls) -> "WorkspaceBindingPattern":
         """
         Production isolation with lower environment sharing.
 
@@ -233,14 +197,12 @@ class WorkspaceBindingPattern(BaseGovernanceModel):
             access_matrix={
                 Environment.DEV: {
                     "dev": BindingType.BINDING_TYPE_READ_WRITE,
-                    "acc": BindingType.BINDING_TYPE_READ_ONLY
+                    "acc": BindingType.BINDING_TYPE_READ_ONLY,
                 },
                 Environment.ACC: {
                     "dev": BindingType.BINDING_TYPE_READ_ONLY,
-                    "acc": BindingType.BINDING_TYPE_READ_WRITE
+                    "acc": BindingType.BINDING_TYPE_READ_WRITE,
                 },
-                Environment.PRD: {
-                    "prd": BindingType.BINDING_TYPE_READ_WRITE
-                }
-            }
+                Environment.PRD: {"prd": BindingType.BINDING_TYPE_READ_WRITE},
+            },
         )
