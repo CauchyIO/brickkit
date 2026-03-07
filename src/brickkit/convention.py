@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from .defaults import (
+from brickkit.defaults import (
     GovernanceDefaults,
     NamingConvention,
     RequiredTag,

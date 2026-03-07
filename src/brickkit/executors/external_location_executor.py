@@ -15,10 +15,9 @@ from databricks.sdk.errors import (
 )
 from databricks.sdk.service.catalog import ExternalLocationInfo
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
+from brickkit.executors.mixins import WorkspaceBindingMixin
 from brickkit.models import ExternalLocation
-
-from .base import BaseExecutor, ExecutionResult, OperationType
-from .mixins import WorkspaceBindingMixin
 
 logger = logging.getLogger(__name__)
 

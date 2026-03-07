@@ -11,11 +11,11 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, computed_field, field_validator, model_validator
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseModel, BaseSecurable, get_current_environment
-from .enums import SecurableType
-from .grants import Principal
-from .references import ModelReference, TableReference, VolumeReference
-from .schemas import Schema
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseModel, BaseSecurable, get_current_environment
+from brickkit.models.enums import SecurableType
+from brickkit.models.grants import Principal
+from brickkit.models.references import ModelReference, TableReference, VolumeReference
+from brickkit.models.schemas import Schema
 
 
 class AuthenticationType(str, Enum):

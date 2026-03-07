@@ -18,14 +18,14 @@ from pydantic import (
     field_validator,
 )
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseSecurable, Tag, get_current_environment
-from .enums import ALL_PRIVILEGES_EXPANSION, FunctionType, PrivilegeType, SecurableType
-from .grants import Principal
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseSecurable, Tag, get_current_environment
+from brickkit.models.enums import ALL_PRIVILEGES_EXPANSION, FunctionType, PrivilegeType, SecurableType
+from brickkit.models.grants import Principal
 
 if TYPE_CHECKING:
-    from .catalogs import Catalog
-    from .schemas import Schema
-    from .tables import Table
+    from brickkit.models.catalogs import Catalog
+    from brickkit.models.schemas import Schema
+    from brickkit.models.tables import Table
 
 logger = logging.getLogger(__name__)
 

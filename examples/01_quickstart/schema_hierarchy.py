@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Schema Hierarchy Example
 
@@ -5,15 +6,17 @@ Shows how to build a catalog with schemas and table references.
 Demonstrates the three-level hierarchy: Catalog → Schema → References.
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import IsolationMode
+from brickkit.models.references import TableReference, VolumeReference
+from brickkit.models.schemas import Schema
 
-from models.base import Tag
-from models.securables import Catalog, Schema
-from models.references import TableReference, VolumeReference
-from models.enums import IsolationMode
+# COMMAND ----------
+
+env = init_environment()
 
 # Create catalog
 sales_catalog = Catalog(
@@ -38,13 +41,13 @@ orders_schema.add_volume_reference(VolumeReference(name="order_files", catalog_n
 sales_catalog.add_schema(orders_schema)
 
 # Print hierarchy
-print(f"Catalog: {sales_catalog.resolved_name}")
+logger.info(f"Catalog: {sales_catalog.resolved_name}")
 for schema in sales_catalog.schemas:
-    print(f"  Schema: {schema.name}")
+    logger.info(f"  Schema: {schema.name}")
     for table_ref in schema.table_refs:
-        print(f"    Table: {table_ref.name}")
+        logger.info(f"    Table: {table_ref.name}")
     for volume_ref in schema.volume_refs:
-        print(f"    Volume: {volume_ref.name}")
+        logger.info(f"    Volume: {volume_ref.name}")
 
 # Output:
 # Catalog: sales_dev

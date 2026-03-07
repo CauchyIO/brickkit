@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Minimal Governance Defaults
 
@@ -5,16 +6,18 @@ Lightweight governance for startups or small teams.
 Only the essentials, no bureaucracy.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
 from typing import List
-from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag, EmptyDefaults
-from models.securables import Catalog
-from models.base import Tag
-from models.enums import Environment
+
+from loguru import logger
+
+from brickkit.defaults import EmptyDefaults, GovernanceDefaults, RequiredTag, TagDefault
+from brickkit.models.base import init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import Environment
+
+# COMMAND ----------
+
+env = init_environment()
 
 
 class MinimalDefaults(GovernanceDefaults):
@@ -38,19 +41,21 @@ class MinimalDefaults(GovernanceDefaults):
         return []
 
 
+# COMMAND ----------
+
 # Compare: EmptyDefaults vs MinimalDefaults
 
-print("=== EmptyDefaults (no governance) ===")
+logger.info("=== EmptyDefaults (no governance) ===")
 empty = EmptyDefaults()
 catalog1 = Catalog(name="analytics")
 catalog1 = empty.apply_to(catalog1, Environment.DEV)
-print(f"Tags: {[(t.key, t.value) for t in catalog1.tags]}")
+logger.info(f"Tags: {[(t.key, t.value) for t in catalog1.tags]}")
 
-print("\n=== MinimalDefaults (just tracking) ===")
+logger.info("\n=== MinimalDefaults (just tracking) ===")
 minimal = MinimalDefaults()
 catalog2 = Catalog(name="analytics")
 catalog2 = minimal.apply_to(catalog2, Environment.DEV)
-print(f"Tags: {[(t.key, t.value) for t in catalog2.tags]}")
+logger.info(f"Tags: {[(t.key, t.value) for t in catalog2.tags]}")
 
 # Output:
 # === EmptyDefaults (no governance) ===

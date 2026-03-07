@@ -4,7 +4,6 @@ Unit tests for Convention model.
 Tests convention application, validation, and tag propagation.
 """
 
-
 from brickkit.convention import Convention
 from brickkit.defaults import NamingConvention, RequiredTag, TagDefault
 from brickkit.models.base import Tag

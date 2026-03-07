@@ -4,7 +4,6 @@ Unit tests for Catalog model.
 Tests catalog creation, environment-aware naming, validation, and schema management.
 """
 
-
 import pytest
 from pydantic import ValidationError
 

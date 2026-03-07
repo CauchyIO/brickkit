@@ -11,9 +11,8 @@ from typing import Optional
 from databricks.sdk.errors import NotFound, ResourceDoesNotExist
 from databricks.sdk.service.iam import ObjectPermissions
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models.acls import AclBinding
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

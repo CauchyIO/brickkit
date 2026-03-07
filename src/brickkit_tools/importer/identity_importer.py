@@ -11,7 +11,7 @@ from typing import Any, List, Optional
 
 from databricks.sdk.errors import NotFound, PermissionDenied
 
-from .base import ImportOptions, ImportResult, ResourceImporter
+from brickkit_tools.importer.base import ImportResult, ResourceImporter
 
 logger = logging.getLogger(__name__)
 

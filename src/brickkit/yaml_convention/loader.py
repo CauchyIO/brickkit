@@ -16,10 +16,9 @@ import yaml
 from brickkit.models.base import RequestForAccess, Tag, get_current_environment
 from brickkit.models.enums import Environment, PrincipalType, SecurableType
 from brickkit.models.grants import Principal
-
-from .naming import NameGenerator
-from .rules import RulesRegistry, RuleValidationResult, get_default_registry
-from .schema import RuleMode, YamlConventionSchema
+from brickkit.yaml_convention.naming import NameGenerator
+from brickkit.yaml_convention.rules import RulesRegistry, RuleValidationResult, get_default_registry
+from brickkit.yaml_convention.schema import RuleMode, YamlConventionSchema
 
 logger = logging.getLogger(__name__)
 

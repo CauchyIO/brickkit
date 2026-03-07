@@ -18,9 +18,15 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, computed_field, field_validator
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseGovernanceModel, BaseSecurable, get_current_environment
-from .enums import SecurableType
-from .grants import Principal, Privilege
+from brickkit.models.base import (
+    DEFAULT_SECURABLE_OWNER,
+    BaseGovernanceModel,
+    BaseSecurable,
+    Tag,
+    get_current_environment,
+)
+from brickkit.models.enums import SecurableType
+from brickkit.models.grants import Principal, Privilege
 
 
 class ModelVersionStatus(str, Enum):
@@ -520,6 +526,13 @@ class ModelServingEndpoint(BaseGovernanceModel):
 
     comment: Optional[str] = Field(None, description="Description of the endpoint")
 
+    owner: Optional[Principal] = Field(
+        default_factory=lambda: Principal(name=DEFAULT_SECURABLE_OWNER, add_environment_suffix=False),
+        description="Owner group/SPN — will receive CAN_MANAGE ACL on the endpoint",
+    )
+    budget_policy_id: Optional[str] = Field(None, description="Budget policy ID to attach to this endpoint")
+    tags: List[Tag] = Field(default_factory=list, description="Tags for cost attribution")
+
     @computed_field
     @property
     def resolved_name(self) -> str:
@@ -599,4 +612,11 @@ class ModelServingEndpoint(BaseGovernanceModel):
 
     def to_sdk_create_params(self) -> Dict[str, Any]:
         """Convert to SDK parameters for endpoint creation."""
-        return {"name": self.resolved_name, "config": self.config, "route_optimized": self.route_optimized}
+        params: Dict[str, Any] = {
+            "name": self.resolved_name,
+            "config": self.config,
+            "route_optimized": self.route_optimized,
+        }
+        if self.budget_policy_id:
+            params["budget_policy_id"] = self.budget_policy_id
+        return params

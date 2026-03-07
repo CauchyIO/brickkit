@@ -18,10 +18,9 @@ from databricks.sdk.service.iam import (
     PatchSchema,
 )
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models.enums import PrincipalSource
 from brickkit.models.principals import ManagedGroup
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

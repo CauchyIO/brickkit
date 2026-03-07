@@ -66,8 +66,8 @@ from pydantic import (
 )
 
 # Import governance base classes
-from .base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
-from .enums import SecurableType
+from brickkit.models.base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
+from brickkit.models.enums import SecurableType
 
 # =============================================================================
 # BASE CONFIGURATION

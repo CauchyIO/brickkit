@@ -13,8 +13,8 @@ from typing import List
 from databricks.sdk.service.iam import AccessControlRequest, PermissionLevel
 from pydantic import Field, computed_field
 
-from .base import BaseGovernanceModel, get_current_environment
-from .enums import AclObjectType, PrincipalType
+from brickkit.models.base import BaseGovernanceModel, get_current_environment
+from brickkit.models.enums import AclObjectType, PrincipalType
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Simple Grants Example
 
@@ -5,14 +6,17 @@ Shows how to grant access using Principal and AccessPolicy.
 Demonstrates the three standard policies: READER, WRITER, ADMIN.
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.models.base import init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import IsolationMode
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.schemas import Schema
 
-from models.securables import Catalog, Schema
-from models.access import Principal, AccessPolicy
-from models.enums import IsolationMode
+# COMMAND ----------
+
+env = init_environment()
 
 # Create catalog and schema
 catalog = Catalog(
@@ -30,9 +34,9 @@ data_engineers = Principal(name="data_engineers")
 # Special principals (no suffix)
 all_users = Principal.all_workspace_users()  # Built-in 'users' group
 
-print(f"analysts resolved: {analysts.resolved_name}")
-print(f"data_engineers resolved: {data_engineers.resolved_name}")
-print(f"all_users resolved: {all_users.resolved_name}")
+logger.info(f"analysts resolved: {analysts.resolved_name}")
+logger.info(f"data_engineers resolved: {data_engineers.resolved_name}")
+logger.info(f"all_users resolved: {all_users.resolved_name}")
 
 # Grant access using predefined policies
 # READER: SELECT, BROWSE, USE_CATALOG, USE_SCHEMA
@@ -42,9 +46,9 @@ catalog.grant(analysts, AccessPolicy.READER())
 catalog.grant(data_engineers, AccessPolicy.WRITER())
 
 # Collect privileges for review
-print(f"\nPrivileges on catalog '{catalog.resolved_name}':")
+logger.info(f"\nPrivileges on catalog '{catalog.resolved_name}':")
 for priv in catalog.privileges:
-    print(f"  {priv.principal}: {priv.privilege.value}")
+    logger.info(f"  {priv.principal}: {priv.privilege.value}")
 
 # Output (when DATABRICKS_ENV=dev):
 # analysts resolved: analysts_dev

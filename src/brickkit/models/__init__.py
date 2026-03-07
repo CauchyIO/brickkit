@@ -30,13 +30,13 @@ Module organization:
 from typing import Any, Dict, List, Optional  # noqa: F401
 
 # Import ACL models
-from .acls import (
+from brickkit.models.acls import (
     AclBinding,
     AclEntry,
 )
 
 # Import base classes and utilities
-from .base import (
+from brickkit.models.base import (
     DEFAULT_SECURABLE_OWNER,
     BaseGovernanceModel,
     BaseSecurable,
@@ -45,17 +45,17 @@ from .base import (
 )
 
 # Import catalogs
-from .catalogs import (
+from brickkit.models.catalogs import (
     Catalog,
 )
 
 # Import connections
-from .connections import (
+from brickkit.models.connections import (
     Connection,
 )
 
 # Import all enums
-from .enums import (
+from brickkit.models.enums import (
     ALL_PRIVILEGES_EXPANSION,
     PRIVILEGE_DEPENDENCIES,
     AclObjectType,
@@ -74,18 +74,23 @@ from .enums import (
     validate_privilege_dependencies,
 )
 
+# Import experiment models
+from brickkit.models.experiments import (
+    MlflowExperiment,
+)
+
 # Import external locations
-from .external_locations import (
+from brickkit.models.external_locations import (
     ExternalLocation,
 )
 
 # Import functions
-from .functions import (
+from brickkit.models.functions import (
     Function,
 )
 
 # Import Genie models
-from .genie import (
+from brickkit.models.genie import (
     ColumnConfig,
     DataSources,
     GenieSpace,
@@ -101,19 +106,19 @@ from .genie import (
 )
 
 # Import grants/access control models
-from .grants import (
+from brickkit.models.grants import (
     AccessPolicy,
     Principal,
     Privilege,
 )
 
 # Import metastores
-from .metastores import (
+from brickkit.models.metastores import (
     Metastore,
 )
 
 # Import ML models
-from .ml_models import (
+from brickkit.models.ml_models import (
     ModelServingEndpoint,
     ModelVersion,
     ModelVersionStatus,
@@ -122,14 +127,14 @@ from .ml_models import (
 )
 
 # Import principal management models
-from .principals import (
+from brickkit.models.principals import (
     ManagedGroup,
     ManagedServicePrincipal,
     MemberReference,
 )
 
 # Import lightweight reference models
-from .references import (
+from brickkit.models.references import (
     FunctionReference,
     ModelReference,
     TableReference,
@@ -137,12 +142,12 @@ from .references import (
 )
 
 # Import schemas
-from .schemas import (
+from brickkit.models.schemas import (
     Schema,
 )
 
 # Import sharing models
-from .sharing import (
+from brickkit.models.sharing import (
     AuthenticationType,
     Provider,
     Recipient,
@@ -152,7 +157,7 @@ from .sharing import (
 )
 
 # Import storage credentials
-from .storage_credentials import (
+from brickkit.models.storage_credentials import (
     AwsIamRole,
     AzureManagedIdentity,
     AzureServicePrincipal,
@@ -162,7 +167,7 @@ from .storage_credentials import (
 
 # Import tables
 # Import governance-aware table models (Column with tags, GoverningTable)
-from .tables import (
+from brickkit.models.tables import (
     SCD2_COLUMNS,
     BaseColumn,
     BaseTable,
@@ -173,13 +178,13 @@ from .tables import (
 )
 
 # Import team models
-from .teams import (
+from brickkit.models.teams import (
     AccessManager,
     Team,
 )
 
 # Import Vector Search models
-from .vector_search import (
+from brickkit.models.vector_search import (
     VectorEndpointType,
     VectorIndexType,
     VectorSearchEndpoint,
@@ -188,12 +193,12 @@ from .vector_search import (
 )
 
 # Import volumes
-from .volumes import (
+from brickkit.models.volumes import (
     Volume,
 )
 
 # Import workspace binding models
-from .workspace_bindings import (
+from brickkit.models.workspace_bindings import (
     Workspace,
     WorkspaceBinding,
     WorkspaceBindingPattern,
@@ -266,6 +271,8 @@ __all__ = [
     "ServiceCredential",
     "ModelServingEndpoint",
     "ModelVersionStatus",
+    # Experiments
+    "MlflowExperiment",
     # Vector Search
     "VectorSearchEndpoint",
     "VectorSearchIndex",

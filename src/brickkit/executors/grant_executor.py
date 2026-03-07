@@ -18,9 +18,8 @@ from databricks.sdk.errors import (
 )
 from databricks.sdk.service.catalog import PermissionsChange
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models import Privilege, SecurableType
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,9 @@ class GrantExecutor(BaseExecutor[Privilege]):
         """
         try:
             full_name = self._get_full_name(resource)
-            grants = self.client.grants.get(securable_type=_get_enum_value(resource.securable_type), full_name=full_name)
+            grants = self.client.grants.get(
+                securable_type=_get_enum_value(resource.securable_type), full_name=full_name
+            )
 
             # Check if principal has this specific privilege
             for assignment in grants.privilege_assignments or []:
@@ -246,9 +247,7 @@ class GrantExecutor(BaseExecutor[Privilege]):
                         raise PrincipalNotFoundError(privilege.principal) from e
                 else:
                     if self.strict_mode:
-                        raise SecurableNotFoundError(
-                            _get_enum_value(privilege.securable_type), full_name
-                        ) from e
+                        raise SecurableNotFoundError(_get_enum_value(privilege.securable_type), full_name) from e
                 duration = time.time() - start_time
                 return ExecutionResult(
                     success=False,
@@ -427,7 +426,10 @@ class GrantExecutor(BaseExecutor[Privilege]):
             # Apply changes
             logger.info(f"Applying {len(changes)} privilege changes to {full_name}")
             self.execute_with_retry(
-                self.client.grants.update, securable_type=_get_enum_value(securable_type), full_name=full_name, changes=changes
+                self.client.grants.update,
+                securable_type=_get_enum_value(securable_type),
+                full_name=full_name,
+                changes=changes,
             )
 
             return ExecutionResult(

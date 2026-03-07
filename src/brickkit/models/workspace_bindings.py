@@ -20,8 +20,8 @@ from pydantic import (
     PrivateAttr,
 )
 
-from .base import BaseGovernanceModel
-from .enums import BindingType, Environment
+from brickkit.models.base import BaseGovernanceModel
+from brickkit.models.enums import BindingType, Environment
 
 logger = logging.getLogger(__name__)
 

@@ -45,10 +45,9 @@ from databricks.sdk.errors import (
 )
 from databricks.sdk.service.vectorsearch import DeltaSyncVectorIndexSpecRequest
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models.base import Tag
 from brickkit.models.vector_search import VectorSearchEndpoint, VectorSearchIndex
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,7 @@ import re
 from typing import Optional
 
 from brickkit.models.enums import Environment, SecurableAcronym, SecurableType
-
-from .schema import NamingSpec
+from brickkit.yaml_convention.schema import NamingSpec
 
 
 class NameGenerator:

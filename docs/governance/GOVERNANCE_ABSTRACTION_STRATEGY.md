@@ -179,7 +179,7 @@ grant(de_team, sales_schema, AccessPolicy.WRITER)
 # databricks.yml
 bundle:
   name: sales_pipeline
-  
+
 resources:
   pipelines:
     sales_dlt:
@@ -189,7 +189,7 @@ resources:
       libraries:
         - notebook:
             path: ./pipelines/sales_transformations
-      
+
   jobs:
     refresh_sales:
       name: refresh_sales_data
@@ -239,7 +239,7 @@ fs.create_table(
        """Helper to generate catalog/schema refs for DABs"""
        def get_catalog_ref(self, catalog: Catalog, env: Environment):
            return f"${catalog.name}_{env.value.lower()}"
-   
+
    class MLflowIntegration:
        """Helper to set up model registry permissions"""
        def setup_model_permissions(self, model_name: str, team: Team):
@@ -275,7 +275,7 @@ fs.create_table(
    @app.post("/api/v1/provision-schema")
    def provision_schema(team: str, project: str, environment: str):
        """DABs/MLflow can request new schemas programmatically"""
-   
+
    @app.get("/api/v1/check-permissions")
    def check_permissions(principal: str, resource: str, action: str):
        """Validate permissions before operations"""
@@ -305,11 +305,11 @@ fs.create_table(
    catalog = Catalog(name="analytics")
    schema = Schema(name="sales", catalog_name="analytics")
    grant(de_team, schema, AccessPolicy.WRITER)
-   
+
    # Step 2: Move table definitions to DABs
    # Generate bundle.yml from existing DBRCDK tables
    dbrcdk discover --export-to-dabs
-   
+
    # Step 3: Remove table definitions from DBRCDK
    # Keep only permission management
    ```
@@ -329,12 +329,12 @@ Project Structure:
     - schemas.py
     - principals.py
     - access_policies.py
-  
+
   pipelines/:  # DABs
     - bundle.yml
     - dlt_pipelines/
     - jobs/
-  
+
   models/:  # MLflow
     - experiments/
     - model_configs/

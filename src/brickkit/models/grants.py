@@ -21,8 +21,8 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from .base import BaseGovernanceModel, get_current_environment
-from .enums import Environment, PrincipalType, PrivilegeType, SecurableType
+from brickkit.models.base import BaseGovernanceModel, get_current_environment
+from brickkit.models.enums import Environment, PrincipalType, PrivilegeType, SecurableType
 
 logger = logging.getLogger(__name__)
 

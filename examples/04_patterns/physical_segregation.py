@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Physical Segregation Pattern
 
@@ -11,16 +12,19 @@ Tiers:
 - RESTRICTED: PII/PCI, need-to-know only
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
 from typing import Dict
-from models.securables import Catalog, Schema
-from models.access import Principal, AccessPolicy
-from models.base import Tag
-from models.enums import IsolationMode
+
+from loguru import logger
+
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import IsolationMode
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.schemas import Schema
+
+# COMMAND ----------
+
+env = init_environment()
 
 
 def create_tiered_catalogs() -> Dict[str, Catalog]:
@@ -92,27 +96,31 @@ def create_tiered_catalogs() -> Dict[str, Catalog]:
     return catalogs
 
 
+# COMMAND ----------
+
 # Create the tiered structure
 catalogs = create_tiered_catalogs()
 
 # Display the structure
 for tier_name, catalog in catalogs.items():
-    print(f"\n=== {tier_name.upper()} TIER ===")
-    print(f"Catalog: {catalog.resolved_name}")
-    print(f"Isolation: {catalog.isolation_mode.value}")
-    print("Tags:")
+    logger.info(f"\n=== {tier_name.upper()} TIER ===")
+    logger.info(f"Catalog: {catalog.resolved_name}")
+    logger.info(f"Isolation: {catalog.isolation_mode.value}")
+    logger.info("Tags:")
     for tag in catalog.tags:
-        print(f"  {tag.key}: {tag.value}")
-    print("Access:")
+        logger.info(f"  {tag.key}: {tag.value}")
+    logger.info("Access:")
     for priv in catalog.privileges:
-        print(f"  {priv.principal}: {priv.privilege.value}")
+        logger.info(f"  {priv.principal}: {priv.privilege.value}")
 
+
+# COMMAND ----------
 
 # Example: Adding data to the right tier
-print("\n\n=== Example Usage ===")
-print("Customer emails → RESTRICTED tier (PII)")
-print("Sales aggregates → INTERNAL tier (no PII)")
-print("Public reports → PUBLIC tier")
+logger.info("\n\n=== Example Usage ===")
+logger.info("Customer emails → RESTRICTED tier (PII)")
+logger.info("Sales aggregates → INTERNAL tier (no PII)")
+logger.info("Public reports → PUBLIC tier")
 
 # Adding schema to restricted tier
 pii_catalog = catalogs["restricted"]
@@ -124,7 +132,7 @@ pii_catalog.add_schema(
     )
 )
 
-print(f"\nAdded 'customer_pii' schema to {pii_catalog.resolved_name}")
+logger.info(f"\nAdded 'customer_pii' schema to {pii_catalog.resolved_name}")
 
 # Output:
 # === PUBLIC TIER ===

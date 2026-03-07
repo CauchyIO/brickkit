@@ -17,7 +17,7 @@ from pydantic import (
     Field,
 )
 
-from .enums import Environment, PrivilegeType, SecurableType, validate_privilege_dependencies
+from brickkit.models.enums import Environment, PrivilegeType, SecurableType, validate_privilege_dependencies
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -42,6 +42,54 @@ def get_current_environment() -> Environment:
     except ValueError:
         logger.warning(f"Invalid DATABRICKS_ENV='{env_str}', defaulting to DEV")
         return Environment.DEV
+
+
+def init_environment() -> Environment:
+    """
+    Initialize the current environment from the first available source:
+
+    1. ``dbutils.widgets.get("env")`` — set when a notebook is run as a
+       Databricks job with the ``env`` base parameter.
+    2. ``DATABRICKS_ENV`` environment variable — process-level override.
+    3. Default: ``DEV``.
+
+    Calls :func:`set_current_environment` so that all subsequent calls to
+    :func:`get_current_environment` (and all environment-aware naming) use
+    the resolved value.
+
+    Returns:
+        The resolved :class:`~brickkit.models.enums.Environment`.
+
+    Example::
+
+        from brickkit import init_environment
+
+        env = init_environment()   # reads widget → env var → "dev"
+    """
+    env_str: Optional[str] = None
+
+    # 1. Try Databricks widget (available when run as a job)
+    try:
+        env_str = dbutils.widgets.get("env")  # type: ignore[name-defined]  # noqa: F821
+    except Exception:
+        pass
+
+    # 2. Fall back to environment variable
+    if not env_str:
+        env_str = os.getenv("DATABRICKS_ENV")
+
+    # 3. Default to dev
+    if not env_str:
+        env_str = "dev"
+
+    try:
+        resolved = Environment(env_str.strip().upper())
+    except ValueError:
+        logger.warning(f"Invalid environment value '{env_str}', defaulting to DEV")
+        resolved = Environment.DEV
+
+    set_current_environment(resolved)
+    return resolved
 
 
 def set_current_environment(env: Environment) -> None:
@@ -268,7 +316,7 @@ class BaseSecurable(BaseGovernanceModel):
             Created Privilege object
         """
         # Import here to avoid circular dependency
-        from .grants import Privilege
+        from brickkit.models.grants import Privilege
 
         return Privilege(
             level_1=self.get_level_1_name(),

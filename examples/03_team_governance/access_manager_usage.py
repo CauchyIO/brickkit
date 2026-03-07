@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Access Manager Example
 
@@ -7,14 +8,18 @@ AccessManager provides team-level orchestration for grants:
 - Team-specific access organization
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.models.base import init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import IsolationMode
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.schemas import Schema
+from brickkit.models.teams import AccessManager
 
-from models.securables import Catalog, Schema
-from models.access import Principal, AccessPolicy, AccessManager
-from models.enums import IsolationMode
+# COMMAND ----------
+
+env = init_environment()
 
 # Create catalog with schemas
 catalog = Catalog(name="sales", isolation_mode=IsolationMode.OPEN)
@@ -26,6 +31,8 @@ catalog.add_schema(bronze)
 catalog.add_schema(silver)
 catalog.add_schema(gold)
 
+# COMMAND ----------
+
 # Create AccessManager for the team
 manager = AccessManager(team_name="sales_team")
 
@@ -33,6 +40,8 @@ manager = AccessManager(team_name="sales_team")
 data_engineers = Principal(name="data_engineers")
 analysts = Principal(name="analysts")
 executives = Principal(name="executives")
+
+# COMMAND ----------
 
 # Grant access through the manager (tracks for audit)
 
@@ -46,32 +55,38 @@ manager.grant(analysts, gold, AccessPolicy.READER())
 # Executives: read access to gold only
 manager.grant(executives, gold, AccessPolicy.READER())
 
+# COMMAND ----------
+
 # Review grants
-print(f"=== Grants by {manager.team_name} ===\n")
+logger.info(f"=== Grants by {manager.team_name} ===\n")
 for grant in manager.grants:
-    print(f"Principal: {grant['principal']}")
-    print(f"  Securable: {grant['securable_type']} '{grant['securable_name']}'")
-    print(f"  Policy: {grant['policy']}")
-    print()
+    logger.info(f"Principal: {grant['principal']}")
+    logger.info(f"  Securable: {grant['securable_type']} '{grant['securable_name']}'")
+    logger.info(f"  Policy: {grant['policy']}")
+    logger.info()
+
+# COMMAND ----------
 
 # Query grants by principal
-print("=== Grants for 'analysts' ===")
+logger.info("=== Grants for 'analysts' ===")
 analyst_grants = manager.get_grants_for_principal("analysts_dev")
 for g in analyst_grants:
-    print(f"  {g['securable_type']} '{g['securable_name']}': {g['policy']}")
+    logger.info(f"  {g['securable_type']} '{g['securable_name']}': {g['policy']}")
 
 # Query grants by securable
-print("\n=== Grants on 'gold' schema ===")
+logger.info("\n=== Grants on 'gold' schema ===")
 gold_grants = manager.get_grants_for_securable("gold")
 for g in gold_grants:
-    print(f"  {g['principal']}: {g['policy']}")
+    logger.info(f"  {g['principal']}: {g['policy']}")
+
+# COMMAND ----------
 
 # Bulk grant to all schemas
-print("\n=== Bulk grant to all schemas ===")
+logger.info("\n=== Bulk grant to all schemas ===")
 auditors = Principal(name="auditors")
 manager.grant_to_all_schemas(auditors, catalog, AccessPolicy.BROWSE_ONLY())
-print(f"Granted BROWSE_ONLY to auditors on catalog and all schemas")
-print(f"Total grants recorded: {len(manager.grants)}")
+logger.info("Granted BROWSE_ONLY to auditors on catalog and all schemas")
+logger.info(f"Total grants recorded: {len(manager.grants)}")
 
 # Output:
 # === Grants by sales_team ===

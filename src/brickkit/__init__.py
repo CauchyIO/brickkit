@@ -82,6 +82,7 @@ from brickkit.models.base import (
     BaseSecurable,
     Tag,
     get_current_environment,
+    init_environment,
 )
 from brickkit.models.catalogs import Catalog
 from brickkit.models.connections import Connection
@@ -244,6 +245,7 @@ __all__ = [
     "BaseSecurable",
     "Tag",
     "get_current_environment",
+    "init_environment",
     # Enums
     "SecurableType",
     "PrivilegeType",

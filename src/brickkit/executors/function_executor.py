@@ -11,9 +11,8 @@ from typing import Any, Dict
 from databricks.sdk.errors import NotFound, PermissionDenied, ResourceDoesNotExist
 from databricks.sdk.service.catalog import FunctionInfo
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models import Function
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Enterprise Governance Defaults
 
@@ -5,16 +6,18 @@ Standard organization-wide governance policies.
 Suitable for most enterprise deployments.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
-
 from typing import List
-from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag, NamingConvention
-from models.securables import Catalog, Schema
-from models.base import Tag
-from models.enums import Environment
+
+from loguru import logger
+
+from brickkit.defaults import GovernanceDefaults, NamingConvention, RequiredTag, TagDefault
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import Environment
+
+# COMMAND ----------
+
+env = init_environment()
 
 
 class EnterpriseDefaults(GovernanceDefaults):
@@ -73,6 +76,8 @@ class EnterpriseDefaults(GovernanceDefaults):
         return "platform-team"
 
 
+# COMMAND ----------
+
 # Usage
 defaults = EnterpriseDefaults()
 
@@ -85,14 +90,14 @@ catalog = Catalog(
 # Apply defaults (adds managed_by, environment, cost_center)
 catalog = defaults.apply_to(catalog, Environment.DEV)
 
-print("Tags after applying defaults:")
+logger.info("Tags after applying defaults:")
 for tag in catalog.tags:
-    print(f"  {tag.key}: {tag.value}")
+    logger.info(f"  {tag.key}: {tag.value}")
 
 # Validate
 tag_dict = {t.key: t.value for t in catalog.tags}
 errors = defaults.validate_tags(catalog.securable_type, tag_dict)
-print(f"\nValidation errors: {errors or 'None'}")
+logger.info(f"\nValidation errors: {errors or 'None'}")
 
 # Output:
 # Tags after applying defaults:

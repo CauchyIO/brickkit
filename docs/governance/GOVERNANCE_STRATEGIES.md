@@ -95,7 +95,7 @@ for team in ["marketing", "sales", "operations"]:
         comment=f"Published datasets from {team}"
     )
     publishing_catalog.add_schema(team_schema)
-    
+
     # Team can create and manage their objects
     access_manager.grant(
         team_schema,
@@ -126,25 +126,25 @@ class GovernanceHierarchy:
     def setup_delegated_ownership(self):
         # Central governance owns metastore
         metastore_owner = Principal("central_governance")
-        
+
         # Domain leads own catalogs
         catalog_owners = {
             "finance": Principal("finance_lead"),
             "marketing": Principal("marketing_lead"),
             "operations": Principal("ops_lead")
         }
-        
+
         # Project teams own schemas
         for catalog_name, owner in catalog_owners.items():
             catalog = Catalog(name=catalog_name, owner=owner.resolved_name)
-            
+
             # Allow catalog owner to create schemas
             access_manager.grant(
                 catalog,
                 owner,
                 [PrivilegeType.CREATE_SCHEMA, PrivilegeType.MANAGE]
             )
-            
+
             # Catalog owner can delegate schema ownership
             project_schema = Schema(
                 name="project_alpha",
@@ -176,7 +176,7 @@ STANDARD_ROLES = {
             SecurableType.VIEW: [PrivilegeType.SELECT]
         }
     ),
-    
+
     "DATA_WRITER": AccessPolicy(
         name="DATA_WRITER",
         privilege_map={
@@ -186,7 +186,7 @@ STANDARD_ROLES = {
             SecurableType.VOLUME: [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME]
         }
     ),
-    
+
     "DATA_OWNER": AccessPolicy(
         name="DATA_OWNER",
         privilege_map={
@@ -195,7 +195,7 @@ STANDARD_ROLES = {
             SecurableType.TABLE: [PrivilegeType.MANAGE]
         }
     ),
-    
+
     "DATA_STEWARD": AccessPolicy(
         name="DATA_STEWARD",
         privilege_map={
@@ -223,43 +223,43 @@ class TeamAccessModel:
     def setup_team_collaboration(self):
         # Shared collaboration catalog
         collab_catalog = Catalog(name="collaboration")
-        
+
         # Project-specific schemas
         project_schema = Schema(name="customer_360")
         collab_catalog.add_schema(project_schema)
-        
+
         # Core team members - full access
         core_team = Principal(
             name="customer_360_team",
             add_environment_suffix=True
         )
-        
+
         # Extended team - read and contribute
         extended_team = Principal(
             name="customer_360_extended",
             add_environment_suffix=True
         )
-        
+
         # Stakeholders - read only
         stakeholders = Principal(
             name="customer_360_stakeholders",
             add_environment_suffix=True
         )
-        
+
         # Layered access model
         access_manager.grant(
             project_schema,
             core_team,
             [PrivilegeType.MANAGE]  # Full control
         )
-        
+
         access_manager.grant(
             project_schema,
             extended_team,
-            [PrivilegeType.USE_SCHEMA, PrivilegeType.CREATE_TABLE, 
+            [PrivilegeType.USE_SCHEMA, PrivilegeType.CREATE_TABLE,
              PrivilegeType.SELECT, PrivilegeType.MODIFY]
         )
-        
+
         access_manager.grant(
             project_schema,
             stakeholders,
@@ -277,7 +277,7 @@ from datetime import datetime, timedelta
 
 class TemporalAccessManager:
     """Manages time-bound access grants with automatic expiration."""
-    
+
     def grant_temporal_access(
         self,
         securable,
@@ -290,7 +290,7 @@ class TemporalAccessManager:
             key="access_expiry",
             value=expiry_date.isoformat()
         )
-        
+
         # Create temporary principal with expiry marker
         temp_principal = Principal(
             name=f"{principal.name}_temp",
@@ -300,13 +300,13 @@ class TemporalAccessManager:
                 Environment.PRD: f"{principal.name}_temp_prd"
             }
         )
-        
+
         # Grant access with expiry tracking
         access_manager.grant(securable, temp_principal, privileges)
-        
+
         # Schedule revocation job (pseudo-code)
         # scheduler.schedule_at(expiry_date, revoke_access, temp_principal)
-        
+
         return temp_principal
 
 # Usage example
@@ -335,7 +335,7 @@ class CrossFunctionalCollaboration:
             comment="Cross-functional collaboration zone",
             isolation_mode=IsolationMode.OPEN
         )
-        
+
         # Department-specific contribution areas
         for dept in ["sales", "marketing", "finance", "operations"]:
             # Each department can contribute
@@ -344,7 +344,7 @@ class CrossFunctionalCollaboration:
                 comment=f"Data contributed by {dept}"
             )
             collab_catalog.add_schema(contrib_schema)
-            
+
             # Department owns their contribution area
             dept_principal = Principal(f"{dept}_team")
             access_manager.grant(
@@ -352,14 +352,14 @@ class CrossFunctionalCollaboration:
                 dept_principal,
                 [PrivilegeType.MANAGE]
             )
-        
+
         # Shared results area
         results_schema = Schema(
             name="shared_insights",
             comment="Cross-functional analysis results"
         )
         collab_catalog.add_schema(results_schema)
-        
+
         # All departments can read results
         all_depts = Principal("all_departments_group")
         access_manager.grant(
@@ -367,7 +367,7 @@ class CrossFunctionalCollaboration:
             all_depts,
             [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT]
         )
-        
+
         # Analytics team can write results
         analytics_team = Principal("analytics_team")
         access_manager.grant(
@@ -400,40 +400,40 @@ class PIIGovernanceStrategy:
                 Tag(key="encryption", value="required")
             ]
         )
-        
+
         # Structured PII schemas
         pii_catalog.add_schema(Schema(
             name="customer_pii",
             comment="Customer personal information",
             tags=[Tag(key="contains_pii", value="true")]
         ))
-        
+
         pii_catalog.add_schema(Schema(
             name="employee_pii",
             comment="Employee personal information",
             tags=[Tag(key="contains_pii", value="true")]
         ))
-        
+
         # Anonymized views for broader access
         anonymized_schema = Schema(
             name="anonymized",
             comment="Anonymized/pseudonymized data for analysis"
         )
         pii_catalog.add_schema(anonymized_schema)
-        
+
         # Strict access controls
         # Only privacy team has direct PII access
         privacy_team = Principal(
             name="privacy_officers",
             add_environment_suffix=False  # Same team across environments
         )
-        
+
         access_manager.grant(
             pii_catalog.get_schema("customer_pii"),
             privacy_team,
             [PrivilegeType.SELECT, PrivilegeType.MODIFY]
         )
-        
+
         # Data scientists get anonymized access only
         data_scientists = Principal("data_science_team")
         access_manager.grant(
@@ -441,10 +441,10 @@ class PIIGovernanceStrategy:
             data_scientists,
             [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT]
         )
-        
+
         # Audit all access
         self.enable_audit_logging(pii_catalog)
-    
+
     def enable_audit_logging(self, catalog):
         """Enable comprehensive audit logging for sensitive data."""
         catalog.tags.append(
@@ -491,7 +491,7 @@ class TieredAccessControl:
                 "requires_approval": True
             }
         }
-        
+
         # Create catalogs per classification tier
         for classification in DataClassification:
             catalog = Catalog(
@@ -502,7 +502,7 @@ class TieredAccessControl:
                     Tag(key="min_clearance", value=classification.value)
                 ]
             )
-            
+
             # Apply tier-specific policies
             policy = classification_policies[classification]
             for principal in policy["allowed_principals"]:
@@ -511,13 +511,13 @@ class TieredAccessControl:
                     principal,
                     policy["privileges"]
                 )
-            
+
             # Add approval workflow tags if required
             if policy.get("requires_approval"):
                 catalog.tags.append(
                     Tag(key="approval_required", value="true")
                 )
-            
+
             if policy.get("requires_mfa"):
                 catalog.tags.append(
                     Tag(key="mfa_required", value="true")
@@ -542,7 +542,7 @@ class ComplianceGovernance:
                 Tag(key="retention_days", value="2555")  # 7 years
             ]
         )
-        
+
         # Purpose-based schemas
         purposes = {
             "marketing": "Direct marketing activities",
@@ -550,7 +550,7 @@ class ComplianceGovernance:
             "operations": "Service delivery and operations",
             "legal": "Legal basis processing"
         }
-        
+
         for purpose, description in purposes.items():
             schema = Schema(
                 name=f"purpose_{purpose}",
@@ -561,7 +561,7 @@ class ComplianceGovernance:
                 ]
             )
             gdpr_catalog.add_schema(schema)
-            
+
             # Purpose-specific access groups
             purpose_group = Principal(f"gdpr_{purpose}_processors")
             access_manager.grant(
@@ -569,14 +569,14 @@ class ComplianceGovernance:
                 purpose_group,
                 [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT]
             )
-        
+
         # Right to be forgotten support
         deletion_schema = Schema(
             name="deletion_requests",
             comment="GDPR Article 17 deletion tracking"
         )
         gdpr_catalog.add_schema(deletion_schema)
-        
+
         # Only DPO can process deletions
         dpo_principal = Principal(
             name="data_protection_officer",
@@ -587,7 +587,7 @@ class ComplianceGovernance:
             dpo_principal,
             [PrivilegeType.MANAGE]
         )
-    
+
     def setup_hipaa_compliance(self):
         """HIPAA-compliant healthcare data governance."""
         hipaa_catalog = Catalog(
@@ -600,14 +600,14 @@ class ComplianceGovernance:
                 Tag(key="access_control", value="role_based")
             ]
         )
-        
+
         # Minimum necessary standard
         access_levels = {
             "full_phi": "Complete PHI access for treatment",
             "limited_phi": "Limited dataset for research",
             "deidentified": "Safe harbor de-identified data"
         }
-        
+
         for level, description in access_levels.items():
             schema = Schema(
                 name=level,
@@ -615,14 +615,14 @@ class ComplianceGovernance:
                 tags=[Tag(key="phi_level", value=level)]
             )
             hipaa_catalog.add_schema(schema)
-        
+
         # Healthcare role-based access
         healthcare_roles = {
             "physicians": ["full_phi"],
             "researchers": ["limited_phi", "deidentified"],
             "analysts": ["deidentified"]
         }
-        
+
         for role, allowed_schemas in healthcare_roles.items():
             principal = Principal(f"healthcare_{role}")
             for schema_name in allowed_schemas:
@@ -647,7 +647,7 @@ class ComplianceGovernance:
 class EnvironmentProgression:
     def setup_environment_access(self):
         """Configure environment-specific access patterns."""
-        
+
         # Environment-specific principal mappings
         principals_by_env = {
             Environment.DEV: {
@@ -668,7 +668,7 @@ class EnvironmentProgression:
                 "support": ["read_only_limited"]
             }
         }
-        
+
         # Access policies per level
         env_policies = {
             "full_access": [PrivilegeType.MANAGE],
@@ -689,11 +689,11 @@ class EnvironmentProgression:
                 PrivilegeType.BROWSE  # Metadata only
             ]
         }
-        
+
         # Apply environment-specific access
         current_env = get_current_environment()
         catalog = Catalog(name="application_data")
-        
+
         for role, access_levels in principals_by_env[current_env].items():
             principal = Principal(
                 name=role,
@@ -703,7 +703,7 @@ class EnvironmentProgression:
                     Environment.PRD: f"{role}_prd"
                 }
             )
-            
+
             for access_level in access_levels:
                 privileges = env_policies[access_level]
                 access_manager.grant(catalog, principal, privileges)
@@ -718,7 +718,7 @@ class EnvironmentProgression:
 class EnvironmentRoleMapping:
     def create_environment_aware_roles(self):
         """Roles that adapt to environment context."""
-        
+
         # Define role with environment-specific privileges
         class EnvironmentAwareRole:
             def __init__(self, role_name: str):
@@ -754,23 +754,23 @@ class EnvironmentRoleMapping:
                         ]
                     }
                 }
-            
+
             def get_privileges(self, environment: Environment):
                 return self.env_privileges[environment].get(
                     self.role_name, []
                 )
-        
+
         # Apply environment-aware roles
         engineer_role = EnvironmentAwareRole("data_engineer")
         analyst_role = EnvironmentAwareRole("data_analyst")
-        
+
         current_env = get_current_environment()
-        
+
         # Grant appropriate privileges based on environment
         for role in [engineer_role, analyst_role]:
             principal = Principal(role.role_name)
             privileges = role.get_privileges(current_env)
-            
+
             if privileges:
                 access_manager.grant(
                     catalog,
@@ -788,7 +788,7 @@ class EnvironmentRoleMapping:
 class TestDataGovernance:
     def setup_test_data_access(self):
         """Configure test data access with production data protection."""
-        
+
         # Test data catalog (synthetic/masked)
         test_catalog = Catalog(
             name="test_data",
@@ -798,7 +798,7 @@ class TestDataGovernance:
                 Tag(key="production_safe", value="true")
             ]
         )
-        
+
         # Production data catalog
         prod_catalog = Catalog(
             name="production_data",
@@ -809,7 +809,7 @@ class TestDataGovernance:
                 Tag(key="sensitive", value="true")
             ]
         )
-        
+
         # Developers get full test access, no prod access
         developers = Principal("developers")
         access_manager.grant(
@@ -817,7 +817,7 @@ class TestDataGovernance:
             developers,
             [PrivilegeType.MANAGE]  # Full control of test data
         )
-        
+
         # Testers get read access to both
         testers = Principal("qa_testers")
         access_manager.grant(
@@ -825,7 +825,7 @@ class TestDataGovernance:
             testers,
             [PrivilegeType.SELECT]
         )
-        
+
         # Only in production environment, grant limited prod access
         if get_current_environment() == Environment.PRD:
             # Support team gets production read access
@@ -838,10 +838,10 @@ class TestDataGovernance:
                 support,
                 [PrivilegeType.USE_CATALOG, PrivilegeType.SELECT]
             )
-        
+
         # Data masking for test environment creation
         self.setup_masking_pipeline(prod_catalog, test_catalog)
-    
+
     def setup_masking_pipeline(self, source_catalog, target_catalog):
         """Setup automated masking pipeline from prod to test."""
         # Pipeline service account
@@ -849,14 +849,14 @@ class TestDataGovernance:
             name="masking_pipeline_svc",
             add_environment_suffix=False
         )
-        
+
         # Read from production
         access_manager.grant(
             source_catalog,
             pipeline_account,
             [PrivilegeType.SELECT]
         )
-        
+
         # Write to test
         access_manager.grant(
             target_catalog,
@@ -878,7 +878,7 @@ class TestDataGovernance:
 class DomainDrivenGovernance:
     def setup_domain_catalogs(self):
         """Implement domain-driven catalog ownership."""
-        
+
         domains = {
             "sales": {
                 "owner": "chief_sales_officer",
@@ -901,7 +901,7 @@ class DomainDrivenGovernance:
                 "schemas": ["employees", "recruiting", "performance", "compensation"]
             }
         }
-        
+
         for domain_name, config in domains.items():
             # Create domain catalog
             domain_catalog = Catalog(
@@ -913,7 +913,7 @@ class DomainDrivenGovernance:
                     Tag(key="data_steward", value=config["data_steward"])
                 ]
             )
-            
+
             # Add domain schemas
             for schema_name in config["schemas"]:
                 schema = Schema(
@@ -922,7 +922,7 @@ class DomainDrivenGovernance:
                     owner=config["data_steward"]  # Steward owns schemas
                 )
                 domain_catalog.add_schema(schema)
-            
+
             # Domain owner has full control
             owner_principal = Principal(
                 name=config["owner"],
@@ -933,7 +933,7 @@ class DomainDrivenGovernance:
                 owner_principal,
                 [PrivilegeType.MANAGE]
             )
-            
+
             # Data steward manages day-to-day
             steward_principal = Principal(config["data_steward"])
             access_manager.grant(
@@ -946,7 +946,7 @@ class DomainDrivenGovernance:
                     PrivilegeType.APPLY_TAG
                 ]
             )
-            
+
             # Domain users get read access
             domain_users = Principal(f"{domain_name}_users")
             access_manager.grant(
@@ -965,10 +965,10 @@ class DomainDrivenGovernance:
 class ProjectBasedSchemas:
     def setup_project_schemas(self):
         """Create project-based schema organization."""
-        
+
         # Analytics catalog with project-based schemas
         analytics_catalog = Catalog(name="analytics")
-        
+
         projects = [
             {
                 "name": "customer_360",
@@ -985,7 +985,7 @@ class ProjectBasedSchemas:
                 "tables": ["revenue_drivers", "pricing_analysis", "churn_prediction"]
             }
         ]
-        
+
         for project in projects:
             # Create project schema
             project_schema = Schema(
@@ -998,7 +998,7 @@ class ProjectBasedSchemas:
                 ]
             )
             analytics_catalog.add_schema(project_schema)
-            
+
             # Team lead gets full control
             lead_principal = Principal(project["team_lead"])
             access_manager.grant(
@@ -1006,7 +1006,7 @@ class ProjectBasedSchemas:
                 lead_principal,
                 [PrivilegeType.MANAGE]
             )
-            
+
             # Team members get read/write
             team_group = Principal(f"{project['name']}_team")
             access_manager.grant(
@@ -1019,7 +1019,7 @@ class ProjectBasedSchemas:
                     PrivilegeType.MODIFY
                 ]
             )
-            
+
             # Stakeholders get read-only
             stakeholder_group = Principal(f"{project['name']}_stakeholders")
             access_manager.grant(
@@ -1038,12 +1038,12 @@ class ProjectBasedSchemas:
 class FineGrainedTableAccess:
     def setup_table_level_security(self):
         """Implement fine-grained table access controls."""
-        
+
         # Customer data with varying sensitivity
         customer_catalog = Catalog(name="customer_data")
         customer_schema = Schema(name="customers")
         customer_catalog.add_schema(customer_schema)
-        
+
         # Different views for different access levels
         table_variants = [
             {
@@ -1065,7 +1065,7 @@ class FineGrainedTableAccess:
                 "allowed_roles": ["all_employees"]
             }
         ]
-        
+
         for variant in table_variants:
             # Create table/view with specific access
             table = Table(
@@ -1078,11 +1078,11 @@ class FineGrainedTableAccess:
                 ]
             )
             customer_schema.add_table(table)
-            
+
             # Grant specific access per table
             for role in variant["allowed_roles"]:
                 principal = Principal(role)
-                
+
                 # More restrictive tables get fewer privileges
                 if variant["access_level"] == "restricted":
                     privileges = [PrivilegeType.SELECT]  # Read only
@@ -1090,16 +1090,16 @@ class FineGrainedTableAccess:
                     privileges = [PrivilegeType.SELECT, PrivilegeType.MODIFY]
                 else:  # general
                     privileges = [PrivilegeType.SELECT]
-                
+
                 # Apply grants at table level
                 access_manager.grant(table, principal, privileges)
-        
+
         # Row-level security via dynamic views
         self.create_row_level_security_views(customer_schema)
-    
+
     def create_row_level_security_views(self, schema):
         """Create views with row-level security."""
-        
+
         # Regional data access - users only see their region
         regional_view = Table(
             name="customers_by_region",
@@ -1111,7 +1111,7 @@ class FineGrainedTableAccess:
             ]
         )
         schema.add_table(regional_view)
-        
+
         # Time-based access - recent data only for most users
         recent_data_view = Table(
             name="customers_recent",
@@ -1138,27 +1138,27 @@ class FineGrainedTableAccess:
 class DataMeshGovernance:
     def implement_data_mesh(self):
         """Full data mesh implementation with federated governance."""
-        
+
         # Central governance catalog for shared resources
         platform_catalog = Catalog(
             name="data_platform",
             comment="Shared platform capabilities",
             owner="platform_team"
         )
-        
+
         # Add platform schemas
         platform_schemas = [
             Schema(name="quality_metrics", comment="Data quality scores"),
             Schema(name="lineage", comment="Data lineage tracking"),
             Schema(name="catalog_registry", comment="Data product registry")
         ]
-        
+
         for schema in platform_schemas:
             platform_catalog.add_schema(schema)
-        
+
         # Domain data products
         domains = ["sales", "marketing", "supply_chain", "customer_service"]
-        
+
         for domain in domains:
             # Each domain gets its own catalog
             domain_catalog = Catalog(
@@ -1170,10 +1170,10 @@ class DataMeshGovernance:
                     Tag(key="self_serve", value="true")
                 ]
             )
-            
+
             # Standard data product structure
             self.create_data_product_schemas(domain_catalog, domain)
-            
+
             # Domain team has full autonomy
             domain_team = Principal(f"{domain}_data_team")
             access_manager.grant(
@@ -1181,13 +1181,13 @@ class DataMeshGovernance:
                 domain_team,
                 [PrivilegeType.MANAGE]
             )
-            
+
             # Register in central catalog
             self.register_data_product(platform_catalog, domain_catalog)
-    
+
     def create_data_product_schemas(self, catalog, domain):
         """Standard schemas for data products."""
-        
+
         # Input ports (how data enters the domain)
         input_schema = Schema(
             name="input_ports",
@@ -1195,7 +1195,7 @@ class DataMeshGovernance:
             tags=[Tag(key="port_type", value="input")]
         )
         catalog.add_schema(input_schema)
-        
+
         # Core domain data
         core_schema = Schema(
             name="core",
@@ -1203,7 +1203,7 @@ class DataMeshGovernance:
             tags=[Tag(key="domain_core", value="true")]
         )
         catalog.add_schema(core_schema)
-        
+
         # Output ports (data products for consumption)
         output_schema = Schema(
             name="output_ports",
@@ -1211,7 +1211,7 @@ class DataMeshGovernance:
             tags=[Tag(key="port_type", value="output")]
         )
         catalog.add_schema(output_schema)
-        
+
         # SLOs and metadata
         metadata_schema = Schema(
             name="product_metadata",
@@ -1230,7 +1230,7 @@ class DataMeshGovernance:
 class FederatedGovernance:
     def setup_federated_model(self):
         """Implement federated governance with central standards."""
-        
+
         # Central governance standards
         governance_standards = {
             "naming_conventions": {
@@ -1250,7 +1250,7 @@ class FederatedGovernance:
                 "timeliness_hours": 24
             }
         }
-        
+
         # Governance committee principals
         governance_committee = [
             Principal("chief_data_officer"),
@@ -1258,33 +1258,33 @@ class FederatedGovernance:
             Principal("compliance_officer"),
             Principal("security_officer")
         ]
-        
+
         # Domain governance representatives
         domain_representatives = {}
         for domain in ["sales", "marketing", "operations", "finance"]:
             domain_representatives[domain] = Principal(f"{domain}_data_steward")
-        
+
         # Central governance catalog
         governance_catalog = Catalog(
             name="governance",
             comment="Enterprise governance and standards",
             owner="chief_data_officer"
         )
-        
+
         # Standards enforcement schema
         standards_schema = Schema(
             name="standards",
             comment="Governance standards and policies"
         )
         governance_catalog.add_schema(standards_schema)
-        
+
         # Domain compliance tracking
         compliance_schema = Schema(
             name="compliance_tracking",
             comment="Domain compliance metrics"
         )
         governance_catalog.add_schema(compliance_schema)
-        
+
         # Committee has full control of standards
         for committee_member in governance_committee:
             access_manager.grant(
@@ -1292,7 +1292,7 @@ class FederatedGovernance:
                 committee_member,
                 [PrivilegeType.MANAGE]
             )
-        
+
         # Domain reps can read standards, update compliance
         for domain, rep in domain_representatives.items():
             # Read standards
@@ -1301,7 +1301,7 @@ class FederatedGovernance:
                 rep,
                 [PrivilegeType.SELECT]
             )
-            
+
             # Update their compliance status
             access_manager.grant(
                 compliance_schema,
@@ -1326,7 +1326,7 @@ class DataProductGovernance:
         slos: Dict[str, Any]
     ):
         """Create a complete data product with governance."""
-        
+
         # Data product catalog
         product_catalog = Catalog(
             name=f"product_{product_name}",
@@ -1339,7 +1339,7 @@ class DataProductGovernance:
                 Tag(key="product_version", value="1.0.0")
             ]
         )
-        
+
         # Interface schema (contracts)
         interface_schema = Schema(
             name="interface",
@@ -1350,7 +1350,7 @@ class DataProductGovernance:
             ]
         )
         product_catalog.add_schema(interface_schema)
-        
+
         # Add interface tables
         input_contract = Table(
             name="input_contract",
@@ -1358,14 +1358,14 @@ class DataProductGovernance:
             table_type=TableType.VIEW
         )
         interface_schema.add_table(input_contract)
-        
+
         output_contract = Table(
             name="output_contract",
             comment="Guaranteed output format",
             table_type=TableType.VIEW
         )
         interface_schema.add_table(output_contract)
-        
+
         # Implementation schema (internal)
         implementation_schema = Schema(
             name="implementation",
@@ -1373,7 +1373,7 @@ class DataProductGovernance:
             tags=[Tag(key="internal", value="true")]
         )
         product_catalog.add_schema(implementation_schema)
-        
+
         # Quality schema
         quality_schema = Schema(
             name="quality",
@@ -1385,7 +1385,7 @@ class DataProductGovernance:
             ]
         )
         product_catalog.add_schema(quality_schema)
-        
+
         # Product owner has full control
         owner_principal = Principal(owner)
         access_manager.grant(
@@ -1393,7 +1393,7 @@ class DataProductGovernance:
             owner_principal,
             [PrivilegeType.MANAGE]
         )
-        
+
         # Consumers get interface access only
         for consumer in consumers:
             consumer_principal = Principal(consumer)
@@ -1402,17 +1402,17 @@ class DataProductGovernance:
                 consumer_principal,
                 [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT]
             )
-            
+
             # Can read quality metrics
             access_manager.grant(
                 quality_schema,
                 consumer_principal,
                 [PrivilegeType.SELECT]
             )
-        
+
         # Hide implementation from consumers
         # (They can't access implementation_schema)
-        
+
         return product_catalog
 ```
 
@@ -1432,21 +1432,21 @@ import json
 class AccessReviewGovernance:
     def implement_access_reviews(self):
         """Implement periodic access review process."""
-        
+
         # Audit catalog for governance
         audit_catalog = Catalog(
             name="governance_audit",
             comment="Access reviews and audit trails",
             owner="security_team"
         )
-        
+
         # Access review tracking
         review_schema = Schema(
             name="access_reviews",
             comment="Periodic access review records"
         )
         audit_catalog.add_schema(review_schema)
-        
+
         # Current access snapshot
         access_snapshot = Table(
             name="access_snapshot",
@@ -1458,7 +1458,7 @@ class AccessReviewGovernance:
             ]
         )
         review_schema.add_table(access_snapshot)
-        
+
         # Review decisions table
         review_decisions = Table(
             name="review_decisions",
@@ -1476,7 +1476,7 @@ class AccessReviewGovernance:
             ]
         )
         review_schema.add_table(review_decisions)
-        
+
         # Stale access detection
         stale_access = Table(
             name="stale_access_report",
@@ -1488,10 +1488,10 @@ class AccessReviewGovernance:
             ]
         )
         review_schema.add_table(stale_access)
-    
+
     def generate_access_review(self, catalog_name: str):
         """Generate access review report for a catalog."""
-        
+
         review_data = {
             "review_id": f"review_{datetime.now().strftime('%Y%m%d')}",
             "catalog": catalog_name,
@@ -1499,22 +1499,22 @@ class AccessReviewGovernance:
             "principals_reviewed": [],
             "access_matrix": {}
         }
-        
+
         # Would integrate with SDK to get actual access
         # This is pseudo-code for the pattern
-        
+
         return review_data
-    
+
     def schedule_review_cycles(self):
         """Setup automated review scheduling."""
-        
+
         review_schedule = {
             "sensitive_data": "monthly",
             "production_data": "quarterly",
             "development_data": "semi_annual",
             "public_data": "annual"
         }
-        
+
         for classification, frequency in review_schedule.items():
             # Create review jobs (pseudo-code)
             pass
@@ -1529,7 +1529,7 @@ class AccessReviewGovernance:
 class PrivilegeEscalation:
     def setup_escalation_workflow(self):
         """Implement break-glass privilege escalation."""
-        
+
         # Emergency access catalog
         emergency_catalog = Catalog(
             name="emergency_access",
@@ -1537,14 +1537,14 @@ class PrivilegeEscalation:
             isolation_mode=IsolationMode.ISOLATED,
             owner="security_team"
         )
-        
+
         # Escalation request tracking
         escalation_schema = Schema(
             name="escalation_requests",
             comment="Privilege escalation audit trail"
         )
         emergency_catalog.add_schema(escalation_schema)
-        
+
         # Request table
         escalation_requests = Table(
             name="escalation_log",
@@ -1565,13 +1565,13 @@ class PrivilegeEscalation:
             ]
         )
         escalation_schema.add_table(escalation_requests)
-        
+
         # Break-glass accounts with time-limited access
         self.create_break_glass_account()
-    
+
     def create_break_glass_account(self):
         """Create break-glass emergency account."""
-        
+
         # Emergency account with no default access
         emergency_principal = Principal(
             name="break_glass_emergency",
@@ -1582,7 +1582,7 @@ class PrivilegeEscalation:
                 Environment.PRD: "break_glass_prd"
             }
         )
-        
+
         # Activation requires multi-party approval
         activation_requirements = {
             "min_approvers": 2,
@@ -1592,9 +1592,9 @@ class PrivilegeEscalation:
             "auto_revoke": True,
             "alert_channels": ["security_slack", "ops_pager"]
         }
-        
+
         return emergency_principal, activation_requirements
-    
+
     def grant_emergency_access(
         self,
         requester: str,
@@ -1603,16 +1603,16 @@ class PrivilegeEscalation:
         incident_id: str
     ):
         """Grant time-limited emergency access."""
-        
+
         # Create temporary principal
         temp_principal = Principal(
             name=f"emergency_{requester}_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
             add_environment_suffix=False
         )
-        
+
         # Grant with automatic expiry
         expiry_time = datetime.now() + timedelta(hours=duration_hours)
-        
+
         # Log the grant
         audit_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -1623,17 +1623,17 @@ class PrivilegeEscalation:
             "incident_id": incident_id,
             "expiry": expiry_time.isoformat()
         }
-        
+
         # Apply emergency access
         access_manager.grant(
             resource,
             temp_principal,
             [PrivilegeType.SELECT, PrivilegeType.MODIFY]  # Limited to data access
         )
-        
+
         # Schedule automatic revocation
         # self.schedule_revocation(temp_principal, expiry_time)
-        
+
         return temp_principal, audit_entry
 ```
 
@@ -1646,21 +1646,21 @@ class PrivilegeEscalation:
 class ComplianceValidation:
     def setup_compliance_validation(self):
         """Implement automated compliance checking."""
-        
+
         # Compliance validation catalog
         compliance_catalog = Catalog(
             name="compliance_validation",
             comment="Automated compliance checking and reporting",
             owner="compliance_officer"
         )
-        
+
         # Validation rules schema
         rules_schema = Schema(
             name="validation_rules",
             comment="Compliance rules and policies"
         )
         compliance_catalog.add_schema(rules_schema)
-        
+
         # Define compliance rules
         compliance_rules = {
             "gdpr": {
@@ -1680,20 +1680,20 @@ class ComplianceValidation:
                 "access_controls": "Role-based access to PHI"
             }
         }
-        
+
         # Validation results schema
         results_schema = Schema(
             name="validation_results",
             comment="Compliance validation outcomes"
         )
         compliance_catalog.add_schema(results_schema)
-        
+
         # Create validation result tables
         self.create_validation_tables(results_schema, compliance_rules)
-    
+
     def create_validation_tables(self, schema, rules):
         """Create tables for tracking validation results."""
-        
+
         # Overall compliance score
         compliance_score = Table(
             name="compliance_scorecard",
@@ -1709,7 +1709,7 @@ class ComplianceValidation:
             ]
         )
         schema.add_table(compliance_score)
-        
+
         # Detailed violations
         violations = Table(
             name="compliance_violations",
@@ -1728,10 +1728,10 @@ class ComplianceValidation:
             ]
         )
         schema.add_table(violations)
-    
+
     def run_compliance_check(self, catalog, regulation: str):
         """Execute compliance validation for a catalog."""
-        
+
         validation_results = {
             "catalog": catalog.name,
             "regulation": regulation,
@@ -1739,14 +1739,14 @@ class ComplianceValidation:
             "checks": [],
             "violations": []
         }
-        
+
         # Check for required tags
         required_tags = {
             "gdpr": ["data_classification", "retention_period", "legal_basis"],
             "sox": ["financial_impact", "audit_required", "sox_relevant"],
             "hipaa": ["phi_present", "encryption_status", "access_logged"]
         }
-        
+
         for tag_key in required_tags.get(regulation, []):
             has_tag = any(tag.key == tag_key for tag in catalog.tags)
             validation_results["checks"].append({
@@ -1754,7 +1754,7 @@ class ComplianceValidation:
                 "passed": has_tag,
                 "message": f"Tag '{tag_key}' {'present' if has_tag else 'missing'}"
             })
-            
+
             if not has_tag:
                 validation_results["violations"].append({
                     "rule": f"required_tag_{tag_key}",
@@ -1762,10 +1762,10 @@ class ComplianceValidation:
                     "resource": catalog.name,
                     "details": f"Missing required tag: {tag_key}"
                 })
-        
+
         # Check access patterns
         # (Would integrate with actual access data from SDK)
-        
+
         return validation_results
 ```
 
@@ -1782,7 +1782,7 @@ class ComplianceValidation:
 class DataQualityGovernance:
     def setup_quality_based_access(self):
         """Implement access control based on data quality."""
-        
+
         # Quality tiers
         quality_tiers = {
             "gold": {"min_score": 0.95, "access": "unrestricted"},
@@ -1790,13 +1790,13 @@ class DataQualityGovernance:
             "bronze": {"min_score": 0.60, "access": "restricted"},
             "quarantine": {"min_score": 0.0, "access": "blocked"}
         }
-        
+
         # Create quality-tiered catalog
         quality_catalog = Catalog(
             name="quality_tiered_data",
             comment="Data with quality-based access control"
         )
-        
+
         for tier, config in quality_tiers.items():
             tier_schema = Schema(
                 name=f"{tier}_tier",
@@ -1808,7 +1808,7 @@ class DataQualityGovernance:
                 ]
             )
             quality_catalog.add_schema(tier_schema)
-            
+
             # Grant access based on tier
             if tier == "gold":
                 # Everyone can access gold tier data
@@ -1843,7 +1843,7 @@ class DataQualityGovernance:
 class CostAwareGovernance:
     def setup_cost_governance(self):
         """Implement cost-aware access patterns."""
-        
+
         # Cost-tiered storage
         storage_tiers = {
             "hot": {
@@ -1865,12 +1865,12 @@ class CostAwareGovernance:
                 "allowed_workloads": ["compliance", "backup"]
             }
         }
-        
+
         cost_catalog = Catalog(
             name="cost_optimized",
             comment="Cost-optimized data storage"
         )
-        
+
         for tier, config in storage_tiers.items():
             tier_schema = Schema(
                 name=f"{tier}_storage",
@@ -1882,11 +1882,11 @@ class CostAwareGovernance:
                 ]
             )
             cost_catalog.add_schema(tier_schema)
-            
+
             # Grant based on workload type
             for workload in config["allowed_workloads"]:
                 workload_principal = Principal(f"{workload}_workload")
-                
+
                 # Hot tier gets immediate access
                 if tier == "hot":
                     privileges = [PrivilegeType.SELECT, PrivilegeType.MODIFY]
@@ -1896,7 +1896,7 @@ class CostAwareGovernance:
                 # Cold tier requires request and warming
                 else:
                     privileges = [PrivilegeType.BROWSE]  # Metadata only
-                
+
                 access_manager.grant(
                     tier_schema,
                     workload_principal,
@@ -1913,7 +1913,7 @@ class CostAwareGovernance:
 class MultiRegionGovernance:
     def setup_regional_governance(self):
         """Implement multi-region governance with data residency."""
-        
+
         regions = {
             "us_east": {
                 "location": "us-east-1",
@@ -1931,7 +1931,7 @@ class MultiRegionGovernance:
                 "allowed_countries": ["SG", "JP", "AU"]
             }
         }
-        
+
         for region_name, config in regions.items():
             # Regional catalog
             regional_catalog = Catalog(
@@ -1943,20 +1943,20 @@ class MultiRegionGovernance:
                     Tag(key="regulations", value=",".join(config["regulations"]))
                 ]
             )
-            
+
             # Regional access principal
             regional_users = Principal(
                 name=f"users_{region_name}",
                 add_environment_suffix=True
             )
-            
+
             # Grant regional access
             access_manager.grant(
                 regional_catalog,
                 regional_users,
                 [PrivilegeType.USE_CATALOG, PrivilegeType.SELECT]
             )
-            
+
             # Cross-region replication schema (if allowed)
             if "gdpr" not in config["regulations"]:  # GDPR restricts transfers
                 replication_schema = Schema(
@@ -2031,7 +2031,7 @@ class ModelStage(str, Enum):
     """MLflow model stages aligned with environment progression."""
     NONE = "None"  # Initial stage
     EXPERIMENTAL = "Experimental"  # DEV environment
-    STAGING = "Staging"  # ACC environment  
+    STAGING = "Staging"  # ACC environment
     PRODUCTION = "Production"  # PRD environment
     ARCHIVED = "Archived"  # Decommissioned
 
@@ -2044,7 +2044,7 @@ class ModelTier(str, Enum):
 class MLModelGovernance:
     def setup_model_registry(self):
         """Implement comprehensive model governance."""
-        
+
         # ML-specific catalog structure
         ml_catalog = Catalog(
             name="ml_platform",
@@ -2055,7 +2055,7 @@ class MLModelGovernance:
                 Tag(key="version", value="3.3+")
             ]
         )
-        
+
         # Environment-aligned schemas
         ml_schemas = {
             "experiments": "Development experiments and prototypes",
@@ -2063,7 +2063,7 @@ class MLModelGovernance:
             "production": "Production-ready models",
             "archived": "Decommissioned models"
         }
-        
+
         for schema_name, description in ml_schemas.items():
             schema = Schema(
                 name=schema_name,
@@ -2074,13 +2074,13 @@ class MLModelGovernance:
                 ]
             )
             ml_catalog.add_schema(schema)
-        
+
         # Role-based ML access
         self.setup_ml_roles(ml_catalog)
-    
+
     def setup_ml_roles(self, catalog):
         """Define ML-specific access roles."""
-        
+
         # Data Scientists - experiment and develop
         ml_developers = Principal("ml_developers")
         access_manager.grant(
@@ -2093,7 +2093,7 @@ class MLModelGovernance:
                 PrivilegeType.MODIFY
             ]
         )
-        
+
         # ML Engineers - manage lifecycle
         ml_engineers = Principal("ml_engineers")
         access_manager.grant(
@@ -2106,7 +2106,7 @@ class MLModelGovernance:
                 PrivilegeType.EXECUTE  # Test inference
             ]
         )
-        
+
         # MLOps Team - production deployment
         mlops_team = Principal("mlops_team")
         access_manager.grant(
@@ -2114,7 +2114,7 @@ class MLModelGovernance:
             mlops_team,
             [PrivilegeType.ALL_PRIVILEGES]  # Full control in production
         )
-        
+
         # Model Consumers - inference only
         model_consumers = Principal("model_api_services")
         access_manager.grant(
@@ -2133,7 +2133,7 @@ class MLModelGovernance:
 class ModelLineageGovernance:
     def track_model_lineage(self):
         """Comprehensive lineage tracking for models."""
-        
+
         # Lineage tracking schema
         lineage_schema = Schema(
             name="model_lineage",
@@ -2143,7 +2143,7 @@ class ModelLineageGovernance:
                 Tag(key="compliance_required", value="true")
             ]
         )
-        
+
         # Training dataset tracking table
         training_datasets = Table(
             name="model_training_datasets",
@@ -2159,7 +2159,7 @@ class ModelLineageGovernance:
             ]
         )
         lineage_schema.add_table(training_datasets)
-        
+
         # Feature store dependencies
         feature_dependencies = Table(
             name="model_feature_dependencies",
@@ -2172,7 +2172,7 @@ class ModelLineageGovernance:
             ]
         )
         lineage_schema.add_table(feature_dependencies)
-        
+
         # Audit access to lineage data
         access_manager.grant(
             lineage_schema,
@@ -2190,7 +2190,7 @@ class ModelLineageGovernance:
 class ModelDeploymentGovernance:
     def setup_deployment_permissions(self):
         """Environment-aligned deployment permissions."""
-        
+
         deployment_policies = {
             Environment.DEV: {
                 ModelTier.TIER_1: ["mlops_team"],  # Even in dev, Tier 1 restricted
@@ -2208,22 +2208,22 @@ class ModelDeploymentGovernance:
                 ModelTier.TIER_3: ["mlops_team"]
             }
         }
-        
+
         # Model serving endpoints governance
         serving_catalog = Catalog(name="model_serving")
-        
+
         for env in Environment:
             env_schema = Schema(
                 name=f"endpoints_{env.value}",
                 comment=f"Model serving endpoints for {env.value}"
             )
             serving_catalog.add_schema(env_schema)
-            
+
             # Apply environment-specific permissions
             for tier, allowed_roles in deployment_policies[env].items():
                 for role in allowed_roles:
                     principal = Principal(role)
-                    
+
                     # Grant deployment permissions
                     if env == Environment.PRD and tier == ModelTier.TIER_1:
                         # Production Tier 1 requires approval
@@ -2234,7 +2234,7 @@ class ModelDeploymentGovernance:
                             PrivilegeType.CREATE_FUNCTION,  # Create endpoints
                             PrivilegeType.EXECUTE  # Invoke endpoints
                         ]
-                    
+
                     access_manager.grant(env_schema, principal, privileges)
 ```
 
@@ -2247,21 +2247,21 @@ class ModelDeploymentGovernance:
 class ModelComplianceGovernance:
     def setup_model_compliance(self):
         """Compliance and monitoring for ML models."""
-        
+
         # Compliance tracking catalog
         compliance_catalog = Catalog(
             name="ml_compliance",
             comment="ML model compliance and monitoring",
             isolation_mode=IsolationMode.ISOLATED  # Restricted access
         )
-        
+
         # Model audit schema
         audit_schema = Schema(
             name="model_audits",
             comment="Model access and prediction audits"
         )
         compliance_catalog.add_schema(audit_schema)
-        
+
         # Prediction audit table (for PII models)
         prediction_audit = Table(
             name="prediction_logs",
@@ -2282,7 +2282,7 @@ class ModelComplianceGovernance:
             ]
         )
         audit_schema.add_table(prediction_audit)
-        
+
         # Performance monitoring table
         performance_monitoring = Table(
             name="model_performance",
@@ -2295,7 +2295,7 @@ class ModelComplianceGovernance:
             ]
         )
         audit_schema.add_table(performance_monitoring)
-        
+
         # Monitoring access patterns
         # ML developers see their own models
         access_manager.grant(
@@ -2304,14 +2304,14 @@ class ModelComplianceGovernance:
             [PrivilegeType.SELECT],
             conditions=["model_owner = current_user()"]
         )
-        
+
         # MLOps team sees everything
         access_manager.grant(
             audit_schema,
             Principal("mlops_team"),
             [PrivilegeType.SELECT, PrivilegeType.MODIFY]
         )
-        
+
         # Compliance team has audit access
         access_manager.grant(
             audit_schema,
@@ -2333,7 +2333,7 @@ class ModelComplianceGovernance:
 # bundle.yml - Main governance bundle configuration
 bundle:
   name: unified_governance
-  
+
   # Governance metadata
   annotations:
     governance_version: "2.0"
@@ -2346,7 +2346,7 @@ variables:
     description: "Target environment"
     type: string
     enum: ["dev", "acc", "prd"]
-  
+
   data_classification:
     description: "Data classification level"
     type: string
@@ -2363,17 +2363,17 @@ targets:
     variables:
       environment: "dev"
       max_privileges: ["ALL_PRIVILEGES"]
-    
+
     resources:
       catalogs:
         ${var.catalog_name}_dev:
           isolation_mode: "OPEN"
-  
+
   prd:
     variables:
       environment: "prd"
       max_privileges: ["SELECT"]
-    
+
     resources:
       catalogs:
         ${var.catalog_name}_prd:
@@ -2389,44 +2389,44 @@ targets:
 ```python
 class HybridGovernanceDeployer:
     """Deploy governance using SDK logic and DAB infrastructure."""
-    
+
     def deploy_team_governance(self, team: Team, environment: Environment):
         """Generate and deploy team-specific governance."""
-        
+
         # Step 1: Use Pydantic models for governance logic
         catalog = self.create_team_catalog(team, environment)
         access_policies = self.generate_access_policies(team, catalog)
-        
+
         # Step 2: Generate DAB configuration from models
         dab_config = self.generate_dab_config(catalog, access_policies)
-        
+
         # Step 3: Write DAB configuration
         bundle_path = Path(f"bundles/{team.name}/bundle.yml")
         with open(bundle_path, 'w') as f:
             yaml.dump(dab_config, f)
-        
+
         # Step 4: Deploy using DABs
         self.deploy_with_dabs(bundle_path, environment)
-        
+
         # Step 5: Apply complex permissions with SDK
         self.apply_complex_permissions(catalog, team)
-    
+
     def generate_dab_config(self, catalog, policies):
         """Convert Pydantic models to DAB format."""
-        
+
         dab_resources = {
             "catalogs": {},
             "schemas": {},
             "grants": []
         }
-        
+
         # Convert catalog
         dab_resources["catalogs"][catalog.name] = {
             "name": catalog.name,
             "comment": catalog.comment,
             "isolation_mode": catalog.isolation_mode.value
         }
-        
+
         # Convert schemas and grants
         for schema in catalog.schemas:
             schema_key = f"{catalog.name}_{schema.name}"
@@ -2435,26 +2435,26 @@ class HybridGovernanceDeployer:
                 "name": schema.name,
                 "grants": self.convert_grants_to_dab(schema.grants)
             }
-        
+
         return {
             "bundle": {"name": f"{catalog.name}_governance"},
             "resources": dab_resources
         }
-    
+
     def apply_complex_permissions(self, catalog, team):
         """Apply permissions DABs can't handle."""
-        
+
         from databricks.sdk import WorkspaceClient
         w = WorkspaceClient()
-        
+
         # Row-level security (DABs can't do this)
         if catalog.requires_row_level_security:
             self.create_row_filters_with_sdk(w, catalog)
-        
+
         # Temporal access (DABs can't do this)
         if team.has_contractors:
             self.setup_temporal_access_with_sdk(w, team)
-        
+
         # Dynamic permission resolution (DABs can't do this)
         if catalog.has_dynamic_permissions:
             self.resolve_dynamic_permissions_with_sdk(w, catalog)
@@ -2484,26 +2484,26 @@ jobs:
           uv run python -m dbrcdk.governance.generate_bundles \
             --source governance/ \
             --output bundles/generated/
-      
+
       - name: Validate DAB syntax
         run: |
           databricks bundle validate \
             --target ${{ matrix.environment }} \
             -p bundles/generated/
-      
+
       - name: Compliance check
         run: |
           uv run python -m dbrcdk.governance.compliance_check \
             --bundle bundles/generated/ \
             --policies governance/policies/
-      
+
       - name: Security scan
         run: |
           # Check for overly permissive grants
           uv run python -m dbrcdk.governance.security_scan \
             --check-all-privileges \
             --check-public-access
-  
+
   deploy_dev:
     needs: validate
     if: github.ref == 'refs/heads/develop'
@@ -2515,7 +2515,7 @@ jobs:
             --target dev \
             --auto-approve \
             -p bundles/generated/
-  
+
   deploy_prd:
     needs: validate
     if: github.ref == 'refs/heads/main'
@@ -2529,14 +2529,14 @@ jobs:
             --output bundles/generated/ \
             --environment prd \
             --strict-mode
-      
+
       - name: Deploy to PRODUCTION
         run: |
           databricks bundle deploy \
             --target prd \
             --compute-id ${{ secrets.PROD_COMPUTE }} \
             -p bundles/generated/
-      
+
       - name: Post-deployment validation
         run: |
           uv run python -m dbrcdk.governance.validate_deployment \
@@ -2570,28 +2570,28 @@ jobs:
 ```python
 class GovernanceOrchestrator:
     """Orchestrate governance using appropriate tools."""
-    
+
     def deploy_complete_governance(self, organization):
         """Deploy using the right tool for each task."""
-        
+
         # DABs for declarative resources
         self.deploy_catalogs_with_dabs(organization.catalogs)
         self.deploy_schemas_with_dabs(organization.schemas)
         self.deploy_basic_grants_with_dabs(organization.basic_grants)
-        
+
         # SDK for complex logic
         self.setup_row_security_with_sdk(organization.rls_policies)
         self.setup_temporal_access_with_sdk(organization.temp_access)
         self.setup_dynamic_permissions_with_sdk(organization.dynamic_rules)
-        
+
         # Hybrid for environment progression
         for env in [Environment.DEV, Environment.ACC, Environment.PRD]:
             # Generate environment-specific DAB configs
             dab_config = self.generate_env_config(organization, env)
-            
+
             # Deploy with DABs
             self.deploy_with_dabs(dab_config, env)
-            
+
             # Apply environment-specific SDK logic
             self.apply_env_specific_logic(organization, env)
 ```
@@ -2608,10 +2608,10 @@ class GovernanceOrchestrator:
 ```python
 class MetastoreGovernance:
     """Enterprise metastore governance patterns."""
-    
+
     def setup_regional_metastore(self, region: str):
         """Best practice: One metastore per region."""
-        
+
         metastore = Metastore(
             name=f"enterprise_{region}",
             storage_root=f"s3://company-uc-{region}/",
@@ -2623,12 +2623,12 @@ class MetastoreGovernance:
                 Tag(key="data_residency", value="enforced")
             ]
         )
-        
+
         # Configure metastore defaults
         metastore.default_isolation_mode = IsolationMode.ISOLATED
         metastore.audit_log_path = f"s3://company-audit-{region}/uc-logs/"
         metastore.delta_sharing_enabled = True
-        
+
         # Workspace bindings for isolation
         metastore.workspace_bindings = [
             WorkspaceBinding(
@@ -2640,22 +2640,22 @@ class MetastoreGovernance:
                 binding_type="SECONDARY"
             )
         ]
-        
+
         return metastore
-    
+
     def setup_metastore_admin_privileges(self):
         """Properly scope metastore admin privileges."""
-        
+
         # IMPORTANT: Use groups for metastore administration
         metastore_admins = Principal("metastore_admins_group")
-        
+
         # Grant metastore admin privileges
         access_manager.grant(
             metastore,
             metastore_admins,
             [PrivilegeType.CREATE_CATALOG, PrivilegeType.CREATE_EXTERNAL_LOCATION]
         )
-        
+
         # DO NOT grant ALL_PRIVILEGES at metastore level
         # This is too broad and creates security risks
 ```
@@ -2668,10 +2668,10 @@ class MetastoreGovernance:
 ```python
 class DeltaSharingGovernance:
     """Secure external data sharing patterns."""
-    
+
     def setup_partner_data_sharing(self):
         """Configure governed data sharing."""
-        
+
         # Create sharing catalog
         sharing_catalog = Catalog(
             name="external_sharing",
@@ -2682,28 +2682,28 @@ class DeltaSharingGovernance:
                 Tag(key="audit_level", value="detailed")
             ]
         )
-        
+
         # Schema for shared data products
         shared_schema = Schema(
             name="partner_products",
             comment="Curated data products for partners"
         )
         sharing_catalog.add_schema(shared_schema)
-        
+
         # Create share with governance
         share = Share(
             name="customer_insights_share",
             comment="Customer aggregate data for partners",
             owner="partnerships_team"
         )
-        
+
         # Add filtered, aggregated data only
         share.add_table(
             table=shared_schema.get_table("customer_aggregates"),
             partition_spec="year >= 2023 AND region = 'US'",  # Filter data
             alias="us_customers_2023_onwards"
         )
-        
+
         # Create recipient with restrictions
         recipient = Recipient(
             name="partner_analytics_firm",
@@ -2712,7 +2712,7 @@ class DeltaSharingGovernance:
             sharing_code="secure-token-xyz",
             expiry_time=datetime.now() + timedelta(days=90)  # Time-bound
         )
-        
+
         # Grant share with audit
         access_manager.grant_share(
             share=share,
@@ -2729,10 +2729,10 @@ class DeltaSharingGovernance:
 ```python
 class StorageGovernance:
     """External storage governance patterns."""
-    
+
     def setup_tiered_storage_governance(self):
         """Implement storage tiers with governance."""
-        
+
         storage_tiers = {
             "bronze": {
                 "credential": StorageCredential(
@@ -2789,7 +2789,7 @@ class StorageGovernance:
                 )
             }
         }
-        
+
         # Apply tier-specific permissions
         for tier_name, tier_config in storage_tiers.items():
             # Only data engineering can manage credentials
@@ -2798,7 +2798,7 @@ class StorageGovernance:
                 Principal("data_platform_team"),
                 [PrivilegeType.CREATE_EXTERNAL_TABLE]
             )
-            
+
             # Grant usage based on tier
             if tier_name == "bronze":
                 # Data engineers write to bronze
@@ -2824,10 +2824,10 @@ class StorageGovernance:
 ```python
 class VolumeGovernance:
     """Governance for UC volumes (files, models, etc.)."""
-    
+
     def setup_volume_governance(self):
         """Implement volume access patterns."""
-        
+
         # ML model volume
         model_volume = Volume(
             name="ml_model_artifacts",
@@ -2838,7 +2838,7 @@ class VolumeGovernance:
                 Tag(key="scanning_enabled", value="true")  # Security scanning
             ]
         )
-        
+
         # Document volume with access controls
         document_volume = Volume(
             name="corporate_documents",
@@ -2850,7 +2850,7 @@ class VolumeGovernance:
                 Tag(key="classification", value="internal")
             ]
         )
-        
+
         # Grant volume permissions
         # ML team can write models
         access_manager.grant(
@@ -2858,14 +2858,14 @@ class VolumeGovernance:
             Principal("ml_team"),
             [PrivilegeType.READ_VOLUME, PrivilegeType.WRITE_VOLUME]
         )
-        
+
         # Everyone can read documents
         access_manager.grant(
             document_volume,
             Principal("all_employees"),
             [PrivilegeType.READ_VOLUME]
         )
-        
+
         # Only admins can write documents
         access_manager.grant(
             document_volume,
@@ -2886,14 +2886,14 @@ class VolumeGovernance:
 ```python
 class PerformanceOptimizedGovernance:
     """Performance-aware governance patterns."""
-    
+
     def optimize_permission_structure(self):
         """Minimize permission check overhead."""
-        
+
         # BEST PRACTICE: Use groups instead of individual grants
         # Groups reduce permission check complexity
         analytics_group = Principal("analytics_users_group")
-        
+
         # BEST PRACTICE: Grant at appropriate level
         # Higher-level grants are more efficient than many table-level grants
         access_manager.grant(
@@ -2901,12 +2901,12 @@ class PerformanceOptimizedGovernance:
             analytics_group,
             [PrivilegeType.USE_CATALOG, PrivilegeType.SELECT]
         )
-        
+
         # ANTI-PATTERN: Too many individual grants
         # This creates performance overhead
         # for user in range(1000):
         #     access_manager.grant(table, Principal(f"user_{user}"), [SELECT])
-        
+
         # BEST PRACTICE: Use privilege inheritance
         # Let permissions cascade down the hierarchy
         access_manager.grant(
@@ -2914,10 +2914,10 @@ class PerformanceOptimizedGovernance:
             Principal("data_scientists"),
             [PrivilegeType.USE_SCHEMA, PrivilegeType.SELECT]
         )
-    
+
     def optimize_catalog_organization(self):
         """Organize catalogs for performance."""
-        
+
         # BEST PRACTICE: Separate hot and cold data
         hot_catalog = Catalog(
             name="real_time",
@@ -2927,7 +2927,7 @@ class PerformanceOptimizedGovernance:
                 "delta.autoOptimize.autoCompact": "true"
             }
         )
-        
+
         cold_catalog = Catalog(
             name="archive",
             comment="Infrequently accessed data",
@@ -2936,7 +2936,7 @@ class PerformanceOptimizedGovernance:
                 "delta.logRetentionDuration": "30 days"
             }
         )
-        
+
         # BEST PRACTICE: Use partition pruning
         partitioned_table = Table(
             name="events",
@@ -2959,7 +2959,7 @@ class PerformanceOptimizedGovernance:
    ```python
    # ❌ WRONG: Too broad
    access_manager.grant(metastore, Principal("users"), [ALL_PRIVILEGES])
-   
+
    # ✅ RIGHT: Grant at appropriate level
    access_manager.grant(catalog, Principal("domain_team"), [USE_CATALOG])
    ```
@@ -2968,7 +2968,7 @@ class PerformanceOptimizedGovernance:
    ```python
    # ❌ WRONG: Missing parent privileges
    access_manager.grant(table, user, [SELECT])
-   
+
    # ✅ RIGHT: Include all required privileges
    access_manager.grant(catalog, user, [USE_CATALOG])
    access_manager.grant(schema, user, [USE_SCHEMA])
@@ -2980,7 +2980,7 @@ class PerformanceOptimizedGovernance:
    # ❌ WRONG: Individual user grants don't scale
    for user in users:
        grant(table, user, privileges)
-   
+
    # ✅ RIGHT: Use groups
    create_group("analysts", users)
    grant(schema, Principal("analysts"), privileges)
@@ -2990,7 +2990,7 @@ class PerformanceOptimizedGovernance:
    ```python
    # ❌ WRONG: Same permissions across environments
    grant(catalog, Principal("developers"), [ALL_PRIVILEGES])
-   
+
    # ✅ RIGHT: Environment-specific permissions
    if environment == Environment.DEV:
        grant(catalog, Principal("developers"), [ALL_PRIVILEGES])
@@ -3002,7 +3002,7 @@ class PerformanceOptimizedGovernance:
    ```python
    # ❌ WRONG: No audit trail
    grant(sensitive_data, user, [SELECT])
-   
+
    # ✅ RIGHT: Enable auditing for sensitive data
    sensitive_catalog.tags.append(Tag(key="audit_enabled", value="true"))
    grant(sensitive_data, user, [SELECT])
@@ -3024,10 +3024,10 @@ class PerformanceOptimizedGovernance:
 ```python
 class SLATieredGovernance:
     """Implement tiered SLA offerings with Unity Catalog."""
-    
+
     def setup_sla_tiers(self):
         """Define SLA tiers with cost allocation."""
-        
+
         sla_configs = {
             "platinum": {
                 "freshness_minutes": 5,
@@ -3058,7 +3058,7 @@ class SLATieredGovernance:
                 "compute": "SPOT"
             }
         }
-        
+
         # Tag tables with SLA commitments
         for table in self.managed_tables:
             sla_tier = self.negotiate_sla(table)
@@ -3069,26 +3069,26 @@ class SLATieredGovernance:
                 Tag(key="cost_center", value=table.consumer_cost_center),
                 Tag(key="monitoring_enabled", value="true")
             ]
-            
+
             # Create SLA monitoring view
             self.create_sla_monitoring(table, sla_tier)
-    
+
     def create_sla_monitoring(self, table: Table, sla_tier: str):
         """Create monitoring infrastructure for SLA tracking."""
-        
+
         monitoring_view = View(
             name=f"{table.name}_sla_monitor",
             catalog_name=table.catalog_name,
             schema_name="monitoring",
             comment=f"SLA monitoring for {table.name} ({sla_tier} tier)",
             query=f"""
-                SELECT 
+                SELECT
                     current_timestamp() as check_time,
                     '{sla_tier}' as sla_tier,
                     max(_metadata.file_modification_time) as last_update,
-                    (unix_timestamp(current_timestamp()) - 
+                    (unix_timestamp(current_timestamp()) -
                      unix_timestamp(max(_metadata.file_modification_time)))/60 as minutes_since_update,
-                    CASE 
+                    CASE
                         WHEN '{sla_tier}' = 'platinum' AND minutes_since_update > 5 THEN 'VIOLATION'
                         WHEN '{sla_tier}' = 'gold' AND minutes_since_update > 60 THEN 'VIOLATION'
                         ELSE 'COMPLIANT'
@@ -3096,7 +3096,7 @@ class SLATieredGovernance:
                 FROM {table.catalog_name}.{table.schema_name}.{table.name}
             """
         )
-        
+
         # Grant monitoring access
         access_manager.grant(
             monitoring_view,
@@ -3120,16 +3120,16 @@ class SLATieredGovernance:
 ```python
 class SharedDatasetGovernance:
     """Implement committee-based governance for shared datasets."""
-    
+
     def setup_shared_governance(self, dataset_name: str = "customer_360"):
         """Create shared governance structure."""
-        
+
         # Unity Catalog limitation: single owner
         # Workaround: Use group ownership + RACI matrix
-        
+
         # Create committee group
         committee_group = Principal(f"{dataset_name}_committee")
-        
+
         # Create shared catalog with group ownership
         shared_catalog = Catalog(
             name=f"enterprise_{dataset_name}",
@@ -3141,7 +3141,7 @@ class SharedDatasetGovernance:
                 Tag(key="dataset_type", value="enterprise_shared")
             ]
         )
-        
+
         # Define RACI matrix via tags and documentation
         raci_matrix = {
             "responsible": "data_engineering",  # Day-to-day operations
@@ -3149,7 +3149,7 @@ class SharedDatasetGovernance:
             "consulted": ["sales_lead", "marketing_lead", "finance_lead"],
             "informed": ["analytics_consumers", "business_users"]
         }
-        
+
         # Add RACI as tags
         for role, teams in raci_matrix.items():
             if isinstance(teams, list):
@@ -3160,7 +3160,7 @@ class SharedDatasetGovernance:
                 shared_catalog.tags.append(
                     Tag(key=f"raci_{role}", value=teams)
                 )
-        
+
         # Grant operational privileges based on RACI
         # Responsible team gets operational control
         access_manager.grant(
@@ -3172,7 +3172,7 @@ class SharedDatasetGovernance:
                 PrivilegeType.MODIFY
             ]
         )
-        
+
         # Consulted teams get read and suggest
         for team in raci_matrix["consulted"]:
             access_manager.grant(
@@ -3180,7 +3180,7 @@ class SharedDatasetGovernance:
                 Principal(team),
                 [PrivilegeType.USE_CATALOG, PrivilegeType.SELECT]
             )
-        
+
         # Create decision log table
         decision_log = Table(
             name="governance_decisions",
@@ -3212,17 +3212,17 @@ class SharedDatasetGovernance:
 ```python
 class MixedSensitivityLayering:
     """Create layered views with progressive sensitivity reduction."""
-    
+
     def create_sensitivity_layers(self, base_table: Table):
         """Implement three-layer sensitivity model."""
-        
+
         # Layer 1: Base table with full PII (restricted access)
         base_table.tags = [
             Tag(key="sensitivity", value="restricted"),
             Tag(key="contains_pii", value="true"),
             Tag(key="audit_all_access", value="true")
         ]
-        
+
         # Layer 2: Masked view (performance impact: 20-30%)
         masked_view = View(
             name=f"{base_table.name}_masked",
@@ -3230,14 +3230,14 @@ class MixedSensitivityLayering:
             schema_name=base_table.schema_name,
             comment="PII masked view for analysts",
             query=f"""
-                SELECT 
+                SELECT
                     -- Mask PII fields
-                    CASE 
-                        WHEN is_member('pii_viewers') THEN ssn 
-                        ELSE 'XXX-XX-' || SUBSTR(ssn, -4) 
+                    CASE
+                        WHEN is_member('pii_viewers') THEN ssn
+                        ELSE 'XXX-XX-' || SUBSTR(ssn, -4)
                     END as ssn,
-                    CASE 
-                        WHEN is_member('pii_viewers') THEN email 
+                    CASE
+                        WHEN is_member('pii_viewers') THEN email
                         ELSE REGEXP_REPLACE(email, '(.{3}).*@', '$1***@')
                     END as email,
                     -- Non-PII fields unchanged
@@ -3253,7 +3253,7 @@ class MixedSensitivityLayering:
                 Tag(key="performance_impact", value="20-30%")
             ]
         )
-        
+
         # Layer 3: Aggregated materialized view (best performance)
         aggregated_view = Table(
             name=f"{base_table.name}_aggregated",
@@ -3268,11 +3268,11 @@ class MixedSensitivityLayering:
                 Tag(key="materialized", value="true")
             ]
         )
-        
+
         # Create materialization job
         materialization_job = f"""
             CREATE OR REPLACE TABLE {aggregated_view.full_name} AS
-            SELECT 
+            SELECT
                 DATE_TRUNC('day', transaction_date) as date,
                 merchant_category,
                 customer_segment,
@@ -3282,7 +3282,7 @@ class MixedSensitivityLayering:
             FROM {masked_view.full_name}
             GROUP BY 1, 2, 3
         """
-        
+
         # Apply access controls per layer
         # Layer 1: Restricted access
         access_manager.grant(
@@ -3290,14 +3290,14 @@ class MixedSensitivityLayering:
             Principal("pii_authorized_users"),
             [PrivilegeType.SELECT]
         )
-        
+
         # Layer 2: Analyst access
         access_manager.grant(
             masked_view,
             Principal("data_analysts"),
             [PrivilegeType.SELECT]
         )
-        
+
         # Layer 3: Broad access
         access_manager.grant(
             aggregated_view,
@@ -3320,10 +3320,10 @@ class MixedSensitivityLayering:
 ```python
 class DataVaultImplementation:
     """Implement Data Vault 2.0 pattern in Unity Catalog."""
-    
+
     def create_data_vault_structure(self):
         """Create hub, link, and satellite structure."""
-        
+
         # Create dedicated catalog for vault
         vault_catalog = Catalog(
             name="data_vault",
@@ -3333,15 +3333,15 @@ class DataVaultImplementation:
                 Tag(key="history_tracking", value="full")
             ]
         )
-        
+
         # Schema organization
         vault_catalog.add_schema(Schema(name="raw_vault", comment="Hubs, Links, Satellites"))
         vault_catalog.add_schema(Schema(name="business_vault", comment="Business rules applied"))
         vault_catalog.add_schema(Schema(name="information_marts", comment="Consumer views"))
-    
+
     def create_hub(self, entity_name: str) -> Table:
         """Create hub table for business entity."""
-        
+
         return Table(
             name=f"hub_{entity_name}",
             catalog_name="data_vault",
@@ -3363,10 +3363,10 @@ class DataVaultImplementation:
                 Tag(key="entity", value=entity_name)
             ]
         )
-    
+
     def create_satellite(self, hub_name: str, satellite_type: str) -> Table:
         """Create satellite for versioned attributes."""
-        
+
         return Table(
             name=f"sat_{hub_name}_{satellite_type}",
             catalog_name="data_vault",
@@ -3391,10 +3391,10 @@ class DataVaultImplementation:
                 Tag(key="satellite_type", value=satellite_type)
             ]
         )
-    
+
     def create_link(self, hub1: str, hub2: str) -> Table:
         """Create link table for relationships."""
-        
+
         return Table(
             name=f"link_{hub1}_{hub2}",
             catalog_name="data_vault",
@@ -3432,10 +3432,10 @@ class DataVaultImplementation:
 ```python
 class DataFlowPatterns:
     """Implement push and pull patterns with Unity Catalog."""
-    
+
     def implement_push_pattern(self, source: str, target: Table):
         """Real-time push using streaming and Auto Loader."""
-        
+
         # Create streaming table for push pattern
         streaming_table = Table(
             name=f"{target.name}_stream",
@@ -3454,7 +3454,7 @@ class DataFlowPatterns:
                 Tag(key="source", value=source)
             ]
         )
-        
+
         # DLT pipeline configuration for push
         push_pipeline = f"""
             CREATE OR REFRESH STREAMING TABLE {streaming_table.full_name}
@@ -3465,19 +3465,19 @@ class DataFlowPatterns:
                 map('cloudFiles.inferColumnTypes', 'true')
             )
         """
-        
+
         # Grant producer push privileges
         access_manager.grant(
             streaming_table,
             Principal("data_producers"),
             [PrivilegeType.MODIFY]
         )
-        
+
         return streaming_table
-    
+
     def implement_pull_pattern(self, source: Table, target: Table):
         """Batch pull using scheduled jobs."""
-        
+
         # Create pull configuration
         pull_config = {
             "source": source.full_name,
@@ -3486,7 +3486,7 @@ class DataFlowPatterns:
             "merge_keys": ["id"],
             "watermark_column": "modified_timestamp"
         }
-        
+
         # Pull pattern SQL
         pull_query = f"""
             MERGE INTO {target.full_name} AS target
@@ -3501,7 +3501,7 @@ class DataFlowPatterns:
             WHEN MATCHED THEN UPDATE SET *
             WHEN NOT MATCHED THEN INSERT *
         """
-        
+
         # Tag target with pull metadata
         target.tags = [
             Tag(key="pattern", value="pull"),
@@ -3509,29 +3509,29 @@ class DataFlowPatterns:
             Tag(key="schedule", value=pull_config["schedule"]),
             Tag(key="source", value=source.full_name)
         ]
-        
+
         # Grant consumer pull privileges
         access_manager.grant(
             source,
             Principal("data_consumers"),
             [PrivilegeType.SELECT]
         )
-        
+
         return pull_query
-    
+
     def choose_pattern(self, requirements: dict) -> str:
         """Decision matrix for push vs pull."""
-        
+
         decision_matrix = {
             ("low", "tight"): "push",  # Low latency, tight coupling
             ("low", "loose"): "events",  # Low latency, loose coupling
             ("high", "tight"): "pull",  # High latency OK, tight coupling
             ("high", "loose"): "batch"  # High latency OK, loose coupling
         }
-        
+
         latency = "low" if requirements["latency_seconds"] < 60 else "high"
         coupling = requirements.get("coupling_preference", "loose")
-        
+
         return decision_matrix.get((latency, coupling), "pull")
 ```
 
@@ -3591,7 +3591,7 @@ view3 = "CREATE VIEW v3 AS SELECT * FROM v2 WHERE filter3"
 # ✅ CORRECT: Single materialized view with all filters
 materialized = """
     CREATE MATERIALIZED VIEW secure_view AS
-    SELECT * FROM base 
+    SELECT * FROM base
     WHERE filter1 AND filter2 AND filter3
 """
 
@@ -3619,19 +3619,19 @@ performance_guidelines = {
         "mitigation": "Use materialized views for frequent queries",
         "refresh_strategy": "Incremental where possible"
     },
-    
+
     "cross_catalog_joins": {
         "impact": "3-5x slower than same-catalog joins",
         "mitigation": "Co-locate frequently joined data",
         "optimization": "Use Delta Cache for hot data"
     },
-    
+
     "privilege_checks": {
         "impact": "<5ms for well-structured hierarchies",
         "anti_pattern": "1000s of individual grants = seconds of overhead",
         "best_practice": "Use groups and inheritance"
     },
-    
+
     "view_nesting_depth": {
         "level_1": "~5% overhead",
         "level_2": "~15% overhead",
