@@ -146,7 +146,7 @@ Access should be:
 
 **Data Owner**
 - *Accountability*: Business outcomes from data
-- *Responsibilities*: 
+- *Responsibilities*:
   - Define acceptable use
   - Approve access requests
   - Set retention policies
@@ -422,7 +422,7 @@ Access should be:
 
 **Personal Data Categories:**
 - **PII** (Personally Identifiable Information)
-- **PHI** (Protected Health Information)  
+- **PHI** (Protected Health Information)
 - **PCI** (Payment Card Information)
 - **PFI** (Personal Financial Information)
 

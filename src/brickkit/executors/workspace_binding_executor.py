@@ -10,9 +10,8 @@ from typing import List, Optional
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied, ResourceDoesNotExist
 
+from brickkit.executors.base import BaseExecutor, ExecutionPlan, ExecutionResult, OperationType
 from brickkit.models import Catalog, IsolationMode
-
-from .base import BaseExecutor, ExecutionPlan, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

@@ -24,8 +24,8 @@ from databricks.sdk.service.iam import (
 )
 from pydantic import Field, computed_field
 
-from .base import BaseGovernanceModel, get_current_environment
-from .enums import Environment, PrincipalSource, PrincipalType, WorkspaceEntitlement
+from brickkit.models.base import BaseGovernanceModel, get_current_environment
+from brickkit.models.enums import Environment, PrincipalSource, PrincipalType, WorkspaceEntitlement
 
 logger = logging.getLogger(__name__)
 

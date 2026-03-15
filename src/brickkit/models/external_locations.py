@@ -20,10 +20,10 @@ from pydantic import (
     field_validator,
 )
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
-from .enums import SecurableType
-from .grants import AccessPolicy, Principal
-from .storage_credentials import StorageCredential
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
+from brickkit.models.enums import SecurableType
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.storage_credentials import StorageCredential
 
 logger = logging.getLogger(__name__)
 

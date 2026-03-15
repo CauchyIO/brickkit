@@ -16,13 +16,12 @@ from databricks.sdk.errors import (
 )
 from databricks.sdk.service.catalog import CatalogInfo
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
+from brickkit.executors.mixins import WorkspaceBindingMixin
+from brickkit.executors.tag_executor import TagExecutor
 from brickkit.models import Catalog
 from brickkit.models.enums import IsolationMode, PrincipalType
 from brickkit.models.grants import Principal
-
-from .base import BaseExecutor, ExecutionResult, OperationType
-from .mixins import WorkspaceBindingMixin
-from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 

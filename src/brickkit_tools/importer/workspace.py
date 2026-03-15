@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from databricks.sdk import WorkspaceClient
 
-from .base import ImportOptions, ImportResult, ResourceImporter
+from brickkit_tools.importer.base import ImportOptions, ResourceImporter
 
 if TYPE_CHECKING:
     from brickkit import Convention
@@ -259,19 +259,19 @@ class WorkspaceImporter:
     def _register_default_importers(self) -> None:
         """Register all built-in importers."""
         # Import here to avoid circular imports
-        from .catalog_importer import (
+        from brickkit_tools.importer.catalog_importer import (
             CatalogImporter,
             ConnectionImporter,
             ExternalLocationImporter,
             StorageCredentialImporter,
         )
-        from .genie_importer import GenieSpaceImporter
-        from .identity_importer import (
+        from brickkit_tools.importer.genie_importer import GenieSpaceImporter
+        from brickkit_tools.importer.identity_importer import (
             GroupImporter,
             ServicePrincipalImporter,
             UserImporter,
         )
-        from .job_importer import JobImporter, PipelineImporter
+        from brickkit_tools.importer.job_importer import JobImporter, PipelineImporter
 
         # Unity Catalog
         self._register(CatalogImporter(self.client, self.options))

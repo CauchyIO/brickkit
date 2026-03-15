@@ -81,21 +81,15 @@ Example - Service Principal Naming:
 """
 
 # Base classes
-from .base import (
+from brickkit_tools.importer.base import (
     CompositeImporter,
     ImportOptions,
     ImportResult,
     ResourceImporter,
 )
 
-# Main importer
-from .workspace import (
-    WorkspaceImporter,
-    WorkspaceSnapshot,
-)
-
 # Unity Catalog importers
-from .catalog_importer import (
+from brickkit_tools.importer.catalog_importer import (
     CatalogImporter,
     ConnectionImporter,
     ExternalLocationImporter,
@@ -103,10 +97,10 @@ from .catalog_importer import (
 )
 
 # AI/ML importers
-from .genie_importer import GenieSpaceImporter
+from brickkit_tools.importer.genie_importer import GenieSpaceImporter
 
 # Identity importers
-from .identity_importer import (
+from brickkit_tools.importer.identity_importer import (
     Group,
     GroupImporter,
     ServicePrincipal,
@@ -116,11 +110,17 @@ from .identity_importer import (
 )
 
 # Workflow importers
-from .job_importer import (
+from brickkit_tools.importer.job_importer import (
     Job,
     JobImporter,
     Pipeline,
     PipelineImporter,
+)
+
+# Main importer
+from brickkit_tools.importer.workspace import (
+    WorkspaceImporter,
+    WorkspaceSnapshot,
 )
 
 __all__ = [

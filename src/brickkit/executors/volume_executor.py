@@ -11,10 +11,9 @@ from typing import Any, Dict
 from databricks.sdk.errors import NotFound, PermissionDenied, ResourceDoesNotExist
 from databricks.sdk.service.catalog import VolumeInfo
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
+from brickkit.executors.tag_executor import TagExecutor
 from brickkit.models import Volume, VolumeType
-
-from .base import BaseExecutor, ExecutionResult, OperationType
-from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 

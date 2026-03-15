@@ -25,23 +25,23 @@ GOVERNANCE_STRATEGIES.md
 ## Documents
 
 ### 1. DATA_GOVERNANCE_PRINCIPLES.md
-**Purpose**: Tool-agnostic governance philosophy  
-**Audience**: C-suite, governance officers, architects  
+**Purpose**: Tool-agnostic governance philosophy
+**Audience**: C-suite, governance officers, architects
 **Use When**: Starting a governance program or establishing principles
 
-### 2. OPERATIONAL_GOVERNANCE_PATTERNS.md  
-**Purpose**: Bridge between philosophy and implementation with practical patterns  
-**Audience**: Data architects, team leads, governance practitioners  
+### 2. OPERATIONAL_GOVERNANCE_PATTERNS.md
+**Purpose**: Bridge between philosophy and implementation with practical patterns
+**Audience**: Data architects, team leads, governance practitioners
 **Use When**: Designing your operating model and team structures
 
 ### 3. GOVERNANCE_ABSTRACTION_STRATEGY.md
-**Purpose**: Define which tool manages what in the ecosystem  
-**Audience**: Platform architects, technical decision makers  
+**Purpose**: Define which tool manages what in the ecosystem
+**Audience**: Platform architects, technical decision makers
 **Use When**: Choosing tools and defining boundaries between systems
 
 ### 4. GOVERNANCE_STRATEGIES.md
-**Purpose**: Unity Catalog/Databricks-specific implementation strategies  
-**Audience**: Databricks engineers, implementation teams  
+**Purpose**: Unity Catalog/Databricks-specific implementation strategies
+**Audience**: Databricks engineers, implementation teams
 **Use When**: Implementing governance in Databricks with Unity Catalog
 
 ## How to Use These Documents

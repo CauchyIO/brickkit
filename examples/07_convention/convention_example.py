@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Convention Pattern Example
 
@@ -13,18 +14,20 @@ Key concepts:
 Run with: python convention_example.py
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-# Add src to path for local development
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.convention import Convention
+from brickkit.defaults import NamingConvention, RequiredTag, TagDefault
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import TableType
+from brickkit.models.metastores import Metastore
+from brickkit.models.schemas import Schema
+from brickkit.models.tables import ColumnInfo, Table
 
-from brickkit.convention import Convention, ConventionAsDefaults
-from brickkit.defaults import TagDefault, RequiredTag, NamingConvention
-from models.securables import Metastore, Catalog, Schema, Table, ColumnInfo
-from models.base import Tag
-from models.enums import TableType
-from models.access import Principal, AccessPolicy
+# COMMAND ----------
+
+env = init_environment()
 
 
 def main():
@@ -69,9 +72,9 @@ def main():
         default_owner="finance_platform_team",
     )
 
-    print("=" * 60)
-    print("Convention Pattern Example")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Convention Pattern Example")
+    logger.info("=" * 60)
 
     # =========================================================================
     # STEP 2: Build the Hierarchy
@@ -103,36 +106,36 @@ def main():
     catalog.add_schema(schema)
     schema.add_table(table)
 
-    print("\n1. Built hierarchy:")
-    print(f"   Metastore: {m.name}")
-    print(f"   +-- Catalog: {catalog.name}")
-    print(f"       +-- Schema: {schema.name}")
-    print(f"           +-- Table: {table.name}")
+    logger.info("\n1. Built hierarchy:")
+    logger.info(f"   Metastore: {m.name}")
+    logger.info(f"   +-- Catalog: {catalog.name}")
+    logger.info(f"       +-- Schema: {schema.name}")
+    logger.info(f"           +-- Table: {table.name}")
 
     # =========================================================================
     # STEP 3: Apply Convention at Top Level
     # =========================================================================
     # This propagates governance to ALL descendants automatically!
 
-    print("\n2. Applying convention at metastore level...")
+    logger.info("\n2. Applying convention at metastore level...")
     m.with_convention(finance_convention)
 
     # Check that tags were applied
-    print("\n3. Tags after convention applied:")
-    print(f"   Catalog tags: {[f'{t.key}={t.value}' for t in catalog.tags]}")
-    print(f"   Schema tags:  {[f'{t.key}={t.value}' for t in schema.tags]}")
-    print(f"   Table tags:   {[f'{t.key}={t.value}' for t in table.tags]}")
+    logger.info("\n3. Tags after convention applied:")
+    logger.info(f"   Catalog tags: {[f'{t.key}={t.value}' for t in catalog.tags]}")
+    logger.info(f"   Schema tags:  {[f'{t.key}={t.value}' for t in schema.tags]}")
+    logger.info(f"   Table tags:   {[f'{t.key}={t.value}' for t in table.tags]}")
 
     # =========================================================================
     # STEP 4: New Children Automatically Inherit Convention
     # =========================================================================
 
-    print("\n4. Adding new schema (auto-inherits convention)...")
+    logger.info("\n4. Adding new schema (auto-inherits convention)...")
 
     new_schema = Schema(name="audit_reports", tags=[Tag(key="cost_center", value="finance-002")])
     catalog.add_schema(new_schema)
 
-    print(f"   New schema tags: {[f'{t.key}={t.value}' for t in new_schema.tags]}")
+    logger.info(f"   New schema tags: {[f'{t.key}={t.value}' for t in new_schema.tags]}")
 
     # Add a table to the new schema
     audit_table = Table(
@@ -146,21 +149,21 @@ def main():
     )
     new_schema.add_table(audit_table)
 
-    print(f"   New table tags: {[f'{t.key}={t.value}' for t in audit_table.tags]}")
+    logger.info(f"   New table tags: {[f'{t.key}={t.value}' for t in audit_table.tags]}")
 
     # =========================================================================
     # STEP 5: Validate Against Convention Rules
     # =========================================================================
 
-    print("\n5. Validating against convention rules...")
+    logger.info("\n5. Validating against convention rules...")
 
     # Validate catalog
     catalog_errors = finance_convention.validate(catalog)
-    print(f"   Catalog validation: {'PASS' if not catalog_errors else 'FAIL: ' + str(catalog_errors)}")
+    logger.info(f"   Catalog validation: {'PASS' if not catalog_errors else 'FAIL: ' + str(catalog_errors)}")
 
     # Validate table
     table_errors = finance_convention.validate(table)
-    print(f"   Table validation: {'PASS' if not table_errors else 'FAIL: ' + str(table_errors)}")
+    logger.info(f"   Table validation: {'PASS' if not table_errors else 'FAIL: ' + str(table_errors)}")
 
     # Create a table missing required tag to show validation failure
     bad_table = Table(
@@ -170,13 +173,13 @@ def main():
         # Missing data_owner tag!
     )
     bad_table_errors = finance_convention.validate(bad_table)
-    print(f"   Bad table validation: {'PASS' if not bad_table_errors else 'FAIL: ' + str(bad_table_errors)}")
+    logger.info(f"   Bad table validation: {'PASS' if not bad_table_errors else 'FAIL: ' + str(bad_table_errors)}")
 
     # =========================================================================
     # STEP 6: Convention Can Be Applied at Any Level
     # =========================================================================
 
-    print("\n6. Convention can be applied at any level...")
+    logger.info("\n6. Convention can be applied at any level...")
 
     # Create a standalone schema and apply convention directly
     standalone_schema = Schema(name="standalone", tags=[Tag(key="cost_center", value="finance-003")])
@@ -191,24 +194,26 @@ def main():
     # Apply convention at schema level
     standalone_schema.with_convention(finance_convention)
 
-    print(f"   Standalone schema tags: {[f'{t.key}={t.value}' for t in standalone_schema.tags]}")
-    print(f"   Standalone table tags: {[f'{t.key}={t.value}' for t in standalone_table.tags]}")
+    logger.info(f"   Standalone schema tags: {[f'{t.key}={t.value}' for t in standalone_schema.tags]}")
+    logger.info(f"   Standalone table tags: {[f'{t.key}={t.value}' for t in standalone_table.tags]}")
 
     # =========================================================================
     # STEP 7: Interoperability with GovernanceDefaults
     # =========================================================================
 
-    print("\n7. Convention is interoperable with GovernanceDefaults...")
+    logger.info("\n7. Convention is interoperable with GovernanceDefaults...")
 
     # Convert to GovernanceDefaults for backward compatibility
     as_defaults = finance_convention.to_governance_defaults()
-    print(f"   Convention as GovernanceDefaults: {type(as_defaults).__name__}")
-    print(f"   Default tags count: {len(as_defaults.default_tags)}")
+    logger.info(f"   Convention as GovernanceDefaults: {type(as_defaults).__name__}")
+    logger.info(f"   Default tags count: {len(as_defaults.default_tags)}")
 
-    print("\n" + "=" * 60)
-    print("Convention pattern successfully demonstrated!")
-    print("=" * 60)
+    logger.info("\n" + "=" * 60)
+    logger.info("Convention pattern successfully demonstrated!")
+    logger.info("=" * 60)
 
+
+# COMMAND ----------
 
 if __name__ == "__main__":
     main()

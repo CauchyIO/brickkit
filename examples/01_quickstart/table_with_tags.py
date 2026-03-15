@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Table with Tags Example
 
@@ -10,15 +11,15 @@ Demonstrates:
 - GovernanceDefaults integration
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.defaults import GovernanceDefaults, RequiredTag, TagDefault
+from brickkit.models.base import Tag, get_current_environment, init_environment
+from brickkit.models.tables import Column, Table
 
-from models.table_models import Column, Table, Tag, SCD2_COLUMNS
-from models.base import get_current_environment
-from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag
+# COMMAND ----------
 
+env = init_environment()
 
 # =============================================================================
 # Define governance defaults
@@ -49,6 +50,8 @@ class DataGovernanceDefaults(GovernanceDefaults):
             RequiredTag(key="data_owner", applies_to={"TABLE"}, error_message="Tables must have a data_owner tag"),
         ]
 
+
+# COMMAND ----------
 
 # =============================================================================
 # Define table with columns
@@ -116,47 +119,53 @@ customers_table = Table(
 defaults = DataGovernanceDefaults()
 customers_table.with_defaults(defaults)
 
+# COMMAND ----------
+
 # =============================================================================
 # Display table info
 # =============================================================================
 
-print(f"Environment: {get_current_environment()}")
-print(f"Table FQDN: {customers_table.fqdn}")
-print(f"Primary key: {customers_table.primary_key_column}")
+logger.info(f"Environment: {get_current_environment()}")
+logger.info(f"Table FQDN: {customers_table.fqdn}")
+logger.info(f"Primary key: {customers_table.primary_key_column}")
 
-print("\n--- Table Tags ---")
+logger.info("\n--- Table Tags ---")
 for tag in customers_table.tags:
-    print(f"  {tag.key}: {tag.value}")
+    logger.info(f"  {tag.key}: {tag.value}")
 
-print("\n--- PII Columns ---")
+logger.info("\n--- PII Columns ---")
 for col in customers_table.get_pii_columns():
-    print(f"  {col.name}: {col.description}")
+    logger.info(f"  {col.name}: {col.description}")
 
-print("\n--- All Columns (including SCD2) ---")
+logger.info("\n--- All Columns (including SCD2) ---")
 for col in customers_table.all_columns:
     pii_tag = col.get_tag("pii") or "N/A"
-    print(f"  {col.name}: {col.data_type} (PII: {pii_tag})")
+    logger.info(f"  {col.name}: {col.data_type} (PII: {pii_tag})")
+
+# COMMAND ----------
 
 # =============================================================================
 # Generate SQL statements
 # =============================================================================
 
-print("\n--- CREATE TABLE Statement ---")
-print(customers_table.create_table_statement())
+logger.info("\n--- CREATE TABLE Statement ---")
+logger.info(customers_table.create_table_statement())
 
-print("\n--- ALTER TABLE SET TAGS Statements ---")
+logger.info("\n--- ALTER TABLE SET TAGS Statements ---")
 for stmt in customers_table.alter_tag_statements():
-    print(stmt)
+    logger.info(stmt)
+
+# COMMAND ----------
 
 # =============================================================================
 # Validate governance
 # =============================================================================
 
-print("\n--- Governance Validation ---")
+logger.info("\n--- Governance Validation ---")
 errors = customers_table.validate_governance(defaults)
-print(f"Validation: {'PASSED' if not errors else 'FAILED'}")
+logger.info(f"Validation: {'PASSED' if not errors else 'FAILED'}")
 for err in errors:
-    print(f"  - {err}")
+    logger.info(f"  - {err}")
 
 # Output (when DATABRICKS_ENV=dev):
 # Environment: DEV

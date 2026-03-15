@@ -20,14 +20,14 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseSecurable, Tag, get_current_environment
-from .enums import ALL_PRIVILEGES_EXPANSION, PrivilegeType, SecurableType, VolumeType
-from .external_locations import ExternalLocation
-from .grants import AccessPolicy, Principal
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseSecurable, Tag, get_current_environment
+from brickkit.models.enums import ALL_PRIVILEGES_EXPANSION, PrivilegeType, SecurableType, VolumeType
+from brickkit.models.external_locations import ExternalLocation
+from brickkit.models.grants import AccessPolicy, Principal
 
 if TYPE_CHECKING:
-    from .catalogs import Catalog
-    from .schemas import Schema
+    from brickkit.models.catalogs import Catalog
+    from brickkit.models.schemas import Schema
 
 logger = logging.getLogger(__name__)
 

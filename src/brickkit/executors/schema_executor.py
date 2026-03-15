@@ -11,12 +11,11 @@ from typing import Any, Dict
 from databricks.sdk.errors import NotFound, PermissionDenied, ResourceDoesNotExist
 from databricks.sdk.service.catalog import SchemaInfo
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
+from brickkit.executors.tag_executor import TagExecutor
 from brickkit.models import Schema
 from brickkit.models.enums import PrincipalType
 from brickkit.models.grants import Principal
-
-from .base import BaseExecutor, ExecutionResult, OperationType
-from .tag_executor import TagExecutor
 
 logger = logging.getLogger(__name__)
 

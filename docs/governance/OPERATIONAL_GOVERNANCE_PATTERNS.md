@@ -14,7 +14,7 @@ This document bridges the gap between high-level governance principles and actua
 
 **Forces**:
 - Regulatory requirements mandate isolation
-- Performance needs differ by data class  
+- Performance needs differ by data class
 - Cost optimization requires tiered storage
 - Access control complexity increases with mixing
 
@@ -28,7 +28,7 @@ Organization Structure:
 │   ├── Access: Open to all
 │   └── Cost: Lowest tier
 │
-├── Internal Data  
+├── Internal Data
 │   ├── Location: Secured storage
 │   ├── Encryption: At rest
 │   ├── Access: Employees only
@@ -137,7 +137,7 @@ Gold Layer:
 Layering Strategy:
 Base Table (Full Sensitivity)
     ↓
-Masked View (Reduced Sensitivity)  
+Masked View (Reduced Sensitivity)
     ↓
 Aggregated View (Minimal Sensitivity)
 
@@ -247,19 +247,19 @@ interface DataContract {
   version: "2.1.0"
   producer: "sales_team"
   consumers: ["analytics", "finance", "marketing"]
-  
+
   schema: {
     required: ["id", "amount", "date", "status"]
     optional: ["description", "owner"]
     types: {...}
   }
-  
+
   quality: {
     completeness: 99.5%
     latency: "15 minutes"
     availability: 99.9%
   }
-  
+
   breaking_changes: {
     notice_period: "30 days"
     migration_support: "60 days"
@@ -323,7 +323,7 @@ Data Governance Committee:
 
 Example: Customer 360 Dataset
 - Sales owns: Transaction history
-- Marketing owns: Campaign interactions  
+- Marketing owns: Campaign interactions
 - Support owns: Ticket history
 - Committee owns: Unified view
 ```
@@ -964,7 +964,7 @@ on:
         - validate
         - deploy --target dev
         - test
-        
+
   merge:
     branches: [main]
   jobs:
@@ -974,7 +974,7 @@ on:
         - deploy --target staging
         - test
         - request-approval
-        
+
   release:
     tags: [v*]
   jobs:

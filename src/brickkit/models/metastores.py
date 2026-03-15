@@ -16,14 +16,14 @@ from pydantic import (
     PrivateAttr,
 )
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseGovernanceModel, get_current_environment
-from .catalogs import Catalog
-from .connections import Connection
-from .enums import SecurableType
-from .external_locations import ExternalLocation
-from .grants import Principal
-from .storage_credentials import StorageCredential
-from .workspace_bindings import Workspace
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseGovernanceModel, get_current_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.connections import Connection
+from brickkit.models.enums import SecurableType
+from brickkit.models.external_locations import ExternalLocation
+from brickkit.models.grants import Principal
+from brickkit.models.storage_credentials import StorageCredential
+from brickkit.models.workspace_bindings import Workspace
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Financial Services Governance Defaults
 
@@ -5,16 +6,18 @@ Strict regulatory compliance for banking/finance.
 Implements GDPR, SOX, Basel III requirements.
 """
 
-import sys
-from pathlib import Path
+from typing import List
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from loguru import logger
 
-from typing import List, Optional
-from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag, NamingConvention
-from models.securables import Catalog, Schema
-from models.base import Tag
-from models.enums import Environment, SecurableType
+from brickkit.defaults import GovernanceDefaults, NamingConvention, RequiredTag, TagDefault
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import Environment, SecurableType
+
+# COMMAND ----------
+
+env = init_environment()
 
 
 class FinancialServicesDefaults(GovernanceDefaults):
@@ -104,6 +107,8 @@ class FinancialServicesDefaults(GovernanceDefaults):
         return "data-governance-office"
 
 
+# COMMAND ----------
+
 # Usage example
 defaults = FinancialServicesDefaults()
 
@@ -120,24 +125,24 @@ catalog = Catalog(
 # Apply defaults
 catalog = defaults.apply_to(catalog, Environment.PRD)
 
-print("Financial Services Catalog Tags (PRD):")
+logger.info("Financial Services Catalog Tags (PRD):")
 for tag in sorted(catalog.tags, key=lambda t: t.key):
-    print(f"  {tag.key}: {tag.value}")
+    logger.info(f"  {tag.key}: {tag.value}")
 
 # Validate
 tag_dict = {t.key: t.value for t in catalog.tags}
 errors = defaults.validate_tags(catalog.securable_type, tag_dict)
-print(f"\nValidation: {'PASSED' if not errors else 'FAILED'}")
+logger.info(f"\nValidation: {'PASSED' if not errors else 'FAILED'}")
 for err in errors:
-    print(f"  - {err}")
+    logger.info(f"  - {err}")
 
 # Show what a non-compliant table would look like
-print("\n--- Non-compliant table example ---")
+logger.info("\n--- Non-compliant table example ---")
 non_compliant_tags = {"data_classification": "internal"}  # Missing PII, PCI, source_system
 errors = defaults.validate_tags(SecurableType.TABLE, non_compliant_tags)
-print("Missing required tags:")
+logger.info("Missing required tags:")
 for err in errors:
-    print(f"  - {err}")
+    logger.info(f"  - {err}")
 
 # Output:
 # Financial Services Catalog Tags (PRD):

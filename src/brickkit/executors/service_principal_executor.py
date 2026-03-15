@@ -22,10 +22,9 @@ from databricks.sdk.service.iam import (
     ServicePrincipal as SdkServicePrincipal,
 )
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models.enums import PrincipalSource
 from brickkit.models.principals import ManagedServicePrincipal
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +368,9 @@ class ServicePrincipalExecutor(BaseExecutor[ManagedServicePrincipal]):
             changes={"create": create_result.message, "entitlements": entitlement_result.message},
         )
 
-    def create_with_secret(self, resource: ManagedServicePrincipal) -> tuple[ExecutionResult, Optional[ServicePrincipalCredentials]]:
+    def create_with_secret(
+        self, resource: ManagedServicePrincipal
+    ) -> tuple[ExecutionResult, Optional[ServicePrincipalCredentials]]:
         """
         Create a service principal and generate an OAuth secret.
 

@@ -17,9 +17,9 @@ from pydantic import (
     field_validator,
 )
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
-from .enums import ConnectionType, SecurableType
-from .grants import Principal
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
+from brickkit.models.enums import ConnectionType, SecurableType
+from brickkit.models.grants import Principal
 
 logger = logging.getLogger(__name__)
 

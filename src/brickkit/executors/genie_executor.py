@@ -38,9 +38,8 @@ from databricks.sdk.errors import (
 )
 from databricks.sdk.service.iam import AccessControlRequest, PermissionLevel
 
+from brickkit.executors.base import BaseExecutor, ExecutionResult, OperationType
 from brickkit.models.genie import GenieSpace
-
-from .base import BaseExecutor, ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

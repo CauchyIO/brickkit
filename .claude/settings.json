@@ -1,10 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:pypi.org)"
+    ]
+  },
   "environment": {
     "MLFLOW_CLAUDE_TRACING_ENABLED": "true",
-    "MLFLOW_TRACKING_URI": "databricks://adb-582244602844614",
+    "MLFLOW_TRACKING_URI": "databricks://mlops-book",
     "MLFLOW_EXPERIMENT_NAME": "/Workspace/Shared/brickkit",
-    "DATABRICKS_CONFIG_PROFILE": "adb-582244602844614",
-    "CLAUDETRACING_ENRICHMENTS": "files,git"
+    "DATABRICKS_CONFIG_PROFILE": "mlops-book"
   },
   "hooks": {
     "Stop": [
@@ -12,7 +16,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python -c \"from claudetracing.hooks import enriched_stop_hook_handler; enriched_stop_hook_handler()\""
+            "command": "uv run pre-commit run --all-files"
+          },
+          {
+            "type": "command",
+            "command": "uv run python -c \"from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()\""
           }
         ]
       }

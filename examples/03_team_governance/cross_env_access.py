@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Cross-Environment Access Example
 
@@ -8,58 +9,62 @@ can access which data. Common patterns:
 - PRODUCTION_ISOLATED: PRD isolated, DEV/ACC can share
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.models.base import init_environment
+from brickkit.models.enums import BindingType, Environment
+from brickkit.models.workspace_bindings import WorkspaceBindingPattern
 
-from models.access import WorkspaceBindingPattern
-from models.enums import Environment, BindingType
+# COMMAND ----------
+
+env = init_environment()
 
 # Show the three standard patterns
 
-print("=== STANDARD_HIERARCHY ===")
-print("DEV can read ACC and PRD data (for testing with prod data)")
-print("ACC can read PRD data (for validation)")
-print("PRD is isolated (no cross-environment access)\n")
+logger.info("=== STANDARD_HIERARCHY ===")
+logger.info("DEV can read ACC and PRD data (for testing with prod data)")
+logger.info("ACC can read PRD data (for validation)")
+logger.info("PRD is isolated (no cross-environment access)\n")
 
 standard = WorkspaceBindingPattern.STANDARD_HIERARCHY()
 for source_env, targets in standard.access_matrix.items():
-    print(f"{source_env.value} can access:")
+    logger.info(f"{source_env.value} can access:")
     for target, binding_type in targets.items():
         access = "READ_WRITE" if binding_type == BindingType.BINDING_TYPE_READ_WRITE else "READ_ONLY"
-        print(f"  -> {target.upper()}: {access}")
-    print()
+        logger.info(f"  -> {target.upper()}: {access}")
+    logger.info()
 
 
-print("=== ISOLATED ===")
-print("Each environment can only access its own data.")
-print("Maximum security, no cross-environment exposure.\n")
+logger.info("=== ISOLATED ===")
+logger.info("Each environment can only access its own data.")
+logger.info("Maximum security, no cross-environment exposure.\n")
 
 isolated = WorkspaceBindingPattern.ISOLATED()
 for source_env, targets in isolated.access_matrix.items():
-    print(f"{source_env.value} can access:")
+    logger.info(f"{source_env.value} can access:")
     for target, binding_type in targets.items():
-        print(f"  -> {target.upper()}: READ_WRITE")
-    print()
+        logger.info(f"  -> {target.upper()}: READ_WRITE")
+    logger.info()
 
 
-print("=== PRODUCTION_ISOLATED ===")
-print("PRD is completely isolated.")
-print("DEV and ACC can share data with each other.\n")
+logger.info("=== PRODUCTION_ISOLATED ===")
+logger.info("PRD is completely isolated.")
+logger.info("DEV and ACC can share data with each other.\n")
 
 prod_isolated = WorkspaceBindingPattern.PRODUCTION_ISOLATED()
 for source_env, targets in prod_isolated.access_matrix.items():
-    print(f"{source_env.value} can access:")
+    logger.info(f"{source_env.value} can access:")
     for target, binding_type in targets.items():
         access = "READ_WRITE" if binding_type == BindingType.BINDING_TYPE_READ_WRITE else "READ_ONLY"
-        print(f"  -> {target.upper()}: {access}")
-    print()
+        logger.info(f"  -> {target.upper()}: {access}")
+    logger.info()
 
+
+# COMMAND ----------
 
 # Custom pattern example
-print("=== Custom Pattern ===")
-print("Create your own cross-environment access rules:\n")
+logger.info("=== Custom Pattern ===")
+logger.info("Create your own cross-environment access rules:\n")
 
 custom_pattern = WorkspaceBindingPattern(
     name="STRICT_SEPARATION",
@@ -69,8 +74,8 @@ custom_pattern = WorkspaceBindingPattern(
         Environment.PRD: {"prd": BindingType.BINDING_TYPE_READ_WRITE},
     },
 )
-print(f"Pattern name: {custom_pattern.name}")
-print("Each environment completely isolated (same as ISOLATED pattern)")
+logger.info(f"Pattern name: {custom_pattern.name}")
+logger.info("Each environment completely isolated (same as ISOLATED pattern)")
 
 # Output:
 # === STANDARD_HIERARCHY ===

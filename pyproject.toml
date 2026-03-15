@@ -27,27 +27,22 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pydantic>=2.0",
-    "databricks-sdk[notebook]>=0.20.0",
-    "claudetracing>=0.2.0",
-    "databricks-connect==17.3.*",
-    "databricks-vectorsearch>=0.40",
-    "ipykernel>=7.1.0",
+    "pydantic==2.12.5",
+    "databricks-sdk==0.96.0",
+    "databricks-vectorsearch==0.66",
+    "loguru==0.7.3",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.8",
-    "ty>=0.0.11",
-    "pytest>=8.0",
-    "pytest-cov>=4.0",
+    "pytest>=9.0.2,<10",
+    "pytest-cov>=7.0.0,<8",
+    "claudetracing>=0.2.0, <1",
+    "pre-commit>=4.5.1,<5",
+    "databricks-connect>=17.3,<18",
+    "ipykernel>=7.2.0,<8",
 ]
 
-[project.urls]
-# Uncomment when repo is public
-# Homepage = "https://github.com/your-org/brickkit"
-# Repository = "https://github.com/your-org/brickkit"
-# Issues = "https://github.com/your-org/brickkit/issues"
 
 [build-system]
 requires = ["hatchling"]
@@ -61,10 +56,15 @@ package = true
 
 [dependency-groups]
 dev = [
-    "ruff>=0.8",
-    "ty>=0.0.11",
-    "pytest>=8.0",
-    "pytest-cov>=4.0",
+    "ruff>=0.15.5,<1",
+    "ty>=0.0.21,<1",
+    "pytest>=9.0.2,<10",
+    "pytest-cov>=7.0.0,<8",
+    "pre-commit>=4.5.1,<5",
+]
+notebook = [
+    "databricks-connect>=17.3,<18",
+    "ipykernel>=7.2.0,<8",
 ]
 
 [tool.ruff]

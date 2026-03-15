@@ -39,8 +39,8 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import Field, computed_field, field_validator
 
 # Import governance base classes
-from .base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
-from .enums import SecurableType
+from brickkit.models.base import BaseGovernanceModel, BaseSecurable, Tag, get_current_environment
+from brickkit.models.enums import SecurableType
 
 # =============================================================================
 # ENUMS
@@ -100,6 +100,7 @@ class VectorSearchEndpoint(BaseSecurable):
     name: str = Field(..., description="Endpoint name (base, without env suffix)")
     endpoint_type: VectorEndpointType = Field(VectorEndpointType.STANDARD, description="Type of endpoint")
     comment: Optional[str] = Field(None, description="Description")
+    budget_policy_id: Optional[str] = Field(None, description="Budget policy ID to attach to this endpoint")
 
     @computed_field
     @property
@@ -133,10 +134,13 @@ class VectorSearchEndpoint(BaseSecurable):
         }
         sdk_endpoint_type = endpoint_type_map.get(self.endpoint_type, SdkEndpointType.STANDARD)
 
-        return {
+        params: Dict[str, Any] = {
             "name": self.resolved_name,
             "endpoint_type": sdk_endpoint_type,
         }
+        if self.budget_policy_id:
+            params["budget_policy_id"] = self.budget_policy_id
+        return params
 
 
 # =============================================================================

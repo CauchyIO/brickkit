@@ -21,15 +21,15 @@ from pydantic import (
 )
 from typing_extensions import Self
 
-from .base import BaseGovernanceModel, BaseSecurable, get_current_environment
-from .enums import Environment, IsolationMode
-from .grants import AccessPolicy, Principal, Privilege
-from .workspace_bindings import Workspace, WorkspaceBindingPattern
+from brickkit.models.base import BaseGovernanceModel, BaseSecurable, get_current_environment
+from brickkit.models.enums import Environment, IsolationMode
+from brickkit.models.grants import AccessPolicy, Principal, Privilege
+from brickkit.models.workspace_bindings import Workspace, WorkspaceBindingPattern
 
 if TYPE_CHECKING:
-    from .catalogs import Catalog
-    from .external_locations import ExternalLocation
-    from .storage_credentials import StorageCredential
+    from brickkit.models.catalogs import Catalog
+    from brickkit.models.external_locations import ExternalLocation
+    from brickkit.models.storage_credentials import StorageCredential
 
 logger = logging.getLogger(__name__)
 

@@ -1,71 +1,24 @@
 # Databricks notebook source
-# MAGIC %md
-# MAGIC # Finance Data Product: End-to-End Governance Example
-# MAGIC
-# MAGIC This notebook demonstrates a complete governance implementation for a Finance domain
-# MAGIC data product team using brickkit. It implements patterns from the governance documentation:
-# MAGIC
-# MAGIC **Patterns Demonstrated:**
-# MAGIC - **Physical Segregation** (DATA_GOVERNANCE_PRINCIPLES.md §6.1): Data classified by sensitivity
-# MAGIC - **Zone Progression** (OPERATIONAL_GOVERNANCE_PATTERNS.md §1.2): Bronze → Silver → Gold
-# MAGIC - **Mixed Sensitivity Layering** (OPERATIONAL_GOVERNANCE_PATTERNS.md §1.3): PII masking through zones
-# MAGIC - **Producer-Consumer Model** (OPERATIONAL_GOVERNANCE_PATTERNS.md §2.1): Team ownership boundaries
-# MAGIC - **Interface Contract** (OPERATIONAL_GOVERNANCE_PATTERNS.md §2.2): SLA definitions
-# MAGIC
-# MAGIC **Assets Created:**
-# MAGIC - Finance catalog with Bronze/Silver/Gold schemas
-# MAGIC - Tables with PII propagation pattern
-# MAGIC - ML Model (fraud detection)
-# MAGIC - Vector Search Index (document search)
-# MAGIC - Genie Space (finance analytics assistant)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Setup: Imports and Path Configuration
-
-# COMMAND ----------
-
-import sys
-from pathlib import Path
-
-# Add brickkit src to path (adjust based on your installation)
-# In production, you would: pip install brickkit
-notebook_path = dbutils.notebook.entry_point.getDbutils().notebook().getContext().notebookPath().get()  # noqa: F821
-repo_root = "/Workspace" + "/".join(notebook_path.split("/")[:-3])
-sys.path.insert(0, f"{repo_root}/src")
 
 # COMMAND ----------
 
 from typing import List, Optional
 
-from models.base import Tag, get_current_environment
-from models.enums import SecurableType, Environment
-from models.table_models import Column, Table
-from models.securables import Catalog, Schema
-from models.ml_models import RegisteredModel
-from models.access import Principal, AccessPolicy
-from brickkit.defaults import GovernanceDefaults, TagDefault, RequiredTag, NamingConvention
+from loguru import logger
 
-# Genie and Vector Search
-from genie.models import GenieSpace, SerializedSpace, DataSources, TableDataSource, ColumnConfig, Instructions
-from vector_search.models import VectorSearchEndpoint, VectorSearchIndex, VectorIndexType
+from brickkit.defaults import GovernanceDefaults, NamingConvention, RequiredTag, TagDefault
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import SecurableType
+from brickkit.models.genie import ColumnConfig, DataSources, GenieSpace, Instructions, SerializedSpace, TableDataSource
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.ml_models import RegisteredModel
+from brickkit.models.schemas import Schema
+from brickkit.models.tables import Column, Table
+from brickkit.models.vector_search import VectorIndexType, VectorSearchEndpoint, VectorSearchIndex
 
-print(f"Current Environment: {get_current_environment()}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 1. Governance Policy Definition
-# MAGIC
-# MAGIC Based on **DATA_GOVERNANCE_PRINCIPLES.md**:
-# MAGIC - §6.1: Sensitivity Classification (Internal/Confidential/Restricted)
-# MAGIC - §6.2: Regulatory Classifications (PII, SOX)
-# MAGIC - §6.3: Business Criticality Tiers
-# MAGIC - §6.4: Temporal Properties (retention)
-# MAGIC
-# MAGIC This policy enforces SOX compliance for financial data.
+env = init_environment()
+logger.info(f"Current Environment: {env}")
 
 # COMMAND ----------
 
@@ -182,23 +135,8 @@ class FinanceGovernancePolicy(GovernanceDefaults):
 
 # Instantiate the policy
 governance_policy = FinanceGovernancePolicy()
-print("Finance Governance Policy loaded")
-print(f"  Required tags: {[r.key for r in governance_policy.required_tags]}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 2. Catalog and Schema Definition
-# MAGIC
-# MAGIC Based on **OPERATIONAL_GOVERNANCE_PATTERNS.md §1.2**: Zone Progression Pattern
-# MAGIC
-# MAGIC ```
-# MAGIC finance_catalog
-# MAGIC ├── bronze/   (Raw - Data Engineers only)
-# MAGIC ├── silver/   (Cleansed - Analysts + Engineers)
-# MAGIC └── gold/     (Business-Ready - All finance users)
-# MAGIC ```
+logger.info("Finance Governance Policy loaded")
+logger.info(f"  Required tags: {[r.key for r in governance_policy.required_tags]}")
 
 # COMMAND ----------
 
@@ -217,22 +155,10 @@ finance_catalog = Catalog(
 # Apply governance defaults
 finance_catalog.with_defaults(governance_policy)
 
-print(f"Catalog: {finance_catalog.resolved_name}")
-print("Tags:")
+logger.info(f"Catalog: {finance_catalog.resolved_name}")
+logger.info("Tags:")
 for tag in sorted(finance_catalog.tags, key=lambda t: t.key):
-    print(f"  {tag.key}: {tag.value}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Zone Schemas
-# MAGIC
-# MAGIC Each zone has different:
-# MAGIC - **Quality guarantees** (none → enforced → SLA)
-# MAGIC - **Access policies** (engineers → analysts → business)
-# MAGIC - **Retention periods** (30 days → 1 year → 7 years)
-# MAGIC
-# MAGIC Reference: OPERATIONAL_GOVERNANCE_PATTERNS.md §1.2
+    logger.info(f"  {tag.key}: {tag.value}")
 
 # COMMAND ----------
 
@@ -287,33 +213,11 @@ finance_catalog.add_schema(bronze_schema)
 finance_catalog.add_schema(silver_schema)
 finance_catalog.add_schema(gold_schema)
 
-print("Schemas created:")
+logger.info("Schemas created:")
 for schema in finance_catalog.schemas:
     zone_tag = next((t.value for t in schema.tags if t.key == "zone"), "N/A")
     quality = next((t.value for t in schema.tags if t.key == "quality_level"), "N/A")
-    print(f"  {schema.name}: zone={zone_tag}, quality={quality}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 3. Table Definitions with PII Propagation
-# MAGIC
-# MAGIC Based on **OPERATIONAL_GOVERNANCE_PATTERNS.md §1.3**: Mixed Sensitivity Layering Pattern
-# MAGIC
-# MAGIC ```
-# MAGIC Bronze (Full PII) → Silver (Masked PII) → Gold (No PII)
-# MAGIC ```
-# MAGIC
-# MAGIC This pattern ensures:
-# MAGIC - Raw PII preserved for compliance/audit in Bronze
-# MAGIC - Masked/tokenized versions available in Silver
-# MAGIC - Only aggregates (no individual records) in Gold
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 3.1 Bronze: Raw Transactions (Contains PII)
+    logger.info(f"  {schema.name}: zone={zone_tag}, quality={quality}")
 
 # COMMAND ----------
 
@@ -424,14 +328,9 @@ transactions_raw = Table(
     ],
 )
 
-print(f"Bronze Table: {transactions_raw.fqdn}")
-print(f"PII Columns: {[c.name for c in transactions_raw.get_pii_columns()]}")
-print(f"Total Columns: {len(transactions_raw.columns)}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 3.2 Silver: Validated Transactions (Masked PII)
+logger.info(f"Bronze Table: {transactions_raw.fqdn}")
+logger.info(f"PII Columns: {[c.name for c in transactions_raw.get_pii_columns()]}")
+logger.info(f"Total Columns: {len(transactions_raw.columns)}")
 
 # COMMAND ----------
 
@@ -546,14 +445,9 @@ transactions_validated = Table(
     ],
 )
 
-print(f"Silver Table: {transactions_validated.fqdn}")
-print(f"PII Columns: {[c.name for c in transactions_validated.get_pii_columns()]}")  # Should be empty
-print(f"Masked Columns: {[c.name for c in transactions_validated.columns if c.get_tag('derived_from')]}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### 3.3 Gold: Revenue Metrics (No PII - Aggregates Only)
+logger.info(f"Silver Table: {transactions_validated.fqdn}")
+logger.info(f"PII Columns: {[c.name for c in transactions_validated.get_pii_columns()]}")  # Should be empty
+logger.info(f"Masked Columns: {[c.name for c in transactions_validated.columns if c.get_tag('derived_from')]}")
 
 # COMMAND ----------
 
@@ -659,22 +553,17 @@ daily_revenue_metrics = Table(
     ],
 )
 
-print(f"Gold Table: {daily_revenue_metrics.fqdn}")
-print(f"PII Columns: {[c.name for c in daily_revenue_metrics.get_pii_columns()]}")  # Should be empty
-print(f"Metric Columns: {len(daily_revenue_metrics.columns)}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### PII Propagation Summary
+logger.info(f"Gold Table: {daily_revenue_metrics.fqdn}")
+logger.info(f"PII Columns: {[c.name for c in daily_revenue_metrics.get_pii_columns()]}")  # Should be empty
+logger.info(f"Metric Columns: {len(daily_revenue_metrics.columns)}")
 
 # COMMAND ----------
 
 # Visualize the PII propagation pattern
-print("=" * 60)
-print("PII PROPAGATION THROUGH ZONES")
-print("Reference: OPERATIONAL_GOVERNANCE_PATTERNS.md §1.3")
-print("=" * 60)
+logger.info("=" * 60)
+logger.info("PII PROPAGATION THROUGH ZONES")
+logger.info("Reference: OPERATIONAL_GOVERNANCE_PATTERNS.md §1.3")
+logger.info("=" * 60)
 
 tables = [
     ("BRONZE (Raw)", transactions_raw),
@@ -685,23 +574,10 @@ tables = [
 for zone_name, table in tables:
     pii_cols = table.get_pii_columns()
     classification = table.get_tag("data_classification")
-    print(f"\n{zone_name}: {table.name}")
-    print(f"  Classification: {classification}")
-    print(f"  Contains PII: {table.get_tag('pii')}")
-    print(f"  PII Columns: {[c.name for c in pii_cols] if pii_cols else 'None'}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 4. ML Model: Fraud Detection
-# MAGIC
-# MAGIC Based on **OPERATIONAL_GOVERNANCE_PATTERNS.md §5.1**: Experiment to Production Pattern
-# MAGIC
-# MAGIC ML models require governance for:
-# MAGIC - Lineage tracking (what data was used)
-# MAGIC - Version management
-# MAGIC - Production deployment approval
+    logger.info(f"\n{zone_name}: {table.name}")
+    logger.info(f"  Classification: {classification}")
+    logger.info(f"  Contains PII: {table.get_tag('pii')}")
+    logger.info(f"  PII Columns: {[c.name for c in pii_cols] if pii_cols else 'None'}")
 
 # COMMAND ----------
 
@@ -743,18 +619,9 @@ fraud_detection_model = RegisteredModel(
     ],
 )
 
-print(f"ML Model: {fraud_detection_model.fqdn}")
-print(f"Aliases: {fraud_detection_model.aliases}")
-print(f"Tags: {[(t.key, t.value) for t in fraud_detection_model.tags[:5]]}...")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 5. Vector Search Index: Document Search
-# MAGIC
-# MAGIC Vector search enables semantic search over financial documents
-# MAGIC (policies, contracts, compliance documents).
+logger.info(f"ML Model: {fraud_detection_model.fqdn}")
+logger.info(f"Aliases: {fraud_detection_model.aliases}")
+logger.info(f"Tags: {[(t.key, t.value) for t in fraud_detection_model.tags[:5]]}...")
 
 # COMMAND ----------
 
@@ -787,19 +654,10 @@ compliance_docs_index = VectorSearchIndex(
     ],
 )
 
-print(f"Vector Search Endpoint: {finance_search_endpoint.name}")
-print(f"Vector Search Index: {compliance_docs_index.name}")
-print(f"  Source: {compliance_docs_index.source_table}")
-print(f"  Type: {compliance_docs_index.index_type.value}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 6. Genie Space: Finance Analytics Assistant
-# MAGIC
-# MAGIC AI-powered natural language interface for finance analytics.
-# MAGIC Provides governed access to gold-layer metrics.
+logger.info(f"Vector Search Endpoint: {finance_search_endpoint.name}")
+logger.info(f"Vector Search Index: {compliance_docs_index.name}")
+logger.info(f"  Source: {compliance_docs_index.source_table}")
+logger.info(f"  Type: {compliance_docs_index.index_type.value}")
 
 # COMMAND ----------
 
@@ -853,22 +711,8 @@ finance_genie_space = GenieSpace(
     ),
 )
 
-print(f"Genie Space: {finance_genie_space.title}")
-print(f"  Tables: {[t.identifier for t in finance_genie_space.serialized_space.data_sources.tables]}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 7. Access Control: Team-Based Policies
-# MAGIC
-# MAGIC Based on **OPERATIONAL_GOVERNANCE_PATTERNS.md §2.1**: Producer-Consumer Model
-# MAGIC
-# MAGIC | Zone | Data Engineers | Analysts | Business Users |
-# MAGIC |------|---------------|----------|----------------|
-# MAGIC | Bronze | WRITER | - | - |
-# MAGIC | Silver | WRITER | READER | - |
-# MAGIC | Gold | READER | READER | READER |
+logger.info(f"Genie Space: {finance_genie_space.title}")
+logger.info(f"  Tables: {[t.identifier for t in finance_genie_space.serialized_space.data_sources.tables]}")
 
 # COMMAND ----------
 
@@ -897,27 +741,18 @@ gold_schema.grant(finance_business_users, AccessPolicy.READER())
 fraud_detection_model.grant(ml_engineers, AccessPolicy.WRITER())
 fraud_detection_model.grant(finance_analysts, AccessPolicy.READER())
 
-print("Access Policies Applied:")
-print("\nBronze Schema:")
+logger.info("Access Policies Applied:")
+logger.info("\nBronze Schema:")
 for priv in bronze_schema.privileges[:3]:
-    print(f"  {priv.principal}: {priv.privilege.value}")
+    logger.info(f"  {priv.principal}: {priv.privilege.value}")
 
-print("\nSilver Schema:")
+logger.info("\nSilver Schema:")
 for priv in silver_schema.privileges[:5]:
-    print(f"  {priv.principal}: {priv.privilege.value}")
+    logger.info(f"  {priv.principal}: {priv.privilege.value}")
 
-print("\nGold Schema:")
+logger.info("\nGold Schema:")
 for priv in gold_schema.privileges[:5]:
-    print(f"  {priv.principal}: {priv.privilege.value}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 8. Governance Validation
-# MAGIC
-# MAGIC Validate all assets against the governance policy.
-# MAGIC Reference: DATA_GOVERNANCE_PRINCIPLES.md §12 (Metrics and KPIs)
+    logger.info(f"  {priv.principal}: {priv.privilege.value}")
 
 # COMMAND ----------
 
@@ -972,81 +807,43 @@ all_assets = [
     (fraud_detection_model, "MODEL"),
 ]
 
-print("=" * 60)
-print("GOVERNANCE VALIDATION REPORT")
-print("=" * 60)
+logger.info("=" * 60)
+logger.info("GOVERNANCE VALIDATION REPORT")
+logger.info("=" * 60)
 
 all_valid = True
 for asset, asset_type in all_assets:
     result = validate_asset(asset, asset_type, governance_policy)
     status = "✓ PASS" if result["valid"] else "✗ FAIL"
-    print(f"\n{status} {result['type']}: {result['asset']}")
+    logger.info(f"\n{status} {result['type']}: {result['asset']}")
     if result["errors"]:
         all_valid = False
         for err in result["errors"]:
-            print(f"    - {err}")
+            logger.info(f"    - {err}")
 
-print("\n" + "=" * 60)
-print(f"OVERALL: {'ALL ASSETS COMPLIANT' if all_valid else 'VALIDATION FAILURES DETECTED'}")
-print("=" * 60)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## 9. SQL Generation Preview
-# MAGIC
-# MAGIC Preview the SQL statements that would be generated for governance.
+logger.info("\n" + "=" * 60)
+logger.info(f"OVERALL: {'ALL ASSETS COMPLIANT' if all_valid else 'VALIDATION FAILURES DETECTED'}")
+logger.info("=" * 60)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ### Table Creation SQL
-
-# COMMAND ----------
-
-print("=" * 60)
-print("CREATE TABLE STATEMENTS")
-print("=" * 60)
+logger.info("=" * 60)
+logger.info("CREATE TABLE STATEMENTS")
+logger.info("=" * 60)
 
 for table in [transactions_raw, transactions_validated, daily_revenue_metrics]:
-    print(f"\n-- {table.fqdn}")
-    print(table.create_table_statement())
+    logger.info(f"\n-- {table.fqdn}")
+    logger.info(table.create_table_statement())
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ### Tag Application SQL
-
-# COMMAND ----------
-
-print("=" * 60)
-print("ALTER TABLE SET TAGS STATEMENTS")
-print("=" * 60)
+logger.info("=" * 60)
+logger.info("ALTER TABLE SET TAGS STATEMENTS")
+logger.info("=" * 60)
 
 for table in [transactions_raw, transactions_validated, daily_revenue_metrics]:
-    print(f"\n-- Tags for {table.fqdn}")
+    logger.info(f"\n-- Tags for {table.fqdn}")
     for stmt in table.alter_tag_statements():
-        print(stmt)
+        logger.info(stmt)
 
 # COMMAND ----------
-
-# MAGIC %md
-# MAGIC ---
-# MAGIC ## Summary
-# MAGIC
-# MAGIC This notebook demonstrated a complete governance implementation:
-# MAGIC
-# MAGIC | Component | Pattern | Reference |
-# MAGIC |-----------|---------|-----------|
-# MAGIC | `FinanceGovernancePolicy` | Required tags, naming conventions | DATA_GOVERNANCE_PRINCIPLES.md §6 |
-# MAGIC | Zone schemas | Zone Progression (Bronze/Silver/Gold) | OPERATIONAL_GOVERNANCE_PATTERNS.md §1.2 |
-# MAGIC | PII handling | Mixed Sensitivity Layering | OPERATIONAL_GOVERNANCE_PATTERNS.md §1.3 |
-# MAGIC | Team access | Producer-Consumer Model | OPERATIONAL_GOVERNANCE_PATTERNS.md §2.1 |
-# MAGIC | ML Model | Experiment to Production | OPERATIONAL_GOVERNANCE_PATTERNS.md §5.1 |
-# MAGIC
-# MAGIC **Key Takeaways:**
-# MAGIC 1. Governance policies are code - version controlled, testable, auditable
-# MAGIC 2. PII should be progressively masked through data zones
-# MAGIC 3. Access control follows the producer-consumer model
-# MAGIC 4. All assets can be validated against governance rules before deployment

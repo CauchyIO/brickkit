@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# Databricks notebook source
 """
 CLI tool to test YAML convention across all resource types.
 
@@ -12,6 +12,8 @@ Run with:
 import argparse
 from pathlib import Path
 
+from loguru import logger
+
 from brickkit import (
     Catalog,
     Schema,
@@ -21,11 +23,17 @@ from brickkit import (
     VectorSearchIndex,
     load_convention,
 )
-from brickkit.models.base import set_current_environment
+from brickkit.models.base import init_environment, set_current_environment
 from brickkit.models.enums import Environment
 from brickkit.models.tables import ColumnInfo, Table
 
+# COMMAND ----------
+
+env = init_environment()
+
 CONVENTION_PATH = Path(__file__).parent / "conventions" / "financial_services.yml"
+
+# COMMAND ----------
 
 
 def create_governed_resources(convention, env: Environment) -> dict:
@@ -101,49 +109,55 @@ def create_governed_resources(convention, env: Environment) -> dict:
     return resources
 
 
+# COMMAND ----------
+
+
 def display_resource(name: str, resource, convention) -> bool:
     """Display resource details and validation status. Returns True if valid."""
-    print(f"\n  {name.upper()}")
-    print("  " + "-" * 40)
+    logger.info(f"\n  {name.upper()}")
+    logger.info("  " + "-" * 40)
 
     # Name
     if hasattr(resource, "resolved_name"):
-        print(f"    Name: {resource.resolved_name}")
+        logger.info(f"    Name: {resource.resolved_name}")
     elif hasattr(resource, "fqdn"):
         try:
-            print(f"    Name: {resource.fqdn}")
+            logger.info(f"    Name: {resource.fqdn}")
         except ValueError:
-            print(f"    Name: {resource.name}")
+            logger.info(f"    Name: {resource.name}")
     else:
-        print(f"    Name: {resource.name}")
+        logger.info(f"    Name: {resource.name}")
 
     # Owner
     if hasattr(resource, "owner") and resource.owner:
         owner = resource.owner
-        print(f"    Owner: {owner.resolved_name} ({owner.principal_type.value})")
+        logger.info(f"    Owner: {owner.resolved_name} ({owner.principal_type.value})")
 
     # Request for Access (RFA)
     if hasattr(resource, "request_for_access") and resource.request_for_access:
         rfa = resource.request_for_access
-        print(f"    RFA Destination: {rfa.destination}")
+        logger.info(f"    RFA Destination: {rfa.destination}")
         if rfa.instructions:
-            print(f"    RFA Instructions: {rfa.instructions}")
+            logger.info(f"    RFA Instructions: {rfa.instructions}")
 
     # Tags
     if hasattr(resource, "tags") and resource.tags:
-        print(f"    Tags: {len(resource.tags)}")
+        logger.info(f"    Tags: {len(resource.tags)}")
         for tag in sorted(resource.tags, key=lambda t: t.key)[:5]:
-            print(f"      - {tag.key}: {tag.value}")
+            logger.info(f"      - {tag.key}: {tag.value}")
         if len(resource.tags) > 5:
-            print(f"      ... and {len(resource.tags) - 5} more")
+            logger.info(f"      ... and {len(resource.tags) - 5} more")
 
     # Validation
     errors = convention.get_validation_errors(resource)
     if errors:
-        print(f"    Validation: FAILED - {errors}")
+        logger.info(f"    Validation: FAILED - {errors}")
         return False
-    print("    Validation: PASSED")
+    logger.info("    Validation: PASSED")
     return True
+
+
+# COMMAND ----------
 
 
 def main() -> None:
@@ -160,25 +174,25 @@ def main() -> None:
     env = env_map[args.env]
     set_current_environment(env)
 
-    print("=" * 60)
-    print("CONVENTION TEST (DRY RUN)")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("CONVENTION TEST (DRY RUN)")
+    logger.info("=" * 60)
 
     # Load convention
     convention = load_convention(CONVENTION_PATH)
-    print(f"Convention: {convention.name} (v{convention.version})")
-    print(f"Environment: {env.value}")
+    logger.info(f"Convention: {convention.name} (v{convention.version})")
+    logger.info(f"Environment: {env.value}")
 
     # Show rules
-    print("\nRules:")
+    logger.info("\nRules:")
     for rule in convention.schema.rules:
         mode = "ENFORCED" if rule.mode.value == "enforced" else "ADVISORY"
-        print(f"  [{mode}] {rule.rule}")
+        logger.info(f"  [{mode}] {rule.rule}")
 
     # Create and validate all resources
-    print("\n" + "-" * 60)
-    print("RESOURCES")
-    print("-" * 60)
+    logger.info("\n" + "-" * 60)
+    logger.info("RESOURCES")
+    logger.info("-" * 60)
 
     resources = create_governed_resources(convention, env)
     all_valid = True
@@ -187,14 +201,16 @@ def main() -> None:
             all_valid = False
 
     # Summary
-    print("\n" + "=" * 60)
+    logger.info("\n" + "=" * 60)
     if all_valid:
-        print("ALL VALIDATIONS PASSED")
+        logger.info("ALL VALIDATIONS PASSED")
     else:
-        print("SOME VALIDATIONS FAILED")
-    print("=" * 60)
-    print("\nThis was a dry-run. Use vector_search_demo.ipynb for actual deployment.")
+        logger.info("SOME VALIDATIONS FAILED")
+    logger.info("=" * 60)
+    logger.info("\nThis was a dry-run. Use vector_search_demo.ipynb for actual deployment.")
 
+
+# COMMAND ----------
 
 if __name__ == "__main__":
     main()

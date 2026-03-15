@@ -58,16 +58,16 @@ Built-in Rules:
     - naming_pattern: Names must match a regex pattern
 """
 
-from .loader import YamlConvention, load_convention, load_conventions_dir
-from .naming import NameGenerator
-from .rules import (
+from brickkit.yaml_convention.loader import YamlConvention, load_convention, load_conventions_dir
+from brickkit.yaml_convention.naming import NameGenerator
+from brickkit.yaml_convention.rules import (
     RuleDefinition,
     RulesRegistry,
     RuleValidationResult,
     create_default_registry,
     get_default_registry,
 )
-from .schema import (
+from brickkit.yaml_convention.schema import (
     NamingSpec,
     OwnershipSpec,
     RuleMode,

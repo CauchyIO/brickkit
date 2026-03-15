@@ -12,7 +12,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound, PermissionDenied, ResourceDoesNotExist
 from databricks.sdk.service.catalog import MetastoreAssignment
 
-from .base import ExecutionResult, OperationType
+from brickkit.executors.base import ExecutionResult, OperationType
 
 logger = logging.getLogger(__name__)
 

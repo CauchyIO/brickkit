@@ -17,17 +17,17 @@ from pydantic import (
     computed_field,
 )
 
-from .base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
-from .enums import ALL_PRIVILEGES_EXPANSION, PrivilegeType, SecurableType, TableType
-from .external_locations import ExternalLocation
-from .functions import Function
-from .grants import AccessPolicy, Principal
-from .tables import Table
-from .volumes import Volume
+from brickkit.models.base import DEFAULT_SECURABLE_OWNER, BaseSecurable, get_current_environment
+from brickkit.models.enums import ALL_PRIVILEGES_EXPANSION, PrivilegeType, SecurableType, TableType
+from brickkit.models.external_locations import ExternalLocation
+from brickkit.models.functions import Function
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.tables import Table
+from brickkit.models.volumes import Volume
 
 if TYPE_CHECKING:
-    from .catalogs import Catalog
-    from .references import FunctionReference, ModelReference, TableReference, VolumeReference
+    from brickkit.models.catalogs import Catalog
+    from brickkit.models.references import FunctionReference, ModelReference, TableReference, VolumeReference
 
 logger = logging.getLogger(__name__)
 

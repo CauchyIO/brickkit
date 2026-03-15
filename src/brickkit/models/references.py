@@ -9,8 +9,8 @@ from typing import Dict, Optional
 
 from pydantic import Field
 
-from .base import BaseSecurable, get_current_environment
-from .enums import SecurableType
+from brickkit.models.base import BaseSecurable, get_current_environment
+from brickkit.models.enums import SecurableType
 
 
 class TableReference(BaseSecurable):

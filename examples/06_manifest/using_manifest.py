@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Example: Using a Project Manifest for governance configuration.
 
@@ -7,22 +8,30 @@ file and load it at runtime, instead of writing Python classes.
 
 from pathlib import Path
 
+from loguru import logger
+
 from brickkit import (
     Catalog,
-    Schema,
     Tag,
     load_project_manifest,
 )
+from brickkit.models.base import get_current_environment, init_environment
+
+# COMMAND ----------
+
+env = init_environment()
 
 # Load the manifest from JSON
 manifest_path = Path(__file__).parent / "project.manifest.json"
 defaults = load_project_manifest(manifest_path)
 
 # Access manifest metadata
-print(f"Organization: {defaults.organization}")
-print(f"Default owner: {defaults.default_owner}")
-print(f"Default tags: {[t.key for t in defaults.default_tags]}")
-print(f"Required tags: {[t.key for t in defaults.required_tags]}")
+logger.info(f"Organization: {defaults.organization}")
+logger.info(f"Default owner: {defaults.default_owner}")
+logger.info(f"Default tags: {[t.key for t in defaults.default_tags]}")
+logger.info(f"Required tags: {[t.key for t in defaults.required_tags]}")
+
+# COMMAND ----------
 
 # Create a catalog with required tags
 catalog = Catalog(
@@ -34,21 +43,21 @@ catalog = Catalog(
     ],
 )
 
+# COMMAND ----------
+
 # Apply defaults - adds managed_by, business_unit, environment
 catalog = defaults.apply_to(catalog, defaults.manifest.version)
 
 # Validate against governance rules
-from models.enums import Environment, get_current_environment
-
 env = get_current_environment()
 errors = defaults.validate_tags(catalog.securable_type, {t.key: t.value for t in catalog.tags})
 
 if errors:
-    print(f"Validation errors: {errors}")
+    logger.info(f"Validation errors: {errors}")
 else:
-    print("Catalog passes governance validation")
+    logger.info("Catalog passes governance validation")
 
 # Print resulting tags
-print("\nCatalog tags after applying defaults:")
+logger.info("\nCatalog tags after applying defaults:")
 for tag in catalog.tags:
-    print(f"  {tag.key}: {tag.value}")
+    logger.info(f"  {tag.key}: {tag.value}")

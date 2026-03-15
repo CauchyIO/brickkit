@@ -36,8 +36,7 @@ from brickkit.models.references import (
     TableReference,
     VolumeReference,
 )
-
-from .base import ImportOptions, ImportResult, ResourceImporter
+from brickkit_tools.importer.base import ImportResult, ResourceImporter
 
 logger = logging.getLogger(__name__)
 

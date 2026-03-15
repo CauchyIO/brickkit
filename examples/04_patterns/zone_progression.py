@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 Zone Progression Pattern (Medallion Architecture)
 
@@ -19,16 +20,18 @@ Gold (Business-Ready):
 - Access: Business users, applications
 """
 
-import sys
-from pathlib import Path
+from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+from brickkit.models.base import Tag, init_environment
+from brickkit.models.catalogs import Catalog
+from brickkit.models.enums import IsolationMode
+from brickkit.models.grants import AccessPolicy, Principal
+from brickkit.models.references import TableReference
+from brickkit.models.schemas import Schema
 
-from models.securables import Catalog, Schema
-from models.access import Principal, AccessPolicy
-from models.references import TableReference
-from models.base import Tag
-from models.enums import IsolationMode
+# COMMAND ----------
+
+env = init_environment()
 
 
 def create_medallion_catalog(domain: str) -> Catalog:
@@ -100,6 +103,8 @@ def create_medallion_catalog(domain: str) -> Catalog:
     return catalog
 
 
+# COMMAND ----------
+
 # Create a sales domain with medallion architecture
 sales = create_medallion_catalog("sales")
 
@@ -156,27 +161,29 @@ gold.add_table_reference(
     )
 )
 
+# COMMAND ----------
+
 # Display the structure
-print(f"=== {sales.resolved_name} (Medallion Architecture) ===\n")
+logger.info(f"=== {sales.resolved_name} (Medallion Architecture) ===\n")
 
 for schema in sales.schemas:
     zone_tag = next((t for t in schema.tags if t.key == "zone"), None)
     quality_tag = next((t for t in schema.tags if t.key == "quality"), None)
 
-    print(f"{schema.name.upper()}")
-    print(f"  Quality: {quality_tag.value if quality_tag else 'N/A'}")
-    print(f"  Tables:")
+    logger.info(f"{schema.name.upper()}")
+    logger.info(f"  Quality: {quality_tag.value if quality_tag else 'N/A'}")
+    logger.info("  Tables:")
     for table_ref in schema.table_refs:
-        print(f"    - {table_ref.name}")
-    print(f"  Access:")
+        logger.info(f"    - {table_ref.name}")
+    logger.info("  Access:")
     for priv in schema.privileges:
-        print(f"    - {priv.principal}: {priv.privilege.value}")
-    print()
+        logger.info(f"    - {priv.principal}: {priv.privilege.value}")
+    logger.info()
 
 # Data flow visualization
-print("=== Data Flow ===")
-print("orders_raw (bronze) → orders_cleansed (silver) → daily_sales (gold)")
-print("customers_raw (bronze) → customers_cleansed (silver) → customer_lifetime_value (gold)")
+logger.info("=== Data Flow ===")
+logger.info("orders_raw (bronze) → orders_cleansed (silver) → daily_sales (gold)")
+logger.info("customers_raw (bronze) → customers_cleansed (silver) → customer_lifetime_value (gold)")
 
 # Output:
 # === sales_dev (Medallion Architecture) ===
